@@ -1,0 +1,1944 @@
+[
+    {
+        "id": 1,
+        "name": "SoCal \/ Mexico Overview",
+        "slug": "ca1new",
+        "status": 1,
+        "upper_lat": "34.8",
+        "left_lng": "-121.5",
+        "bottom_lat": "30",
+        "right_lng": "-115.7",
+        "category": {
+            "id": 15,
+            "slug": "fishdope-regions",
+            "name": "FishDope Regions",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2019\/10\/ca1new_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": "8"
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T15:53:01.000000Z"
+    },
+    {
+        "id": 2,
+        "name": "Channel Islands",
+        "slug": "ca2new",
+        "status": 1,
+        "upper_lat": "34.8",
+        "left_lng": "-121.5",
+        "bottom_lat": "33",
+        "right_lng": "-118.75",
+        "category": {
+            "id": 15,
+            "slug": "fishdope-regions",
+            "name": "FishDope Regions",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 2,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2019\/10\/ca2new_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": "9"
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T15:53:01.000000Z"
+    },
+    {
+        "id": 3,
+        "name": "SoCal Islands and Offshore",
+        "slug": "ca3new",
+        "status": 1,
+        "upper_lat": "34.1",
+        "left_lng": "-119.7",
+        "bottom_lat": "32.3",
+        "right_lng": "-117",
+        "category": {
+            "id": 15,
+            "slug": "fishdope-regions",
+            "name": "FishDope Regions",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 3,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2019\/10\/ca3new_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": "9"
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T15:53:01.000000Z"
+    },
+    {
+        "id": 4,
+        "name": "San Diego to Colonet",
+        "slug": "ca5new",
+        "status": 1,
+        "upper_lat": "33.2",
+        "left_lng": "-119.5",
+        "bottom_lat": "30.8",
+        "right_lng": "-116",
+        "category": {
+            "id": 15,
+            "slug": "fishdope-regions",
+            "name": "FishDope Regions",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 4,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2019\/10\/ca5new_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": "9"
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T15:53:01.000000Z"
+    },
+    {
+        "id": 5,
+        "name": "Ensenada to San Quintin",
+        "slug": "ca6new",
+        "status": 1,
+        "upper_lat": "32",
+        "left_lng": "-118",
+        "bottom_lat": "30",
+        "right_lng": "-115.7",
+        "category": {
+            "id": 15,
+            "slug": "fishdope-regions",
+            "name": "FishDope Regions",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2019\/10\/ca6_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": "9"
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T15:53:01.000000Z"
+    },
+    {
+        "id": 6,
+        "name": "Cape Cod \/ Georges Bank",
+        "slug": "capecod",
+        "status": 1,
+        "upper_lat": "43.5",
+        "left_lng": "-71.25",
+        "bottom_lat": "39.5",
+        "right_lng": "-65.25",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2022\/07\/capecod_bwtile.jpg",
+            "max_zoom": 11,
+            "min_zoom": 7,
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 7,
+        "name": "NE Canyons Overview",
+        "slug": "canyonsoverview",
+        "status": 1,
+        "upper_lat": "42",
+        "left_lng": "-77",
+        "bottom_lat": "36",
+        "right_lng": "-65",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/canyonsoverview_bwtile_newdim.jpg",
+            "max_zoom": "10",
+            "min_zoom": "6",
+            "default_zoom": 6
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 8,
+        "name": "NE Canyons North",
+        "slug": "canyonsnorth",
+        "status": 1,
+        "upper_lat": "42",
+        "left_lng": "-74.25",
+        "bottom_lat": "38",
+        "right_lng": "-67",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/canyonsnorth_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 9,
+        "name": "NE Canyons South",
+        "slug": "canyonssouth",
+        "status": 1,
+        "upper_lat": "40.5",
+        "left_lng": "-77",
+        "bottom_lat": "36",
+        "right_lng": "-71",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/canyonssouth_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 10,
+        "name": "North Carolina",
+        "slug": "ncarolina",
+        "status": 1,
+        "upper_lat": "37",
+        "left_lng": "-79",
+        "bottom_lat": "33",
+        "right_lng": "-72",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/ncarolina_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 11,
+        "name": "South Carolina \/ Georgia",
+        "slug": "gasc",
+        "status": 1,
+        "upper_lat": "34.25",
+        "left_lng": "-81.75",
+        "bottom_lat": "30.5",
+        "right_lng": "-75",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/gasc_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 12,
+        "name": "Bahamas",
+        "slug": "bah",
+        "status": 1,
+        "upper_lat": "28",
+        "left_lng": "-80",
+        "bottom_lat": "21.5",
+        "right_lng": "-74",
+        "category": {
+            "id": 1,
+            "slug": "useca",
+            "name": "US East Coast \/ Atlantic",
+            "priority": 1,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bah_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 13,
+        "name": "Florida Overview",
+        "slug": "floverview",
+        "status": 1,
+        "upper_lat": "31",
+        "left_lng": "-88",
+        "bottom_lat": "23",
+        "right_lng": "-77",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/floverview_bwtile_newdim.jpg",
+            "max_zoom": "10",
+            "min_zoom": "6",
+            "default_zoom": 6
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 14,
+        "name": "Florida - Jacksonville",
+        "slug": "fljack",
+        "status": 1,
+        "upper_lat": "31.5",
+        "left_lng": "-81.75",
+        "bottom_lat": "28.5",
+        "right_lng": "-77.5",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/fljack_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 15,
+        "name": "Florida - East Central",
+        "slug": "fleastcen",
+        "status": 1,
+        "upper_lat": "29.5",
+        "left_lng": "-81.25",
+        "bottom_lat": "26.5",
+        "right_lng": "-77",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/flecen_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 16,
+        "name": "Florida - Miami",
+        "slug": "flmiami",
+        "status": 1,
+        "upper_lat": "27",
+        "left_lng": "-80.5",
+        "bottom_lat": "24",
+        "right_lng": "-77.5",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/flmiami_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 17,
+        "name": "Florida Keys",
+        "slug": "flkeys",
+        "status": 1,
+        "upper_lat": "26",
+        "left_lng": "-84.5",
+        "bottom_lat": "23.25",
+        "right_lng": "-80",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/flkeys_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 18,
+        "name": "Florida - Fort Myers",
+        "slug": "flcapecoral",
+        "status": 1,
+        "upper_lat": "27.5",
+        "left_lng": "-85.5",
+        "bottom_lat": "25",
+        "right_lng": "-81",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/flcapecoral_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 19,
+        "name": "Florida - Tampa \/ Middle Grounds",
+        "slug": "fltampa",
+        "status": 1,
+        "upper_lat": "29.5",
+        "left_lng": "-86",
+        "bottom_lat": "26.5",
+        "right_lng": "-82.25",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/fltampa_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 20,
+        "name": "Florida - Destin \/ Panhandle",
+        "slug": "gulfeast",
+        "status": 1,
+        "upper_lat": "31",
+        "left_lng": "-88",
+        "bottom_lat": "26",
+        "right_lng": "-82",
+        "category": {
+            "id": 17,
+            "slug": "florida",
+            "name": "Florida",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/flpan_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 21,
+        "name": "Gulf of Mexico Overview",
+        "slug": "gulfoverview",
+        "status": 1,
+        "upper_lat": "31.5",
+        "left_lng": "-98.5",
+        "bottom_lat": "17.5",
+        "right_lng": "-81",
+        "category": {
+            "id": 2,
+            "slug": "gom",
+            "name": "Gulf of Mexico",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/gulfoverview_bwtile_newdim.jpg",
+            "max_zoom": "10",
+            "min_zoom": 6,
+            "default_zoom": 6
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 22,
+        "name": "Louisiana \/ Alabama",
+        "slug": "gulfcen",
+        "status": 1,
+        "upper_lat": "31",
+        "left_lng": "-95",
+        "bottom_lat": "25",
+        "right_lng": "-86",
+        "category": {
+            "id": 2,
+            "slug": "gom",
+            "name": "Gulf of Mexico",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/gulfcen_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 23,
+        "name": "Texas Coast",
+        "slug": "gulfwest",
+        "status": 1,
+        "upper_lat": "30.5",
+        "left_lng": "-98.5",
+        "bottom_lat": "24",
+        "right_lng": "-92",
+        "category": {
+            "id": 2,
+            "slug": "gom",
+            "name": "Gulf of Mexico",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/gulfwest_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 24,
+        "name": "Washington",
+        "slug": "wash",
+        "status": 1,
+        "upper_lat": "49",
+        "left_lng": "-128",
+        "bottom_lat": "45",
+        "right_lng": "-123",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 3,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/wash_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 25,
+        "name": "Oregon",
+        "slug": "ore",
+        "status": 1,
+        "upper_lat": "46.5",
+        "left_lng": "-128",
+        "bottom_lat": "41.5",
+        "right_lng": "-123",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 4,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/ore_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 26,
+        "name": "California North Coast",
+        "slug": "norcal",
+        "status": 1,
+        "upper_lat": "42.5",
+        "left_lng": "-128",
+        "bottom_lat": "37.5",
+        "right_lng": "-122",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/norcal_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 27,
+        "name": "Central California",
+        "slug": "cencal",
+        "status": 1,
+        "upper_lat": "38.25",
+        "left_lng": "-124",
+        "bottom_lat": "34.25",
+        "right_lng": "-120.25",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/cencal_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 28,
+        "name": "Southern California",
+        "slug": "socal",
+        "status": 1,
+        "upper_lat": "34.75",
+        "left_lng": "-121.5",
+        "bottom_lat": "31.5",
+        "right_lng": "-116.5",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 6,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/socal_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": "8"
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 29,
+        "name": "Baja Overview",
+        "slug": "bajaoverview",
+        "status": 1,
+        "upper_lat": "33",
+        "left_lng": "-119",
+        "bottom_lat": "22",
+        "right_lng": "-108",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajaoverview_bwtile_newdim.jpg",
+            "max_zoom": "10",
+            "min_zoom": "6",
+            "default_zoom": 6
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 30,
+        "name": "Baja - Pacific North",
+        "slug": "bajapacn",
+        "status": 1,
+        "upper_lat": "33",
+        "left_lng": "-119",
+        "bottom_lat": "29.5",
+        "right_lng": "-115.25",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajapacn_bwtile_newdim.jpg",
+            "max_zoom": 11,
+            "min_zoom": 8,
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 31,
+        "name": "Baja - Pacific Central",
+        "slug": "bajapacc",
+        "status": 1,
+        "upper_lat": "30",
+        "left_lng": "-119",
+        "bottom_lat": "26.5",
+        "right_lng": "-113.5",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajapacc_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": "8"
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 32,
+        "name": "Baja - Pacific South",
+        "slug": "bajapacs",
+        "status": 1,
+        "upper_lat": "27",
+        "left_lng": "-118",
+        "bottom_lat": "23",
+        "right_lng": "-110",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajapacs_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 33,
+        "name": "Baja - Los Cabos \/ East Cape",
+        "slug": "bajacabo",
+        "status": 1,
+        "upper_lat": "24",
+        "left_lng": "-111.5",
+        "bottom_lat": "22",
+        "right_lng": "-108.5",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajacabo_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 34,
+        "name": "Baja Cortez - San Felipe \/ Bahia Gonzaga",
+        "slug": "bajacorn",
+        "status": 1,
+        "upper_lat": "32",
+        "left_lng": "-115",
+        "bottom_lat": "29.5",
+        "right_lng": "-112.25",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajacorn_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 35,
+        "name": "Baja Cortez - Bahia de Los Angeles",
+        "slug": "bajacorcn",
+        "status": 1,
+        "upper_lat": "29.75",
+        "left_lng": "-114.25",
+        "bottom_lat": "27.5",
+        "right_lng": "-110.5",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajacorcn_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 36,
+        "name": "Baja Cortez - Santa Rosalia \/ Mulege",
+        "slug": "bajacorcs",
+        "status": 1,
+        "upper_lat": "28.25",
+        "left_lng": "-113",
+        "bottom_lat": "25.75",
+        "right_lng": "-109",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajacorcs_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 37,
+        "name": "Baja Cortez - Loreto \/ La Paz",
+        "slug": "bajacors",
+        "status": 1,
+        "upper_lat": "26.5",
+        "left_lng": "-111.5",
+        "bottom_lat": "24",
+        "right_lng": "-108",
+        "category": {
+            "id": 18,
+            "slug": "mexico-baja",
+            "name": "Mexico - Baja",
+            "priority": 4,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/bajacors_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 38,
+        "name": "Mazatlan",
+        "slug": "maz",
+        "status": 0,
+        "upper_lat": "24",
+        "left_lng": "-108",
+        "bottom_lat": "22",
+        "right_lng": "-105.5",
+        "category": {
+            "id": 5,
+            "slug": "mexico",
+            "name": "Mexico",
+            "priority": 5,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "max_zoom": "13",
+            "min_zoom": "9",
+            "default_zoom": "10"
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 39,
+        "name": "Puerto Vallarta",
+        "slug": "pv",
+        "status": 1,
+        "upper_lat": "22",
+        "left_lng": "-108",
+        "bottom_lat": "20.25",
+        "right_lng": "-105",
+        "category": {
+            "id": 5,
+            "slug": "mexico",
+            "name": "Mexico",
+            "priority": 5,
+            "status": "active"
+        },
+        "priority": 6,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/mexpv_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 40,
+        "name": "Hawaii Overview",
+        "slug": "hioverview",
+        "status": 1,
+        "upper_lat": "23",
+        "left_lng": "-161.5",
+        "bottom_lat": "17",
+        "right_lng": "-153",
+        "category": {
+            "id": 4,
+            "slug": "pacificisland",
+            "name": "Pacific Islands",
+            "priority": 6,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/hioverview_bwtile_newdim.jpg",
+            "max_zoom": "11",
+            "min_zoom": "7",
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 41,
+        "name": "Oahu \/ Kauai",
+        "slug": "oahukauai",
+        "status": 1,
+        "upper_lat": "23",
+        "left_lng": "-161.5",
+        "bottom_lat": "20",
+        "right_lng": "-157",
+        "category": {
+            "id": 4,
+            "slug": "pacificisland",
+            "name": "Pacific Islands",
+            "priority": 6,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/oahu_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 42,
+        "name": "Maui \/ Big Island",
+        "slug": "mauikona",
+        "status": 1,
+        "upper_lat": "21.5",
+        "left_lng": "-157.5",
+        "bottom_lat": "18",
+        "right_lng": "-153.5",
+        "category": {
+            "id": 4,
+            "slug": "pacificisland",
+            "name": "Pacific Islands",
+            "priority": 6,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2019\/10\/mauikona_bwtile_newdim.jpg",
+            "max_zoom": "12",
+            "min_zoom": "8",
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": 0,
+        "station_id": "",
+        "location_id": "",
+        "timezone": "",
+        "height_unit": "",
+        "isdst": 0,
+        "frequency": "",
+        "created_at": "2019-10-29T16:01:02.000000Z"
+    },
+    {
+        "id": 43,
+        "name": "South Africa - The Cape",
+        "slug": "safcape",
+        "status": 0,
+        "upper_lat": "-32.5",
+        "left_lng": "17",
+        "bottom_lat": "-38",
+        "right_lng": "32",
+        "category": {
+            "id": 16,
+            "slug": "africa",
+            "name": "Africa",
+            "priority": 7,
+            "status": "disabled"
+        },
+        "priority": 1,
+        "extra": {
+            "max_zoom": 11,
+            "min_zoom": 6,
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "0",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT+02:00) Pretoria",
+        "height_unit": null,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2020-12-28T23:03:59.000000Z"
+    },
+    {
+        "id": 44,
+        "name": "Bay Area \/ Monterey",
+        "slug": "bayarea",
+        "status": 1,
+        "upper_lat": "39",
+        "left_lng": "-125",
+        "bottom_lat": "35.5",
+        "right_lng": "-121",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/03\/bayarea_bwtile_newdim.jpg",
+            "max_zoom": 11,
+            "min_zoom": 7,
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-17T01:32:01.000000Z"
+    },
+    {
+        "id": 45,
+        "name": "Morro Bay \/ Port San Luis",
+        "slug": "morrobay",
+        "status": 1,
+        "upper_lat": "36.5",
+        "left_lng": "-123",
+        "bottom_lat": "33.75",
+        "right_lng": "-120.25",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 5,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/03\/morrobay_bwtile_newdim.jpg",
+            "max_zoom": 11,
+            "min_zoom": 7,
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-17T01:33:18.000000Z"
+    },
+    {
+        "id": 46,
+        "name": "Catalina Island",
+        "slug": "catalina",
+        "status": 1,
+        "upper_lat": "33.52",
+        "left_lng": "-118.67",
+        "bottom_lat": "33.25",
+        "right_lng": "-118.25",
+        "category": {
+            "id": 19,
+            "slug": "fishdope-hd-bathy",
+            "name": "FishDope HD Bathy NEW",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2022\/02\/cat_bwtile.jpg",
+            "max_zoom": 15,
+            "min_zoom": 11,
+            "default_zoom": 11
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-28T21:36:01.000000Z"
+    },
+    {
+        "id": 47,
+        "name": "San Clemente Island",
+        "slug": "sci",
+        "status": 1,
+        "upper_lat": "33.1",
+        "left_lng": "-118.7",
+        "bottom_lat": "32.7",
+        "right_lng": "-118.25",
+        "category": {
+            "id": 19,
+            "slug": "fishdope-hd-bathy",
+            "name": "FishDope HD Bathy NEW",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 2,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2022\/02\/sci_bwtile.jpg",
+            "max_zoom": 15,
+            "min_zoom": 11,
+            "default_zoom": 11
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-28T21:37:13.000000Z"
+    },
+    {
+        "id": 48,
+        "name": "Santa Barbara Island",
+        "slug": "sbi",
+        "status": 1,
+        "upper_lat": "33.57",
+        "left_lng": "-119.16",
+        "bottom_lat": "33.32",
+        "right_lng": "-118.91",
+        "category": {
+            "id": 19,
+            "slug": "fishdope-hd-bathy",
+            "name": "FishDope HD Bathy NEW",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 3,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2022\/02\/sbi_bwtile.jpg",
+            "max_zoom": 16,
+            "min_zoom": 12,
+            "default_zoom": 12
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-28T21:38:11.000000Z"
+    },
+    {
+        "id": 49,
+        "name": "San Nicolas Island",
+        "slug": "sni",
+        "status": 1,
+        "upper_lat": "33.35",
+        "left_lng": "-119.67",
+        "bottom_lat": "33.15",
+        "right_lng": "-119.35",
+        "category": {
+            "id": 19,
+            "slug": "fishdope-hd-bathy",
+            "name": "FishDope HD Bathy NEW",
+            "priority": 2,
+            "status": "active"
+        },
+        "priority": 4,
+        "extra": {
+            "img": "https:\/\/www.fishdope.com\/wp-content\/uploads\/2022\/02\/sannic_bwtile.jpg",
+            "max_zoom": 16,
+            "min_zoom": 11,
+            "default_zoom": 11
+        },
+        "brand": {
+            "slug": "fishdope",
+            "name": "Fishdope"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-03-28T21:39:11.000000Z"
+    },
+    {
+        "id": 51,
+        "name": "NEW S Oregon \/ N California",
+        "slug": "sornca",
+        "status": 1,
+        "upper_lat": "43.5",
+        "left_lng": "-128",
+        "bottom_lat": "40.5",
+        "right_lng": "-123.5",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 4,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/07\/sornca_bwtile.jpg",
+            "max_zoom": 11,
+            "min_zoom": 7,
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": 1,
+        "frequency": null,
+        "created_at": "2024-07-05T16:18:46.000000Z"
+    },
+    {
+        "id": 52,
+        "name": "NEW PacNW Overview",
+        "slug": "pnwoverview",
+        "status": 1,
+        "upper_lat": "51",
+        "left_lng": "-135",
+        "bottom_lat": "40.5",
+        "right_lng": "-122",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/07\/pacnwoverview_bwtile.jpg",
+            "max_zoom": 9,
+            "min_zoom": 6,
+            "default_zoom": 6
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": 1,
+        "frequency": null,
+        "created_at": "2024-07-26T21:01:24.000000Z"
+    },
+    {
+        "id": 53,
+        "name": "NEW Westport \/ Ilwaco",
+        "slug": "westport",
+        "status": 1,
+        "upper_lat": "48",
+        "left_lng": "-128",
+        "bottom_lat": "45",
+        "right_lng": "-123.5",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 3,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/07\/westport_bwtile.jpg",
+            "max_zoom": 12,
+            "min_zoom": 8,
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": 1,
+        "frequency": null,
+        "created_at": "2024-07-26T21:04:08.000000Z"
+    },
+    {
+        "id": 54,
+        "name": "NEW Tofino \/ Ucluelet",
+        "slug": "tofino",
+        "status": 1,
+        "upper_lat": "50",
+        "left_lng": "-128",
+        "bottom_lat": "47.5",
+        "right_lng": "-124.5",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 2,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/07\/tofino_bwtile.jpg",
+            "max_zoom": 12,
+            "min_zoom": 8,
+            "default_zoom": 8
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": null,
+        "frequency": null,
+        "created_at": "2024-07-26T21:08:28.000000Z"
+    },
+    {
+        "id": 55,
+        "name": "NEW Winter Harbour \/ Port Hardy",
+        "slug": "winterharbour",
+        "status": 1,
+        "upper_lat": "52",
+        "left_lng": "-131",
+        "bottom_lat": "49",
+        "right_lng": "-126",
+        "category": {
+            "id": 3,
+            "slug": "uwc",
+            "name": "US West Coast",
+            "priority": 3,
+            "status": "active"
+        },
+        "priority": 1,
+        "extra": {
+            "img": "https:\/\/www.satfish.com\/wp-content\/uploads\/2024\/08\/winterharbour_bwtile_newdim.jpg",
+            "max_zoom": 10,
+            "min_zoom": 7,
+            "default_zoom": 7
+        },
+        "brand": {
+            "slug": "satfish",
+            "name": "Satfish"
+        },
+        "server_id": "1",
+        "station_id": "",
+        "location_id": null,
+        "timezone": "(GMT-08:00) Pacific Time (US &amp; Canada)",
+        "height_unit": 1,
+        "isdst": 1,
+        "frequency": null,
+        "created_at": "2024-08-26T23:14:54.000000Z"
+    }
+]

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "layers": {
+    "sst_data": {
+      "source": "mapbox://tileset-source/snowcast/sst-data",
+      "minzoom": 0,
+      "maxzoom": 5
+    }
+  }
+}
