@@ -25,10 +25,10 @@ Zoom Level 2 (Intermediate) - Zoom Level 8:
 Scale: Mid-scale zoom showing a smaller section of the map (50-100 miles across).
 Detail: Interpolate the original grid to generate a finer grid (2x resolution), increasing the grid density from 680x820 to 1360x1640. This will allow visibility of temperature breaks as small as 1°F.
 Output: Export a PNG preview showing this region with finer details.
-Zoom Level 3 (Fine Detail for Fishing) - Zoom Level 12:
+Zoom Level 3 (Fine Detail for Fishing) - Zoom Level 10:
 
 Scale: High zoom focusing on small, localized areas (10-20 miles across).
-Detail: Interpolate to 4x resolution, expanding the grid to 2720x3280 points. This level should show very fine temperature gradients, allowing for highly accurate visualization of temperature breaks.
+Detail: Use data density from the file to generate smooth and detailed temperature maps. This level should show very fine temperature gradients, allowing for highly accurate visualization of temperature breaks.
 Output: Export a PNG preview showing this zoomed-in view with the highest level of detail.
 Data Transformation:
 
@@ -37,7 +37,7 @@ Apply Gaussian smoothing to the SST data to reduce noise and smooth gradients.
 Visualization:
 
 Use a coolwarm colormap (blue for cooler temperatures and red for warmer temperatures) to visualize temperature variations.
-Generate and save the visualization as a .png image for each zoom level (5, 8, and 12), providing a preview of the SST map at different scales.
+Generate and save the visualization as a .png image for each zoom level (5, 8, and 10), providing a preview of the SST map at different scales.
 The output should be a map of SST, showing detailed temperature gradients crucial for offshore fishing decisions.
 Tools and Libraries:
 
@@ -55,5 +55,6 @@ Additional Requirements:
 
 No averaging over time, as there's only one timestamp.
 Ensure proper data handling, error-free execution, and clarity in temperature visualization.
+Use the data density to calculate detail for each zoom level, avoid over-interpolation.
 Ability to scale up the process for generating zoomed-in tiles, interpolating data for higher resolutions.
 Ignore NaN, null and empty data. Don't interpolate over them. These are points over land.
