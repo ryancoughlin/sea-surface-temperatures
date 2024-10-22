@@ -2,15 +2,10 @@ import os
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-import cmocean
-import scipy.ndimage
-import scipy.interpolate
-from scipy.interpolate import RectBivariateSpline
-from scipy.interpolate import griddata
 from scipy.interpolate import RegularGridInterpolator
-from scipy.interpolate import LinearNDInterpolator
-from scipy.interpolate import NearestNDInterpolator
+import json
 import gc
+from scipy.signal import savgol_filter
 
 def load_sst_data(nc4_filepath):
     with xr.open_dataset(nc4_filepath) as ds:
@@ -61,8 +56,45 @@ def bilinear_interpolate(sst, scale_factor):
     
     return np.round(interpolated, 2)
 
+def interpolate_sst(sst, scale_factor):
+    # Create a mask for valid data points
+    mask = ~np.isnan(sst)
+    y, x = np.indices(sst.shape)
+    
+    # Extract valid data points
+    valid_points = np.array((y[mask], x[mask])).T
+    valid_values = sst[mask]
+    
+    # Define the original grid
+    original_grid = (np.arange(sst.shape[0]), np.arange(sst.shape[1]))
+    
+    # Create the interpolator
+    interpolator = RegularGridInterpolator(original_grid, sst, bounds_error=False, fill_value=np.nan)
+    
+    # Define the new grid
+    new_y = np.linspace(0, sst.shape[0] - 1, sst.shape[0] * scale_factor)
+    new_x = np.linspace(0, sst.shape[1] - 1, sst.shape[1] * scale_factor)
+    new_grid = np.meshgrid(new_y, new_x, indexing='ij')
+    
+    # Interpolate the data
+    interpolated_sst = interpolator((new_grid[0], new_grid[1]))
+    
+    # Round to four decimal points for more detail
+    interpolated_sst = np.round(interpolated_sst, 8)
+    
+    return interpolated_sst
+
+def smooth_sst_with_savgol(sst, window_length=5, polyorder=2):
+    # Apply Savitzky-Golay filter along each axis
+    smoothed_sst = savgol_filter(sst, window_length=window_length, polyorder=polyorder, axis=0, mode='nearest')
+    smoothed_sst = savgol_filter(smoothed_sst, window_length=window_length, polyorder=polyorder, axis=1, mode='nearest')
+    return smoothed_sst
+
 def increase_resolution(sst, lat, lon, scale_factor):
-    high_res_sst = bilinear_interpolate(sst, scale_factor)
+    # Smooth the SST data before interpolation
+    smoothed_sst = smooth_sst_with_savgol(sst, window_length=5, polyorder=2)
+    
+    high_res_sst = interpolate_sst(smoothed_sst, scale_factor)
     
     # Sample from the top right quadrant
     rows, cols = sst.shape
@@ -84,10 +116,10 @@ def increase_resolution(sst, lat, lon, scale_factor):
 def save_sst_image(sst, output_path, zoom_level, vmin, vmax):
     fig, ax = plt.subplots(figsize=(10, 12))
     
-    # Define a custom color gradient
-    colors = ['#9b0bac', '#4d4dff', '#0080ff', '#00ffff', '#00ff80', '#80ff00', '#ffff00', '#ffbf00', '#ff8000', '#ff4000', '#ff0000', '#800000', '#400000']
-    n_bins = 100  # Increased color gradations for smoother transition
-    cmap = plt.cm.colors.LinearSegmentedColormap.from_list('custom_cmap', colors, N=n_bins)
+    with open('color_scale.json', 'r') as f:
+        color_scale = json.load(f)
+    colors = color_scale['colors']
+    cmap = plt.cm.colors.LinearSegmentedColormap.from_list('custom_cmap', colors)
     
     # Set NaN values to be fully transparent in the colormap
     cmap.set_bad(alpha=0)
@@ -118,9 +150,9 @@ def process_zoom_levels(sst, lat, lon, output_dir):
         if zoom == 5:
             output_sst = sst  # No change for zoom level 5
         elif zoom == 8:
-            output_sst = increase_resolution(sst, lat, lon, scale_factor=2)
+            output_sst = increase_resolution(sst, lat, lon, scale_factor=8)
         elif zoom == 10:
-            output_sst = increase_resolution(sst, lat, lon, scale_factor=4)
+            output_sst = increase_resolution(sst, lat, lon, scale_factor=18)
         
         output_path = os.path.join(output_dir, f'sst_zoom_{zoom}.png')
         save_sst_image(output_sst, output_path, zoom, vmin, vmax)
