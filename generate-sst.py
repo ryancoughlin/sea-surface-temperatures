@@ -84,7 +84,7 @@ def interpolate_sst(sst, scale_factor):
     
     return interpolated_sst
 
-def smooth_sst_with_savgol(sst, window_length=5, polyorder=2):
+def smooth_sst_with_savgol(sst, window_length=11, polyorder=2):
     # Apply Savitzky-Golay filter along each axis
     smoothed_sst = savgol_filter(sst, window_length=window_length, polyorder=polyorder, axis=0, mode='nearest')
     smoothed_sst = savgol_filter(smoothed_sst, window_length=window_length, polyorder=polyorder, axis=1, mode='nearest')
@@ -92,7 +92,7 @@ def smooth_sst_with_savgol(sst, window_length=5, polyorder=2):
 
 def increase_resolution(sst, lat, lon, scale_factor):
     # Smooth the SST data before interpolation
-    smoothed_sst = smooth_sst_with_savgol(sst, window_length=5, polyorder=2)
+    smoothed_sst = smooth_sst_with_savgol(sst, window_length=11, polyorder=2)
     
     high_res_sst = interpolate_sst(smoothed_sst, scale_factor)
     
@@ -150,9 +150,9 @@ def process_zoom_levels(sst, lat, lon, output_dir):
         if zoom == 5:
             output_sst = sst  # No change for zoom level 5
         elif zoom == 8:
-            output_sst = increase_resolution(sst, lat, lon, scale_factor=8)
+            output_sst = increase_resolution(sst, lat, lon, scale_factor=20)
         elif zoom == 10:
-            output_sst = increase_resolution(sst, lat, lon, scale_factor=18)
+            output_sst = increase_resolution(sst, lat, lon, scale_factor=30)
         
         output_path = os.path.join(output_dir, f'sst_zoom_{zoom}.png')
         save_sst_image(output_sst, output_path, zoom, vmin, vmax)
