@@ -5,34 +5,48 @@ import plotly.graph_objects as go
 
 # Load the data
 ds = xr.open_dataset('./data/capecod.nc4')
-lat = ds['lat']
-lon = ds['lon']
-sst = ds['sst'].squeeze()
-sst_masked = np.ma.masked_invalid(sst)
+lat = ds['lat'].values  # Shape: (820, 680)
+lon = ds['lon'].values  # Shape: (820, 680)
+sst = ds['sst'].squeeze().values  # Shape: (820, 680)
+
+# Flatten the arrays
+lat_flat = lat.flatten()
+lon_flat = lon.flatten()
+sst_flat = sst.flatten()
+
+# Create a mask for valid data (ignore NaNs)
+valid_mask = ~np.isnan(sst_flat)
+
+# Extract valid data
+lat_valid = lat_flat[valid_mask]
+lon_valid = lon_flat[valid_mask]
+sst_valid = sst_flat[valid_mask]
 
 # Prepare original grid points
-points = np.array([lon.values.flatten(), lat.values.flatten()]).T
-values = sst_masked.flatten()
+points = np.column_stack((lon_valid, lat_valid))
+values = sst_valid
 
 # Create high-resolution grid
-grid_res = 2000
-grid_lon = np.linspace(lon.min(), lon.max(), grid_res)
-grid_lat = np.linspace(lat.min(), lat.max(), grid_res)
-grid_lon, grid_lat = np.meshgrid(grid_lon, grid_lat)
+grid_res = 2000  # Adjust based on performance needs
+grid_lon = np.linspace(lon_valid.min(), lon_valid.max(), grid_res)
+grid_lat = np.linspace(lat_valid.min(), lat_valid.max(), grid_res)
+grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 
 # Interpolate data
-sst_interpolated = griddata(points, values, (grid_lon, grid_lat), method='cubic')
+sst_interpolated = griddata(
+    points, values, (grid_lon_mesh, grid_lat_mesh), method='linear'
+)
 
-# Handle NaNs
-sst_interpolated = np.nan_to_num(sst_interpolated, nan=np.nanmean(sst_interpolated))
+# Mask NaNs in interpolated data
+sst_interpolated_masked = np.ma.masked_invalid(sst_interpolated)
 
 # Create Plotly figure
-mapbox_access_token = 'pk.eyJ1Ijoic25vd2Nhc3QiLCJhIjoiY2plYXNjdTRoMDhsbDJ4bGFjOWN0YjdzeCJ9.fM2s4NZq_LUiTXJxsl2HbQ'
+mapbox_access_token = 'YOUR_MAPBOX_ACCESS_TOKEN'
 
 fig = go.Figure(go.Heatmap(
-    x=grid_lon[0],
-    y=grid_lat[:, 0],
-    z=sst_interpolated,
+    x=grid_lon,
+    y=grid_lat,
+    z=sst_interpolated_masked,
     colorscale='Viridis',
     colorbar=dict(title='SST (°C)'),
     zsmooth='best'
@@ -41,12 +55,13 @@ fig = go.Figure(go.Heatmap(
 fig.update_layout(
     mapbox=dict(
         accesstoken=mapbox_access_token,
-        style='satellite-streets',
-        center=dict(lon=float(lon.mean()), lat=float(lat.mean())),
+        style='carto-positron',
+        center=dict(lon=float(lon_valid.mean()), lat=float(lat_valid.mean())),
         zoom=6
     ),
     mapbox_style="carto-positron",
-    margin={"r": 0, "t": 0, "l": 0, "b": 0}
+    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+    title="Sea Surface Temperature Map"
 )
 
 fig.show()
