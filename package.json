@@ -26,6 +26,7 @@
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
     "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
     "node-cron": "^3.0.3",
     "rbush": "^4.0.1"
   },

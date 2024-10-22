@@ -72,9 +72,9 @@ function updateImageOverlay(map) {
 }
 
 function getImageUrlForZoom(zoom) {
-    if (zoom >= 5 && zoom < 8) return './capecod_sst_5.png';
-    if (zoom >= 8 && zoom < 10) return './capecod_sst_8.png';
-    if (zoom >= 10) return './capecod_sst_10.png';
+    if (zoom >= 5 && zoom < 8) return './capecod_sst_5.tif';
+    if (zoom >= 8 && zoom < 10) return './capecod_sst_8.tif';
+    if (zoom >= 10) return './capecod_sst_10.tif';
     return null;
 }
 
