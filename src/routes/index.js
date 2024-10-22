@@ -1,27 +1,18 @@
 import express from 'express';
 import { fetchSSTData } from '../services/sstService.js';
 import { REGIONS } from '../config/regions.js';
+import { setupPythonRoute } from './pythonProcess.js';
+import sstRouter from './sst.js';  // Import the SST router
 
 const router = express.Router();
 
-// SST data route
-router.get('/sst/:region', async (req, res) => {
-  try {
-    const { region } = req.params;
-    if (!REGIONS[region]) {
-      return res.status(404).json({ error: 'Region not found' });
-    }
-    const sstData = await fetchSSTData(REGIONS[region]);
-    res.json(sstData);
-  } catch (error) {
-    console.error('Error fetching SST data:', error);
-    res.status(500).json({ error: 'Failed to fetch SST data' });
-  }
-});
+router.use('/sst', sstRouter);
 
-// Regions route
 router.get('/regions', (req, res) => {
   res.json(Object.values(REGIONS));
 });
+
+// Set up the Python processing route
+setupPythonRoute(router);
 
 export default router;
