@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Tuple
 from scipy.signal import savgol_filter
 from scipy.interpolate import RegularGridInterpolator
-from ...config.settings import settings
+from ..config.settings import settings
 
 class ImageProcessor:
     def load_and_process(self, nc4_filepath: Path, source: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

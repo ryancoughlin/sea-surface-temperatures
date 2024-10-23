@@ -1,16 +1,19 @@
 import asyncio
 from pathlib import Path
-from src.data.processors.sst_processor import SSTProcessor
+from src.processors.sst_processor import SSTProcessor
 from src.config.settings import settings
 
 async def main():
     processor = SSTProcessor()
     
     try:
-        # Process all configured sources
         results = await processor.process_latest()
         for source_region, paths in results.items():
-            print(f"Generated tiles for {source_region}: {len(paths)} files")
+            print(f"Generated for {source_region}:")
+            for zoom, full_image_path in paths['region'].items():
+                print(f"- Region image (zoom {zoom}): {full_image_path}")
+            for zoom, tile_paths in paths['tiles'].items():
+                print(f"- Tiles (zoom {zoom}): {len(tile_paths)} files")
             
     except Exception as e:
         print(f"Error processing SST data: {e}")

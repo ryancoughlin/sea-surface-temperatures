@@ -8,10 +8,6 @@ from .regions import RegionCode, REGIONS
 class TimeRange(str, Enum):
     DAILY = "daily"
     THREE_DAY = "3day"
-    SEVEN_DAY = "7day"
-    MONTHLY = "monthly"
-    SEASONAL = "seasonal"
-    ANNUAL = "annual"
 
 class ERDDAPConfig(BaseModel):
     """ERDDAP source configuration."""
@@ -52,7 +48,6 @@ class Settings(BaseSettings):
     """Application configuration."""
     
     # API Configuration
-    NOAA_API_KEY: Optional[str] = None
     NOAA_BASE_URL: str = "https://coastwatch.noaa.gov/erddap/griddap"
     
     # Storage paths
@@ -105,8 +100,7 @@ class Settings(BaseSettings):
                 'update_frequency': TimeRange.DAILY,
                 'time_ranges': [
                     TimeRange.DAILY,
-                    TimeRange.THREE_DAY,
-                    TimeRange.SEVEN_DAY
+                    TimeRange.THREE_DAY
                 ]
             },
             'east_coast': {

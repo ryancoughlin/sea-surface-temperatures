@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from .base import BaseFetcher
-from ...config.settings import settings
+from ..config.settings import settings
 
 class EastCoastFetcher(BaseFetcher):
     def __init__(self):

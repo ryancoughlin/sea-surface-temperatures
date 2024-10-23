@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from .base import BaseFetcher
-from ...config.settings import settings
-from ...config.regions import REGIONS, RegionCode
+from ..config.settings import settings
+from ..config.regions import REGIONS, RegionCode
 
 class ERDDAPFetcher(BaseFetcher):
     def __init__(self):
