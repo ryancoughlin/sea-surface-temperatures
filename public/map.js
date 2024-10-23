@@ -6,20 +6,16 @@ function initMap() {
     const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/streets-v11',
-        bounds: [
-            [-72.22598321024519, 40.148157450000284],
-            [-68.62114278975481, 43.401843566726924]
-        ],
+        center: [-72, 38], // Centered on the East Coast
+        zoom: 5,
         minZoom: 5,
         maxZoom: 10
     });
 
     map.on('load', () => {
         addControls(map);
-        setupImageOverlay(map);
-        setupGeoJSONLayer(map);
-        setupTemperatureDisplay(map);
         addRegionLayers(map);
+        setupImageOverlays(map);
     });
 }
 
@@ -32,87 +28,6 @@ function addControls(map) {
     map.addControl(new mapboxgl.NavigationControl({
         showZoom: true
     }), 'bottom-right');
-}
-
-function setupImageOverlay(map) {
-    map.on('zoomend', () => updateImageOverlay(map));
-    updateImageOverlay(map);
-}
-
-function updateImageOverlay(map) {
-    const zoom = map.getZoom();
-    const imageUrl = getImageUrlForZoom(zoom);
-
-    if (map.getSource('sst-image')) {
-        map.removeLayer('sst-layer');
-        map.removeSource('sst-image');
-    }
-
-    if (imageUrl) {
-        map.addSource('sst-image', {
-            type: 'image',
-            url: imageUrl,
-            coordinates: [
-                [-72.22598321024519, 43.401843566726924],
-                [-68.62114278975481, 43.401843566726924],
-                [-68.62114278975481, 40.148157450000284],
-                [-72.22598321024519, 40.148157450000284]
-            ]
-        });
-
-        map.addLayer({
-            id: 'sst-layer',
-            type: 'raster',
-            source: 'sst-image',
-            paint: {
-                'raster-opacity': 0.7
-            }
-        });
-    }
-}
-
-function getImageUrlForZoom(zoom) {
-    if (zoom >= 5 && zoom < 8) return './sst_zoom_5.png';
-    if (zoom >= 8 && zoom < 10) return './sst_zoom_8.png';
-    if (zoom >= 10) return './sst_zoom_10.png';
-    return null;
-}
-
-function setupGeoJSONLayer(map) {
-    map.addSource('sst-data', {
-        type: 'geojson',
-        data: './sst_data.geojson'
-    });
-
-    map.addLayer({
-        id: 'sst-points',
-        type: 'circle',
-        source: 'sst-data',
-        paint: {
-            'circle-radius': 5,
-            'circle-opacity': 0,
-            'circle-stroke-width': 1,
-            'circle-stroke-opacity': 0
-        }
-    });
-}
-
-function setupTemperatureDisplay(map) {
-    const tempInfo = document.getElementById('temp-info');
-
-    map.on('mousemove', 'sst-points', (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['sst-points'] });
-        if (!features.length) {
-            tempInfo.textContent = 'Temperature: --°F';
-            return;
-        }
-        const feature = features[0];
-        tempInfo.textContent = `Temperature: ${feature.properties.sst_F.toFixed(2)}°F`;
-    });
-
-    map.on('mouseleave', 'sst-points', () => {
-        tempInfo.textContent = 'Temperature: --°F';
-    });
 }
 
 function addRegionLayers(map) {
@@ -177,4 +92,56 @@ function addRegionLayers(map) {
             }
         });
     });
+}
+
+function setupImageOverlays(map) {
+    map.on('zoomend', () => updateImageOverlays(map));
+    updateImageOverlays(map);
+}
+
+function updateImageOverlays(map) {
+    const zoom = map.getZoom();
+    
+    Object.values(REGIONS).forEach(region => {
+        const { slug, coordinates } = region;
+        const { minLon, minLat, maxLon, maxLat } = coordinates;
+        const imageUrl = getImageUrlForZoom(zoom, slug);
+
+        const sourceId = `${slug}-sst-image`;
+        const layerId = `${slug}-sst-layer`;
+
+        if (map.getSource(sourceId)) {
+            map.removeLayer(layerId);
+            map.removeSource(sourceId);
+        }
+
+        if (imageUrl) {
+            map.addSource(sourceId, {
+                type: 'image',
+                url: imageUrl,
+                coordinates: [
+                    [minLon, maxLat],
+                    [maxLon, maxLat],
+                    [maxLon, minLat],
+                    [minLon, minLat]
+                ]
+            });
+
+            map.addLayer({
+                id: layerId,
+                type: 'raster',
+                source: sourceId,
+                paint: {
+                    'raster-opacity': 0.7
+                }
+            });
+        }
+    });
+}
+
+function getImageUrlForZoom(zoom, region) {
+    if (zoom >= 5 && zoom < 8) return `./${region}_sst_zoom_5.png`;
+    if (zoom >= 8 && zoom < 10) return `./${region}_sst_zoom_8.png`;
+    if (zoom >= 10) return `./${region}_sst_zoom_10.png`;
+    return null;
 }

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     """Application configuration."""
     
     # API Configuration
-    NOAA_API_KEY: str
+    NOAA_API_KEY: Optional[str] = None
     NOAA_BASE_URL: str = "https://coastwatch.noaa.gov/erddap/griddap"
     
     # Storage paths
@@ -55,9 +55,6 @@ class Settings(BaseSettings):
     # Processing settings
     ZOOM_LEVELS: List[int] = [5, 8, 10]
     TILE_SIZE: int = 256
-    
-    # Database connection
-    DATABASE_URL: str
     
     # Data sources configuration
     SOURCES: Dict[str, SourceConfig] = {
