@@ -15,4 +15,9 @@ router.get('/regions', (req, res) => {
 // Set up the Python processing route
 setupPythonRoute(router);
 
+router.get('/test', (req, res) => {
+  console.log('API test route accessed');
+  res.json({ message: 'API is working' });
+});
+
 export default router;

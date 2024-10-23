@@ -1,11 +1,12 @@
+import sys
 import os
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
 import json
-import gc
 from scipy.signal import savgol_filter
+import traceback
 
 def load_sst_data(nc4_filepath):
     with xr.open_dataset(nc4_filepath) as ds:
@@ -158,17 +159,26 @@ def process_zoom_levels(sst, lat, lon, output_dir):
         save_sst_image(output_sst, output_path, zoom, vmin, vmax)
 
 def main():
-    nc4_filepath = './data/capecod.nc4'
+    if len(sys.argv) < 2:
+        print("Error: NC4 file path not provided")
+        sys.exit(1)
+
+    nc4_filepath = sys.argv[1]
     output_dir = './output'
     os.makedirs(output_dir, exist_ok=True)
+    
+    print(f"Processing file: {nc4_filepath}")
+    print(f"File exists: {os.path.exists(nc4_filepath)}")
+    print(f"File size: {os.path.getsize(nc4_filepath)} bytes")
     
     try:
         sst, lat, lon = load_sst_data(nc4_filepath)
         process_zoom_levels(sst, lat, lon, output_dir)
+        print("SST processing completed successfully")
     except Exception as e:
-        print(f"An error occurred: {e}")
-        import traceback
+        print(f"Error: SST processing failed - {str(e)}")
         traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

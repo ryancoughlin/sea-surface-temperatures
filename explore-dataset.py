@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load the dataset and analyze the data structure
-file_path = "./data/capecod.nc4"  # Replace with the correct path to your NetCDF file
+file_path = "./data/eastcoast.nc4"  # Replace with the correct path to your NetCDF file
 
 # Open the dataset
 try:
