@@ -3,8 +3,6 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from scipy.signal import savgol_filter
-from scipy.interpolate import RegularGridInterpolator
 from ..fetchers.erddap import ERDDAPFetcher
 from ..fetchers.eastcoast import EastCoastFetcher
 from ...tiles.generator import TileGenerator
@@ -41,15 +39,19 @@ class SSTProcessor:
         if not input_file:
             raise ValueError(f"Failed to fetch data for {region} on {date}")
         
-        sst, lat, lon = self.load_sst_data(input_file)
-        return self.generate_all_zoom_levels(sst, lat, lon)
+        print(f"Processing file: {input_file} from source: {source}")
+        sst, lat, lon = self.load_sst_data(input_file, source)
+        return self.generate_all_zoom_levels(sst, lat, lon, source, region, date)
 
-    def generate_all_zoom_levels(self, sst: np.ndarray, lat: np.ndarray, lon: np.ndarray) -> List[Path]:
+    def generate_all_zoom_levels(self, sst: np.ndarray, lat: np.ndarray, lon: np.ndarray, 
+                           source: str, region: str, date: datetime) -> List[Path]:
         """Generate tiles for all zoom levels."""
         tile_paths = []
         for zoom in settings.ZOOM_LEVELS:
             processed_sst = self._process_for_zoom(sst, zoom)
-            paths = self.tile_generator.generate_tiles(processed_sst, lat, lon, zoom, settings.TILE_PATH)
+            paths = self.tile_generator.generate_tiles(
+                processed_sst, lat, lon, zoom, source, region, date
+            )
             tile_paths.extend(paths)
         return tile_paths
 
@@ -64,9 +66,9 @@ class SSTProcessor:
             return await self.eastcoast_fetcher.fetch(date, region)
         raise ValueError(f"Unknown source: {source}")
 
-    def load_sst_data(self, input_file: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def load_sst_data(self, input_file: Path, source: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Load SST data from a file."""
-        return self.image_processor.load_and_process(input_file)
+        return self.image_processor.load_and_process(input_file, source)
 
     def _smooth_sst(self, sst: np.ndarray) -> np.ndarray:
         """Smooth SST data."""
@@ -77,4 +79,3 @@ class SSTProcessor:
         """Increase resolution of SST data."""
         # Implement increasing resolution of SST data
         pass
-

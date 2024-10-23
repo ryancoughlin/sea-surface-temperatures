@@ -4,19 +4,25 @@ from pathlib import Path
 from typing import Tuple
 from scipy.signal import savgol_filter
 from scipy.interpolate import RegularGridInterpolator
+from ...config.settings import settings
 
 class ImageProcessor:
-    def load_and_process(self, nc4_filepath: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def load_and_process(self, nc4_filepath: Path, source: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Load and process SST data."""
-        sst, lat, lon = self._load_sst_data(nc4_filepath)
+        sst, lat, lon = self._load_sst_data(nc4_filepath, source)
         return self._process_sst(sst), lat, lon
 
-    def _load_sst_data(self, nc4_filepath: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _load_sst_data(self, nc4_filepath: Path, source: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         with xr.open_dataset(nc4_filepath) as ds:
-            sst = ds.sst.squeeze().values
-            lat = ds.lat.values
-            lon = ds.lon.values
-        return sst, lat, lon
+            # Get variable name from settings based on source
+            var_name = settings.SOURCES[source].variables[0] if source == "erddap" else "sst"
+            sst = ds[var_name].squeeze().values
+            
+            # Use full variable names for coordinates
+            latitude = ds.latitude.values if 'latitude' in ds else ds.lat.values
+            longitude = ds.longitude.values if 'longitude' in ds else ds.lon.values
+            
+        return sst, latitude, longitude
 
     def _process_sst(self, sst: np.ndarray) -> np.ndarray:
         """Convert to Fahrenheit and handle missing data."""

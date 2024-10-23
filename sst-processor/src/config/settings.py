@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Tuple, ClassVar
+from typing import Dict, List, Optional, Tuple, ClassVar, TypedDict
 from pathlib import Path
 from enum import Enum
 from .regions import RegionCode, REGIONS
@@ -38,6 +38,15 @@ class EastCoastConfig(BaseModel):
     base_url: str
     regions: List[RegionCode]
     avhrr_viirs: SatelliteConfig
+
+class TileSourceConfig(TypedDict):
+    path: str
+    zoom_levels: List[int]
+    update_frequency: str
+
+class TileStructure(TypedDict):
+    base: Path
+    sources: Dict[str, TileSourceConfig]
 
 class Settings(BaseSettings):
     """Application configuration."""
@@ -80,9 +89,33 @@ class Settings(BaseSettings):
                 product="MULTISAT",
                 measurement="SST-NGT",
                 resolution="750M",
+                variable="sst",
                 file_format="ACSPOCW_{date}_{time_range}_MULTISAT_SST-NGT_{region}_750M.nc4"
             )
         )
+    }
+    
+    # Add to Settings class
+    TILE_STRUCTURE: ClassVar[TileStructure] = {
+        'base': BASE_PATH / "tiles",
+        'sources': {
+            'erddap': {
+                'path': 'erddap',
+                'zoom_levels': ZOOM_LEVELS,
+                'update_frequency': TimeRange.DAILY,
+                'time_ranges': [
+                    TimeRange.DAILY,
+                    TimeRange.THREE_DAY,
+                    TimeRange.SEVEN_DAY
+                ]
+            },
+            'east_coast': {
+                'path': 'east-coast',
+                'zoom_levels': ZOOM_LEVELS,
+                'update_frequency': TimeRange.DAILY,
+                'time_ranges': [TimeRange.DAILY]
+            }
+        }
     }
     
     class Config:
