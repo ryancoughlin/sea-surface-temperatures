@@ -8,6 +8,7 @@ class RegionCode(str, Enum):
     NORTHEAST = "ne"
     MID_ATLANTIC = "ma"
     SOUTH_ATLANTIC = "sa"
+    GULF_OF_MAINE = "gom"
 
 class RegionBounds(BaseModel):
     name: str
@@ -33,17 +34,17 @@ REGIONS: Dict[RegionCode, Region] = {
             lat=(18.0, 31.0)
         )
     ),
-    RegionCode.EAST_COAST: Region(
-        code=RegionCode.EAST_COAST,
-        name="East Coast",
-        description="Full US East Coast waters",
-        bounds=RegionBounds(
-            name="East Coast",
-            description="Atlantic Coast from Florida to Maine",
-            lon=(-82.0, -65.0),
-            lat=(25.0, 45.0)
-        )
-    ),
+    # RegionCode.EAST_COAST: Region(
+    #     code=RegionCode.EAST_COAST,
+    #     name="East Coast",
+    #     description="Full US East Coast waters",
+    #     bounds=RegionBounds(
+    #         name="East Coast",
+    #         description="Atlantic Coast from Florida to Maine",
+    #         lon=(-82.0, -65.0),
+    #         lat=(25.0, 45.0)
+    #     )
+    # ),
     RegionCode.NORTHEAST: Region(
         code=RegionCode.NORTHEAST,
         name="Northeast",
@@ -66,15 +67,26 @@ REGIONS: Dict[RegionCode, Region] = {
             lat=(35.0, 41.0)
         )
     ),
-    RegionCode.SOUTH_ATLANTIC: Region(
-        code=RegionCode.SOUTH_ATLANTIC,
-        name="South Atlantic",
-        description="South Atlantic coastal waters",
+    # RegionCode.SOUTH_ATLANTIC: Region(
+    #     code=RegionCode.SOUTH_ATLANTIC,
+    #     name="South Atlantic",
+    #     description="South Atlantic coastal waters",
+    #     bounds=RegionBounds(
+    #         name="South Atlantic",
+    #         description="FL to NC coastal waters",
+    #         lon=(-82.0, -76.0),
+    #         lat=(25.0, 35.0)
+    #     )
+    # ),
+    RegionCode.GULF_OF_MAINE: Region(
+        code=RegionCode.GULF_OF_MAINE,
+        name="Gulf of Maine",
+        description="Gulf of Maine coastal waters",
         bounds=RegionBounds(
-            name="South Atlantic",
-            description="FL to NC coastal waters",
-            lon=(-82.0, -76.0),
-            lat=(25.0, 35.0)
+            name="Gulf of Maine",
+            description="Gulf of Maine region",
+            lon=(-71.1565, -63.2934),
+            lat=(41.5091, 46.0109)
         )
     )
 }

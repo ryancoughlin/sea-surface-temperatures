@@ -1,24 +1,25 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from .base import BaseFetcher
-from ..config.settings import settings
+from .base import DataFetcher
+from ..config.settings import settings, FileDataset
+from ..config.regions import RegionCode
 
-class EastCoastFetcher(BaseFetcher):
+class EastCoastFetcher(DataFetcher):
     def __init__(self):
-        self.config = settings.SOURCES["east_coast"].avhrr_viirs
+        self.config = settings.SOURCES["east_coast_sst"]
     
-    def _build_url(self, region: str, date: datetime) -> str:
-        filename = self.config.file_format.format(
+    def _build_url(self, region: RegionCode, date: datetime) -> str:
+        filename = self.config.file_pattern.format(
             date=date.strftime("%Y%j"),
-            time_range="DAILY",
-            region=region.upper()
+            region=region.value.upper()
         )
         url = f"{self.config.base_url}/{filename}"
         print(f"EastCoast URL: {url}")
         return url
 
-    async def fetch(self, date: datetime, region: str) -> Optional[Path]:
+    async def fetch(self, dataset: FileDataset, region: RegionCode) -> Path:
+        date = datetime.now()
         url = self._build_url(region, date)
-        output_path = settings.RAW_PATH / "east_coast" / f"sst_{region}_{date.strftime('%Y%m%d')}.nc"
+        output_path = settings.RAW_PATH / "east_coast" / f"sst_{region.value}_{date.strftime('%Y%m%d')}.nc"
         return await self._download_file(url, output_path)

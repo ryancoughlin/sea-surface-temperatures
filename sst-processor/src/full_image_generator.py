@@ -10,7 +10,7 @@ class FullImageGenerator:
     def __init__(self):
         self.image_processor = ImageProcessor()
 
-    def generate_full_images(self, sst: np.ndarray, lat: np.ndarray, lon: np.ndarray,
+    def generate_full_image(self, sst: np.ndarray, lat: np.ndarray, lon: np.ndarray,
                              zoom: int, source: str, region: str, date: datetime) -> Dict[int, Path]:
         full_image_paths = {}
         for zoom in settings.ZOOM_LEVELS:
@@ -32,5 +32,10 @@ class FullImageGenerator:
         return output_path
 
     def _save_full_image(self, data: np.ndarray, vmin: float, vmax: float, path: Path, extent):
-        # Implementation of full image saving logic
-        pass
+        plt.figure(figsize=(10, 10))
+        plt.imshow(data, cmap='viridis', vmin=vmin, vmax=vmax, extent=extent)
+        plt.colorbar(label='Sea Surface Temperature (°C)')
+        plt.title(f'SST Map - {path.stem}')
+        plt.axis('off')
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+        plt.close()
