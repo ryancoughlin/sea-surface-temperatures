@@ -1,16 +1,20 @@
 import xarray as xr
 import numpy as np
 from pathlib import Path
-from scipy.signal import savgol_filter
-from scipy.interpolate import RegularGridInterpolator
-from typing import Tuple
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 from ..tiles.generator import TileGenerator
+from .fetchers.erddap import ERDDAPFetcher
+from .fetchers.eastcoast import EastCoastFetcher
+from ..config.settings import settings
 
 class SSTProcessor:
     """Handles all SST data processing and image generation."""
     
     def __init__(self):
         self.tile_generator = TileGenerator()
+        self.erddap_fetcher = ERDDAPFetcher()
+        self.eastcoast_fetcher = EastCoastFetcher()
         
     def load_sst_data(self, nc4_filepath: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Load and convert SST data from NC4 file."""
@@ -42,30 +46,52 @@ class SSTProcessor:
         
         return interpolator((new_grid[0], new_grid[1]))
 
-    async def process_file(self, input_file: Path, output_dir: Path) -> list[Path]:
+    async def fetch_data(self, date: datetime, region: str, source: str = "erddap") -> Optional[Path]:
+        """Fetch SST data from specified source."""
+        if source == "erddap":
+            return await self.erddap_fetcher.fetch(date, region)
+        elif source == "east_coast":
+            return await self.eastcoast_fetcher.fetch(date, region)
+        raise ValueError(f"Unknown source: {source}")
+
+    async def process_region(self, date: datetime, region: str, source: str) -> List[Path]:
+        """Process SST data for a specific region."""
+        input_file = await self.fetch_data(date, region, source)
+        if not input_file:
+            raise ValueError(f"Failed to fetch data for {region} on {date}")
+        return await self.process_file(input_file, settings.TILE_PATH)
+
+    async def process_file(self, input_file: Path, output_dir: Path) -> List[Path]:
         """Process a single SST file."""
-        print(f"Processing {input_file}")
-        
-        # Load and convert data
         sst, lat, lon = self.load_sst_data(input_file)
         
-        # Process different zoom levels
         tile_paths = []
-        zoom_levels = [5, 8, 10]
-        
-        for zoom in zoom_levels:
-            if zoom == 5:
-                output_sst = sst
-            elif zoom == 8:
-                smoothed = self.smooth_sst(sst)
-                output_sst = self.increase_resolution(smoothed, 20)
-            elif zoom == 10:
-                smoothed = self.smooth_sst(sst)
-                output_sst = self.increase_resolution(smoothed, 30)
-            
+        for zoom in settings.ZOOM_LEVELS:
+            processed_sst = self._process_zoom_level(sst, zoom)
             paths = self.tile_generator.generate_tiles(
-                output_sst, lat, lon, zoom, output_dir
+                processed_sst, lat, lon, zoom, output_dir
             )
             tile_paths.extend(paths)
-            
+        
         return tile_paths
+
+    def _process_zoom_level(self, sst: np.ndarray, zoom: int) -> np.ndarray:
+        """Process SST data for specific zoom level."""
+        if zoom == 5:
+            return sst
+        
+        smoothed = self.smooth_sst(sst)
+        scale = 20 if zoom == 8 else 30
+        return self.increase_resolution(smoothed, scale)
+
+    async def process_all_regions(self, date: datetime) -> Dict[str, List[Path]]:
+        """Process all configured regions."""
+        results = {}
+        for source, config in settings.SOURCES.items():
+            for region in config.regions:
+                try:
+                    paths = await self.process_region(date, region.value, source)
+                    results[f"{source}_{region.value}"] = paths
+                except Exception as e:
+                    print(f"Error processing {source} {region}: {e}")
+        return results
