@@ -30,7 +30,8 @@ export function validateInputs(source, satellite, region, date) {
   }
 }
 
-export function constructUrl(source, satellite, region, formattedDate) {
+export function constructUrl(source, satellite, region, date) {
+    const formattedDate = formatDateToOrdinal(date);
   const sourceConfig = DATA_SOURCES[source];
   const satelliteConfig = sourceConfig.satellites[satellite];
   

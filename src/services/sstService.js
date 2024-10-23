@@ -1,8 +1,8 @@
-import { formatDateToOrdinal, validateInputs, constructUrl } from '../utils/sstUtils.js';
+import { validateInputs, constructUrl } from '../utils/sstUtils.js';
 import path from 'path';
 import { saveFile, moveFile, listFiles } from './fileManager.js';
 import { runPythonScript } from './pythonRunner.js';
-
+import fs from 'fs/promises';
 
 async function fetchData(url) {
   const response = await fetch(url);
@@ -16,23 +16,48 @@ export async function fetchSSTData(source, satellite, region, date) {
   const url = constructUrl(source, satellite, region, date);
   console.log(`Fetching SST data from URL: ${url}`);
 
-  const data = await fetchData(url);
-  const nc4FilePath = await saveFile(Buffer.from(data), 'capecod.nc4');
+  try {
+    const data = await fetchData(url);
+    const filename = `${source}_${satellite}_${region}_${date}.nc4`;
+    const nc4FilePath = await saveFile(Buffer.from(data), filename);
 
-  const scriptPath = path.join(process.cwd(), 'generate-sst.py');
-  await runPythonScript(scriptPath, []);
+    console.log(`File saved to: ${nc4FilePath}`);
+    
+    // Check if file exists and log its size
+    const stats = await fs.stat(nc4FilePath);
+    console.log(`File size: ${stats.size} bytes`);
 
-  const files = await listFiles(ENV.OUTPUT_DIR);
-  for (const file of files) {
-    if (file.startsWith('sst_zoom_') && file.endsWith('.png')) {
-      await moveFile(
-        path.join(ENV.OUTPUT_DIR, file),
-        path.join(ENV.PUBLIC_DIR, file)
-      );
+    const scriptPath = path.join(process.cwd(), 'generate-sst.py');
+    const { stdout, stderr } = await runPythonScript(scriptPath, [nc4FilePath]);
+
+    if (stderr) {
+      console.error('Python script error:', stderr);
+      throw new Error('SST processing failed: ' + stderr);
     }
-  }
 
-  return {
-    metadata: { source, satellite, region, date, url }
-  };
+    console.log('Python script output:', stdout);
+
+    const files = await listFiles(process.env.OUTPUT_DIR);
+    const movedFiles = [];
+    for (const file of files) {
+      if (file.startsWith('sst_zoom_') && file.endsWith('.png')) {
+        const newPath = path.join(process.env.PUBLIC_DIR, file);
+        await moveFile(
+          path.join(process.env.OUTPUT_DIR, file),
+          newPath
+        );
+        movedFiles.push(newPath);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'SST data processed successfully',
+      metadata: { source, satellite, region, date, url },
+      files: movedFiles
+    };
+  } catch (error) {
+    console.error('Error in fetchSSTData:', error);
+    throw error;
+  }
 }
