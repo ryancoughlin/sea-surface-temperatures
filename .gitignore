@@ -3,13 +3,13 @@
 /.pnp
 .pnp.js
 
-# Next.js
-/.next/
-/out/
-
 # Production
 /build
 
+# Geo data 
+/sst-processor/data
+**/*.nc
+**/*.nc4
 # Misc
 .DS_Store
 *.pem
@@ -44,3 +44,9 @@ logs
 # Temporary files
 *.tmp
 *.swp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
