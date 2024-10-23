@@ -6,7 +6,7 @@ from ...config.settings import settings
 
 class EastCoastFetcher(BaseFetcher):
     def __init__(self):
-        self.config = settings.SOURCES["east_coast"]["avhrr-viirs"]
+        self.config = settings.SOURCES["east_coast"].avhrr_viirs
     
     def _build_url(self, region: str, date: datetime) -> str:
         filename = self.config.file_format.format(
@@ -14,7 +14,9 @@ class EastCoastFetcher(BaseFetcher):
             time_range="DAILY",
             region=region.upper()
         )
-        return f"{self.config.base_url}/{filename}"
+        url = f"{self.config.base_url}/{filename}"
+        print(f"EastCoast URL: {url}")
+        return url
 
     async def fetch(self, date: datetime, region: str) -> Optional[Path]:
         url = self._build_url(region, date)
