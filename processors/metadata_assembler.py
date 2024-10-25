@@ -77,7 +77,11 @@ class MetadataAssembler:
     def _update_dataset_index(self, dataset_dir: Path, timestamp: str):
         """Update the index of available dates for a dataset."""
         index_path = dataset_dir / "index.json"
-        dates = [d.name for d in dataset_dir.glob("*/data.json")]
+        # Filter out .DS_Store and only include directories with data.json
+        dates = [
+            d.name for d in dataset_dir.glob("*/data.json") 
+            if d.parent.name != '.DS_Store' and d.parent.is_dir()
+        ]
         
         index_data = {
             "dates": sorted(dates, reverse=True),
@@ -90,7 +94,11 @@ class MetadataAssembler:
     def _update_region_index(self, region_dir: Path, dataset: str):
         """Update the index of available datasets for a region."""
         index_path = region_dir / "index.json"
-        datasets = [d.name for d in (region_dir / "datasets").glob("*")]
+        # Filter out .DS_Store and only include actual dataset directories
+        datasets = [
+            d.name for d in (region_dir / "datasets").glob("*")
+            if d.name != '.DS_Store' and d.is_dir()
+        ]
         
         index_data = {
             "datasets": [
