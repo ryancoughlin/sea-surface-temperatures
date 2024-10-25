@@ -8,14 +8,14 @@ class GeoJSONConverterFactory:
     """Factory for creating appropriate GeoJSON converters."""
     
     @staticmethod
-    def create(dataset: str, settings: Dict = None) -> BaseGeoJSONConverter:
+    def create(dataset: str) -> BaseGeoJSONConverter:
         """Create appropriate GeoJSON converter based on dataset type."""
         dataset_config = SOURCES[dataset]
         category = dataset_config.get('category')
         
         if category == 'sst':
-            return SSTGeoJSONConverter(settings)
+            return SSTGeoJSONConverter()
         elif category == 'currents':
-            return CurrentsGeoJSONConverter(settings)
+            return CurrentsGeoJSONConverter()
         else:
             raise ValueError(f"No GeoJSON converter available for category: {category}")

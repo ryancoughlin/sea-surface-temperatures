@@ -77,8 +77,8 @@ class SSTProcessor(BaseImageProcessor):
             ax.axis('off')
             plt.tight_layout(pad=0)
             
-            # Generate image path
-            image_path = OUTPUT_DIR / "images" / region / dataset / f"{dataset}_{region}_{timestamp}.png"
+            # Generate image path using base class method
+            image_path = self.generate_image_path(region, dataset, timestamp)
             
             # Ensure directory exists
             image_path.parent.mkdir(parents=True, exist_ok=True)

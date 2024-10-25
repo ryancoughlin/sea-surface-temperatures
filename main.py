@@ -32,6 +32,7 @@ async def process_data_for_region_and_dataset(
         # Get configurations
         region = REGIONS[region_id]
         dataset_config = SOURCES[dataset]
+        timestamp = date.strftime('%Y%m%d')
 
         # Download data
         data_file = await service.download(
@@ -41,7 +42,7 @@ async def process_data_for_region_and_dataset(
             output_path=DATA_DIR
         )
         
-        # Create processor and converter for specific dataset
+        # Create processor and converter
         processor = ProcessorFactory.create(dataset)
         geojson_converter = GeoJSONConverterFactory.create(dataset)
         
@@ -50,32 +51,33 @@ async def process_data_for_region_and_dataset(
             data_path=data_file,
             region=region_id,
             dataset=dataset,
-            timestamp=date.strftime('%Y%m%d')
+            timestamp=timestamp
         )
         
         geojson_path = geojson_converter.convert(
             data_path=data_file,
             region=region_id,
             dataset=dataset,
-            timestamp=date.strftime('%Y%m%d')
+            timestamp=timestamp
         )
         
+        # Generate metadata
         metadata_path = metadata_assembler.assemble_metadata(
             region=region_id,
             dataset=dataset,
-            timestamp=date.strftime('%Y%m%d'),
+            timestamp=timestamp,
             image_path=image_path,
-            geojson_path=geojson_path,
+            geojson_path=geojson_path
         )
         
+        # Generate tiles
         tile_generator.generate_tiles(
             Image.open(image_path), 
             region_id, 
             dataset, 
-            date.strftime('%Y%m%d')
+            timestamp
         )
         
-        logging.info(f"Successfully processed {region['name']} for dataset {dataset}")
         return {"metadata_path": str(metadata_path)}
         
     except Exception as e:

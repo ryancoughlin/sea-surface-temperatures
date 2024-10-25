@@ -4,18 +4,35 @@ import json
 # Define the root directory
 ROOT_DIR = Path(__file__).parent.parent
 
-# Define the output directory
+# Define main directories
 OUTPUT_DIR = ROOT_DIR / "output"
-
-# Define directories for regions, datasets, and dates
+DATA_DIR = ROOT_DIR / "downloaded_data"
 REGIONS_DIR = OUTPUT_DIR / "regions"
+
+# Ensure critical directories exist
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+REGIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Directory structure configuration
+DIR_STRUCTURE = {
+    "base": REGIONS_DIR,
+    "paths": {
+        "image": "{region}/datasets/{dataset}/{timestamp}/image.png",
+        "geojson": "{region}/datasets/{dataset}/{timestamp}/data.geojson",
+        "metadata": "{region}/datasets/{dataset}/{timestamp}/data.json",
+        "tiles": "{region}/datasets/{dataset}/{timestamp}/tiles",
+        "index": {
+            "main": "index.json",
+            "region": "{region}/index.json",
+            "dataset": "{region}/datasets/{dataset}/index.json"
+        }
+    }
+}
 
 # Load color scale relative to ROOT_DIR
 with open(ROOT_DIR / 'color_scale.json', 'r') as f:  # Update color scale path
     color_scale = json.load(f)
-
-# Base paths
-DATA_DIR = ROOT_DIR / "downloaded_data"
 
 # Image generation settings
 IMAGE_SETTINGS = {
@@ -89,3 +106,4 @@ SOURCES = {
     #     'lag_days': 3
     # }
 }
+

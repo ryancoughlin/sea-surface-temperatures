@@ -1,16 +1,17 @@
 from pathlib import Path
 import numpy as np
 from PIL import Image
-from config import settings
+from config.settings import TILE_SETTINGS, REGIONS_DIR  # Direct imports
 
 class TileGenerator:
     def __init__(self):
-        self.tile_size = settings.TILE_SETTINGS['tile_size']
-        self.zoom_levels = settings.TILE_SETTINGS['zoom_levels']
+        self.tile_size = TILE_SETTINGS['tile_size']
+        self.zoom_levels = TILE_SETTINGS['zoom_levels']
+        self.base_dir = REGIONS_DIR
     
     def generate_tiles(self, image: Image.Image, region: str, dataset: str, timestamp: str) -> None:
         """Generate tiles from a PIL Image object for specified zoom levels."""
-        output_dir = settings.REGIONS_DIR / region / "datasets" / dataset / "dates" / timestamp / "tiles"
+        output_dir = self.base_dir / region / "datasets" / dataset / timestamp / "tiles"
         width, height = image.size
         
         for zoom in self.zoom_levels:
