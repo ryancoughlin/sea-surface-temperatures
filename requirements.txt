@@ -1,0 +1,8 @@
+xarray
+numpy
+matplotlib
+pillow
+geojson
+aiohttp
+netCDF4
+scipy
