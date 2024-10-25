@@ -1,5 +1,5 @@
 # Dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.js
 
@@ -8,7 +8,7 @@
 
 # Geo data 
 downloaded_data/
-/sst-processor/data
+output/
 **/*.nc
 **/*.nc4
 # Misc
