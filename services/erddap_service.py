@@ -41,17 +41,26 @@ class ERDDAPService:
         var_constraints = []
         for var in variables:
             var_url = var
-            for dim, values in constraints.items():
-                if dim == 'time':
-                    constraint = self.build_constraint(
-                        dim_name=dim,
-                        start=values.get('start'),
-                        stop=values.get('stop')
-                    )
-                else:
-                    # For lat/lon, wrap values in parentheses like the working URL
-                    constraint = f"[({values.get('start')}):1:({values.get('stop')})]"
-                var_url += constraint
+            
+            # Add time constraint first
+            time_values = constraints.get('time')
+            time_constraint = self.build_constraint(
+                dim_name='time',
+                start=time_values.get('start'),
+                stop=time_values.get('stop')
+            )
+            var_url += time_constraint
+            
+            # Add altitude if present (second position)
+            if 'altitude' in constraints:
+                var_url += constraints['altitude']
+            
+            # Add lat/lon constraints
+            lat_values = constraints.get('latitude')
+            lon_values = constraints.get('longitude')
+            var_url += f"[({lat_values.get('start')}):1:({lat_values.get('stop')})]"
+            var_url += f"[({lon_values.get('start')}):1:({lon_values.get('stop')})]"
+            
             var_constraints.append(var_url)
             
         url += ','.join(var_constraints)
@@ -93,6 +102,10 @@ class ERDDAPService:
                 }
             }
 
+            # Add altitude constraint if present in source config
+            if 'altitude' in source_config:
+                constraints['altitude'] = source_config['altitude']
+
             # Build download URL
             url = self.build_url(
                 base_url=source_config['base_url'],
@@ -129,3 +142,4 @@ class ERDDAPService:
             logger.error(f"Error saving ERDDAP data: {e}")
             logger.error(f"Failed URL: {url if 'url' in locals() else 'URL not available'}")
             raise
+
