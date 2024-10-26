@@ -2,6 +2,7 @@ from typing import Dict
 from .base_converter import BaseGeoJSONConverter
 from .sst_converter import SSTGeoJSONConverter
 from .currents_converter import CurrentsGeoJSONConverter
+from .chlorophyll_converter import ChlorophyllGeoJSONConverter
 from config.settings import SOURCES
 
 class GeoJSONConverterFactory:
@@ -15,7 +16,8 @@ class GeoJSONConverterFactory:
         
         converters = {
             'sst': SSTGeoJSONConverter,
-            'currents': CurrentsGeoJSONConverter
+            'currents': CurrentsGeoJSONConverter,
+            'chlorophyll': ChlorophyllGeoJSONConverter
         }
         
         converter_class = converters.get(category)

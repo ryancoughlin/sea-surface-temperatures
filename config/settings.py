@@ -56,57 +56,36 @@ MAPBOX_CONFIG = {
 
 # Data source configurations
 SOURCES = {
-    "blended_sst": {
-        "name": "Blended SST",
+    "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
-        "base_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap",
-        "dataset_id": "jplMURSST41",
-        "variable": ["analysed_sst"],
+        "name": "LEO ACSPO SST L3S NRT C Daily",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
+        "variables": ["sea_surface_temperature"],
         "time_format": "%Y-%m-%dT00:00:00Z",
-        "lag_days": 1,
+        "lag_days": 2,
         "color_scale": "RdYlBu_r",
         "category": "sst",
-        'mapbox': {
-            'min_zoom': 0,
-            'max_zoom': 6,
-            'raster_band': 1,
-            'decimation_factor': 3
-        }
-    },
-    # "LEOACSPOSSTL3SnrtCDaily": {
+        "stride": None,
+   },
+    # "BLENDEDNRTcurrentsDaily": {
     #     "source_type": "erddap",
-    #     "name": "LEO ACSPO SST L3S NRT C Daily",
+    #     "name": "NOAA Blended NRT Currents Daily",
     #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-    #     "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
-    #     "variable": ["sea_surface_temperature"],
+    #     "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
+    #     "variables": ["u_current", "v_current"],
     #     "time_format": "%Y-%m-%dT00:00:00Z",
     #     "lag_days": 1,
-    #     "color_scale": "RdYlBu_r",
-    #     "category": "sst",
-   # },
-    "BLENDEDNRTcurrentsDaily": {
-        "source_type": "erddap",
-        "name": "NOAA Blended NRT Currents Daily",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-        "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
-        "variable": ["u_current", "v_current"],
-        "time_format": "%Y-%m-%dT00:00:00Z",
-        "lag_days": 1,
-        "color_scale": "viridis",
-        "category": "currents",
-        'mapbox': {
-            'min_zoom': 0,
-            'max_zoom': 6,
-            'raster_band': 1,
-            'decimation_factor': 3
-        }
-    },
+    #     "color_scale": "viridis",
+    #     "category": "currents",
+  
+    # },
     # "chlorophyll_oci": {
     #     "source_type": "erddap",
     #     "name": "Chlorophyll OCI",
     #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
     #     "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
-    #     "variable": ["chlor_a"],
+    #     "variables": ["chlor_a"],
     #     "time_format": "%Y-%m-%dT00:00:00Z",
     #     "lag_days": 2,
     #     "color_scale": "YlGnBu",
@@ -117,7 +96,7 @@ SOURCES = {
     #     'name': 'OSCAR Ocean Currents',
     #     'source_type': 'podaac',
     #     'category': 'currents',
-    #     'variable': ['u', 'v'],  # Now needs both components
+    #     'variables': ['u', 'v'],  # Now needs both components
     #     'color_scale': 'viridis',  # Or another appropriate colormap
     #     'dataset_id': 'OSCAR_L4_OC_NRT_V2.0',
     #     'collection_shortname': 'OSCAR_L4_OC_NRT_V2.0',

@@ -8,7 +8,6 @@ from config.settings import SOURCES
 from config.settings import OUTPUT_DIR
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f, interpolate_data
-from .metadata_assembler import MetadataAssembler
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class SSTProcessor(BaseImageProcessor):
             ds = xr.open_dataset(data_path)
             
             # Get variable name from settings
-            var_name = SOURCES[dataset]['variable'][0]  # Get first variable since SST only has one
+            var_name = SOURCES[dataset]['variables'][0]  # Get first variable since SST only has one
             data = ds[var_name]
             
             # Select first time slice if time dimension exists
