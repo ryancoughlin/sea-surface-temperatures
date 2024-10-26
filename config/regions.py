@@ -39,7 +39,7 @@ REGIONS: Dict[str, Region] = {
         ]
     },
     "cape_cod": {
-        "name": "Cape Cod / Georges Bank",
+        "name": "Cape Cod and Georges Bank",  # Changed from "Cape Cod / Georges Bank"
         "description": "Cape Cod and Georges Bank region",
         "bounds": [
             [-71.25, 39.5],  # [west, south]
