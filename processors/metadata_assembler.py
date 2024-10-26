@@ -31,7 +31,7 @@ class MetadataAssembler:
             json.dump(regions_index, f, indent=2)
 
     def assemble_metadata(self, region: str, dataset: str, timestamp: str,
-                         image_path: Path, geojson_path: Path) -> Path:
+                         image_path: Path, geojson_path: Path, mapbox_url: str = None) -> Path:
         """Assemble and save metadata for a processed dataset."""
         try:
             # Prepare paths
@@ -54,7 +54,8 @@ class MetadataAssembler:
                 "paths": {
                     "image": str(image_path.relative_to(self.base_dir)),
                     "geojson": str(geojson_path.relative_to(self.base_dir)),
-                    "tiles": f"{region}/datasets/{dataset}/{timestamp}/tiles"
+                    "tiles": f"{region}/datasets/{dataset}/{timestamp}/tiles",
+                    "mapbox_url": mapbox_url  # Add Mapbox URL
                 }
             }
 

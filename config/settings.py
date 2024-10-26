@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 
 # Define the root directory
 ROOT_DIR = Path(__file__).parent.parent
@@ -47,6 +48,12 @@ TILE_SETTINGS = {
     "tile_size": 256,
 }
 
+# Add Mapbox configuration
+MAPBOX_CONFIG = {
+    'access_token': 'pk.eyJ1Ijoic25vd2Nhc3QiLCJhIjoiY2plYXNjdTRoMDhsbDJ4bGFjOWN0YjdzeCJ9.fM2s4NZq_LUiTXJxsl2HbQ',
+    'username': 'snowcast',
+}
+
 # Data source configurations
 SOURCES = {
     "blended_sst": {
@@ -59,6 +66,12 @@ SOURCES = {
         "lag_days": 1,
         "color_scale": "RdYlBu_r",
         "category": "sst",
+        'mapbox': {
+            'min_zoom': 0,
+            'max_zoom': 6,
+            'raster_band': 1,
+            'decimation_factor': 3
+        }
     },
     # "LEOACSPOSSTL3SnrtCDaily": {
     #     "source_type": "erddap",
@@ -70,7 +83,7 @@ SOURCES = {
     #     "lag_days": 1,
     #     "color_scale": "RdYlBu_r",
     #     "category": "sst",
-    # },
+   # },
     "BLENDEDNRTcurrentsDaily": {
         "source_type": "erddap",
         "name": "NOAA Blended NRT Currents Daily",
@@ -81,7 +94,13 @@ SOURCES = {
         "lag_days": 1,
         "color_scale": "viridis",
         "category": "currents",
-    }
+        'mapbox': {
+            'min_zoom': 0,
+            'max_zoom': 6,
+            'raster_band': 1,
+            'decimation_factor': 3
+        }
+    },
     # "chlorophyll_oci": {
     #     "source_type": "erddap",
     #     "name": "Chlorophyll OCI",

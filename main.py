@@ -42,25 +42,14 @@ async def process_data_for_region_and_dataset(
             output_path=DATA_DIR
         )
         
-        # Create processor and converter
+        # Initialize processors
         processor = ProcessorFactory.create(dataset)
         geojson_converter = GeoJSONConverterFactory.create(dataset)
         
-        # Generate image and GeoJSON
-        image_path = processor.generate_image(
-            data_path=data_file,
-            region=region_id,
-            dataset=dataset,
-            timestamp=timestamp
-        )
-        
-        geojson_path = geojson_converter.convert(
-            data_path=data_file,
-            region=region_id,
-            dataset=dataset,
-            timestamp=timestamp
-        )
-        
+        # Process formats sequentially since they're synchronous
+        image_path = processor.generate_image(data_file, region_id, dataset, timestamp)
+        geojson_path = geojson_converter.convert(data_file, region_id, dataset, timestamp)
+
         # Generate metadata
         metadata_path = metadata_assembler.assemble_metadata(
             region=region_id,
@@ -70,19 +59,17 @@ async def process_data_for_region_and_dataset(
             geojson_path=geojson_path
         )
         
-        # Generate tiles
-        tile_generator.generate_tiles(
-            Image.open(image_path), 
-            region_id, 
-            dataset, 
-            timestamp
-        )
-        
-        return {"metadata_path": str(metadata_path)}
+        return {
+            "metadata_path": str(metadata_path),
+            "status": "success"
+        }
         
     except Exception as e:
         logging.error(f"Error processing {region_id} for dataset {dataset}: {str(e)}")
-        return {}
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
 async def main():
     # Initialize components
@@ -98,14 +85,15 @@ async def main():
         
         for region_id in REGIONS:
             logging.info(f"Creating task for region: {region_id}, dataset: {dataset}")
-            task = process_data_for_region_and_dataset(
+            # Create coroutine by awaiting the function call
+            task = asyncio.create_task(process_data_for_region_and_dataset(
                 date, 
                 region_id, 
                 dataset, 
                 service,
                 tile_generator,
                 metadata_assembler,
-            )
+            ))
             tasks.append(task)
     
     results = await asyncio.gather(*tasks, return_exceptions=True)

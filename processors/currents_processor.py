@@ -13,100 +13,63 @@ logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
-        """Generate ocean currents image for a specific region."""
+        """Generate ocean currents visualization with readable arrow coverage."""
         try:
             # Load data
-            logger.info(f"Processing currents data for {region}")
             ds = xr.open_dataset(data_path)
-            
-            # Debug data structure
-            logger.info(f"Dataset variables: {list(ds.variables)}")
-            logger.info(f"Dataset dimensions: {list(ds.dims)}")
-            logger.info(f"Dataset coordinates: {list(ds.coords)}")
-            
-            # Get region bounds
             bounds = REGIONS[region]['bounds']
-            logger.info(f"Processing region: {region}")
-            logger.info(f"Bounds: W:{bounds[0][0]}, S:{bounds[0][1]}, E:{bounds[1][0]}, N:{bounds[1][1]}")
             
-            # Get coordinate names (they might be longitude/latitude instead of lon/lat)
-            lon_name = 'longitude' if 'longitude' in ds.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in ds.coords else 'lat'
-            
-            logger.info(f"Using coordinate names: {lon_name}, {lat_name}")
-            
-            # Create boolean masks for the region
-            lon_indices = (ds[lon_name] >= bounds[0][0]) & (ds[lon_name] <= bounds[1][0])
-            lat_indices = (ds[lat_name] >= bounds[0][1]) & (ds[lat_name] <= bounds[1][1])
-            
-            # Get the actual coordinate values within bounds
-            lons = ds[lon_name].where(lon_indices, drop=True)
-            lats = ds[lat_name].where(lat_indices, drop=True)
-            
-            # Log what we found
-            logger.info(f"Found {len(lons)} longitude points and {len(lats)} latitude points in region")
-            logger.info(f"Longitude range: {lons.min().item():.2f} to {lons.max().item():.2f}")
-            logger.info(f"Latitude range: {lats.min().item():.2f} to {lats.max().item():.2f}")
-            
-            # Extract regional data for first time step
-            u_data = ds.u.isel(time=0).sel(
-                **{lon_name: lons},
-                **{lat_name: lats}
-            )
-            v_data = ds.v.isel(time=0).sel(
-                **{lon_name: lons},
-                **{lat_name: lats}
+            # Subset data
+            ds_subset = ds.sel(
+                longitude=slice(bounds[0][0], bounds[1][0]),
+                latitude=slice(bounds[0][1], bounds[1][1]),
+                time=ds.time[0]
             )
             
-            # Calculate speed
-            speed = np.sqrt(u_data**2 + v_data**2)
+            # Get current components
+            u = ds_subset.u_current
+            v = ds_subset.v_current
             
             # Create figure
-            fig, ax = plt.subplots(figsize=(10, 8))
+            fig, ax = plt.subplots(figsize=(10, 8), facecolor='none')
+            ax.set_facecolor('none')
             
-            # Create meshgrid for plotting
-            lon_grid, lat_grid = np.meshgrid(lons, lats)
+            # Create grid
+            lon_grid, lat_grid = np.meshgrid(ds_subset.longitude, ds_subset.latitude)
             
-            # Plot speed contours
-            contour = ax.contourf(
-                lon_grid, 
-                lat_grid, 
-                speed.T,  # Transpose for correct orientation
-                levels=20,
-                cmap='viridis',
-                extend='both'
-            )
+            # Add stride to reduce density
+            stride = 4  # Show every 4th point
             
-            # Add arrows (subsampled)
-            stride = max(1, min(u_data.shape) // 20)
+            # Plot arrows
             ax.quiver(
-                lon_grid[::stride, ::stride],
+                lon_grid[::stride, ::stride],  # Reduced density
                 lat_grid[::stride, ::stride],
-                u_data.values[::stride, ::stride].T,
-                v_data.values[::stride, ::stride].T,
-                scale=20,
+                u.values[::stride, ::stride].T,
+                v.values[::stride, ::stride].T,
                 color='white',
-                alpha=0.6,
-                width=0.003
+                scale=8,  # Adjusted for more visible arrows
+                width=0.004,  # Thicker arrows
+                headwidth=6,  # Larger arrow heads
+                headlength=7,
+                headaxislength=6,
+                alpha=0.8  # More opaque
             )
             
-            # Add colorbar
-            plt.colorbar(
-                contour, 
-                label='Current Speed (m/s)',
-                orientation='vertical',
-                fraction=0.046, 
-                pad=0.04
-            )
-            
-            # Cleanup
+            # Clean up plot
             ax.axis('off')
             plt.tight_layout(pad=0)
             
-            # Save and return
+            # Save image
             image_path = self.generate_image_path(region, dataset, timestamp)
             image_path.parent.mkdir(parents=True, exist_ok=True)
-            fig.savefig(image_path, dpi=self.settings['dpi'], bbox_inches='tight')
+            
+            fig.savefig(
+                image_path,
+                dpi=300,
+                bbox_inches='tight',
+                transparent=True,
+                pad_inches=0
+            )
             plt.close(fig)
             
             logger.info(f"Currents image saved to {image_path}")
@@ -114,7 +77,6 @@ class CurrentsProcessor(BaseImageProcessor):
             
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")
-            logger.error("Full traceback:", exc_info=True)
             raise
 
     def process_current_data(self, ds, bounds):

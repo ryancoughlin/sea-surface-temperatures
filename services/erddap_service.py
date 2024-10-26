@@ -1,16 +1,14 @@
 import asyncio
 import logging
+import aiohttp
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List
-import aiohttp
 from urllib.parse import quote
-
 from .base_service import BaseService
 from config.settings import SOURCES
 
 logger = logging.getLogger(__name__)
-
 class ERDDAPService(BaseService):
     async def download(self, date: datetime, dataset: Dict, region: Dict, output_path: Path) -> Path:
         """Download data from ERDDAP.

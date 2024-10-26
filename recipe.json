@@ -1,0 +1,41 @@
+{
+    "version": 1,
+    "type": "rasterarray",
+    "sources": [
+        {
+            "uri": "mapbox://tileset-source/snowcast/currents_gulf_mexico_20241025"
+        }
+    ],
+    "layers": {
+        "currents": {
+            "source": "mapbox://tileset-source/snowcast/currents_gulf_mexico_20241025",
+            "minzoom": 0,
+            "maxzoom": 6,
+            "tilesize": 512,
+            "buffer": 1,
+            "raster_band": "water_u,water_v",
+            "units": "m/s",
+            "resampling": "bilinear",
+            "source_rules": {
+                "filter": [
+                    [
+                        "==",
+                        [
+                            "get",
+                            "GRIB_COMMENT"
+                        ],
+                        "u-component of current [m/s]"
+                    ],
+                    [
+                        "==",
+                        [
+                            "get",
+                            "GRIB_COMMENT"
+                        ],
+                        "v-component of current [m/s]"
+                    ]
+                ]
+            }
+        }
+    }
+}
