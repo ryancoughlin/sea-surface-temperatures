@@ -4,7 +4,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./output:/app/output
-    restart: unless-stopped
 
   nginx:
     image: nginx:alpine

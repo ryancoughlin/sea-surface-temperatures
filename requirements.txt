@@ -1,8 +1,22 @@
+# Core data processing
 xarray
 numpy
+scipy
+netCDF4
+dask[complete]  # For parallel processing with xarray
+
+# Visualization
 matplotlib
 pillow
+
+# Data formats
 geojson
+
+# Async/Web
 aiohttp
-netCDF4
-scipy
+
+# Optional but recommended for performance
+bottleneck  # Speed optimizations for xarray operations
+
+# Logging
+python-json-logger  # For structured JSON logging
