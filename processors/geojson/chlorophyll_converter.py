@@ -12,48 +12,36 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
-            ds = xr.open_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = ds[var_name]
+            ds = self.load_dataset(data_path)
+            longitude, latitude = self.get_coordinates(ds)
             
-            if 'time' in data.dims:
-                data = data.isel(time=0)
+            # Get chlorophyll data
+            data = self.select_time_slice(ds['chlor_a'])
+            if 'altitude' in data.dims:
+                data = data.isel(altitude=0)
             
-            # Create GeoJSON features
-            stride = 5  # Adjust based on needs
             features = []
-            
-            for i in range(0, data.shape[0], stride):
-                for j in range(0, data.shape[1], stride):
-                    lon = float(data.longitude[j])
-                    lat = float(data.latitude[i])
-                    value = float(data[i, j])
-                    
-                    if not np.isnan(value):
-                        feature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [lon, lat]
-                            },
-                            "properties": {
-                                "value": value,
-                                "unit": "mg/m³"
-                            }
-                        }
-                        features.append(feature)
-            
-            geojson = {
+            for i, lat in enumerate(latitude):
+                for j, lon in enumerate(longitude):
+                    value = float(data.values[i, j])
+                    if not np.isnan(value) and value > 0:
+                        properties = {"chlorophyll": value}
+                        features.append(self.create_feature(lon, lat, properties))
+
+            geojson_data = {
                 "type": "FeatureCollection",
+                "metadata": {
+                    "title": "Chlorophyll Concentration",
+                    "timestamp": timestamp,
+                    "units": "mg/m³"
+                },
                 "features": features
             }
-            
+
             output_path = self.generate_geojson_path(region, dataset, timestamp)
-            with open(output_path, 'w') as f:
-                json.dump(geojson, f)
-            
+            self.save_geojson(geojson_data, output_path)
             return output_path
-            
+
         except Exception as e:
             logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}")
             raise

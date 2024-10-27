@@ -1,11 +1,13 @@
-from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+import xarray as xr
+from pathlib import Path
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-import xarray as xr
+from utils.data_utils import interpolate_data
+import matplotlib.colors as mcolors
 
 logger = logging.getLogger(__name__)
 
@@ -13,57 +15,74 @@ class ChlorophyllProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
         """Generate chlorophyll visualization."""
         try:
-            # Load data
+            # Load data with debug logging
+            logger.info(f"Processing chlorophyll data for {region}")
             ds = xr.open_dataset(data_path)
-            bounds = REGIONS[region]['bounds']
-            
-            # Get variable name from settings
             var_name = SOURCES[dataset]['variables'][0]
+            data = ds[var_name]
             
-            # Get chlorophyll data
-            chlor = ds[var_name]
+            logger.debug(f"Initial data shape: {data.shape}")
+            logger.debug(f"Initial data dims: {data.dims}")
             
-            # Select first time slice if time dimension exists
-            if 'time' in chlor.dims:
-                logger.debug("Selecting first time slice from 3D data")
-                chlor = chlor.isel(time=0)
+            # Handle dimensions
+            if 'time' in data.dims:
+                data = data.isel(time=0)
+            if 'altitude' in data.dims:
+                data = data.isel(altitude=0)
             
-            # Subset data after time selection
-            ds_subset = chlor.sel(
-                longitude=slice(bounds[0][0], bounds[1][0]),
-                latitude=slice(bounds[0][1], bounds[1][1])
-            )
+            logger.debug(f"Data shape after dimension reduction: {data.shape}")
             
-            # Create figure
-            fig, ax = plt.subplots(figsize=(10, 8), facecolor='none')
-            ax.set_facecolor('none')
+            # Get bounds and coordinates
+            bounds = REGIONS[region]['bounds']
+            logger.info(f"Region bounds: {bounds}")
             
-            # Plot chlorophyll concentration
-            im = ax.contourf(
-                ds_subset.longitude,
-                ds_subset.latitude,
-                ds_subset,
-                levels=np.linspace(0, 20, 50),  # Adjust range for chlorophyll
-                cmap=SOURCES[dataset]['color_scale'],
-                extend='both'
-            )
+            # Get coordinate names
+            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
+            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
             
-            # Clean up plot
-            ax.axis('off')
-            plt.tight_layout(pad=0)
+            # Check if we have valid coordinates
+            if data[lon_name].size == 0 or data[lat_name].size == 0:
+                logger.warning("Empty coordinate dimensions found")
+                raise ValueError("Dataset has empty coordinate dimensions")
+                
+            logger.debug(f"Coordinate sizes - lon: {data[lon_name].size}, lat: {data[lat_name].size}")
             
-            # Save image
+            # Mask to region
+            lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
+            lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
+            regional_data = data.where(lon_mask & lat_mask, drop=True)
+            
+            logger.debug(f"Regional data shape: {regional_data.shape}")
+            
+            # Check if we have any data after masking
+            if regional_data.size == 0:
+                logger.warning("No data available in the specified region")
+                fig, ax = plt.subplots(figsize=(10, 8))
+                ax.text(0.5, 0.5, 'No Data Available', 
+                       horizontalalignment='center',
+                       verticalalignment='center',
+                       transform=ax.transAxes)
+                ax.axis('off')
+            else:
+                # Interpolate and mask data
+                data_interpolated = interpolate_data(regional_data, factor=1)                
+                # Create figure and plot
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
+                contour = ax.contourf(
+                    data_interpolated,
+                    levels=20,
+                    cmap=SOURCES[dataset]['color_scale'],
+                    extend='both'
+                )
+                
+                ax.axis('off')
+            
+            # Save figure
             image_path = self.generate_image_path(region, dataset, timestamp)
             image_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            fig.savefig(
-                image_path,
-                dpi=300,
-                bbox_inches='tight',
-                transparent=True,
-                pad_inches=0
-            )
-            plt.close(fig)
+            plt.savefig(image_path, dpi=self.settings['dpi'], bbox_inches='tight')
+            plt.close()
             
             logger.info(f"Chlorophyll image saved to {image_path}")
             return image_path

@@ -11,6 +11,7 @@ from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
 from processors.processor_factory import ProcessorFactory
 from processors.geojson.factory import GeoJSONConverterFactory
+from processors.processing_manager import ProcessingManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -77,43 +78,32 @@ async def process_data_for_region_and_dataset(
         }
 
 async def main():
+    # Initialize services
+    metadata_assembler = MetadataAssembler()
+    processing_manager = ProcessingManager(metadata_assembler)
+    
     date = datetime.now()
     tasks = []
     
-    # Initialize services and processors
-    erddap_service = ERDDAPService()
-    tile_generator = TileGenerator()
-    metadata_assembler = MetadataAssembler()
-    
-    # Create tasks for each dataset and region
-    for dataset, dataset_config in SOURCES.items():
-        if dataset_config['source_type'] == 'erddap':
-            for region_id in REGIONS:
-                logger.info(f"Creating task: {region_id}, {dataset}")
-                task = asyncio.create_task(
-                    process_data_for_region_and_dataset(
-                        date=date,
-                        region_id=region_id,
-                        dataset=dataset,
-                        service=erddap_service,
-                        tile_generator=tile_generator,
-                        metadata_assembler=metadata_assembler,
-                    )
+    # Create processing tasks
+    for dataset in SOURCES:
+        for region_id in REGIONS:
+            task = asyncio.create_task(
+                processing_manager.process_dataset(
+                    date=date,
+                    region_id=region_id,
+                    dataset=dataset
                 )
-                tasks.append(task)
+            )
+            tasks.append(task)
     
-    # Execute all tasks
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     # Process results
-    successes = [r for r in results if isinstance(r, dict) and r.get('status') == 'success']
-    failures = [r for r in results if isinstance(r, dict) and r.get('status') == 'error']
+    successes = [r for r in results if r.get('status') == 'success']
+    failures = [r for r in results if r.get('status') == 'error']
     
-    logger.info(f"Completed processing: {len(successes)} successful, {len(failures)} failed")
-    if failures:
-        logger.error("Failed tasks:")
-        for failure in failures:
-            logger.error(f"  {failure.get('region')}, {failure.get('dataset')}: {failure.get('error')}")
+    logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
 
 if __name__ == "__main__":
     # Create directories
