@@ -30,12 +30,6 @@ def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.
 
 def interpolate_data(data: xr.DataArray, factor: int = 2) -> xr.DataArray:
     """Interpolate data to add more points."""
-    # Print initial diagnostics
-    # print(f"Input data stats:")
-    # print(f"- Shape: {data.shape}")
-    # print(f"- Dims: {data.dims}")
-    # print(f"- NaN count: {np.isnan(data).sum().item()}")
-    # print(f"- Range: {data.min().item()} to {data.max().item()}")
     
     # Extract latitude and longitude
     lat = data.coords['latitude']
@@ -51,10 +45,5 @@ def interpolate_data(data: xr.DataArray, factor: int = 2) -> xr.DataArray:
         longitude=new_lon, 
         method='linear'  # Changed to linear temporarily
     )
-    
-    # print(f"\nOutput data stats:")
-    # print(f"- Shape: {interpolated_data.shape}")
-    # print(f"- NaN count: {np.isnan(interpolated_data).sum().item()}")
-    # print(f"- Range: {interpolated_data.min().item()} to {interpolated_data.max().item()}")
     
     return interpolated_data

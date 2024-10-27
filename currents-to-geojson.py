@@ -12,11 +12,6 @@ longitude = ds['lon'].values
 u_data = ds['u'][0, :, :].values  # Shape is (1440, 719) - (lon, lat)
 v_data = ds['v'][0, :, :].values
 
-# Print debug info
-print(f"Data shapes - u: {u_data.shape}, v: {v_data.shape}")
-print(f"Coordinate shapes - lat: {latitude.shape}, lon: {longitude.shape}")
-print(f"Sample values - u: {u_data[0,0]}, v: {v_data[0,0]}")
-
 # Create features using list comprehension
 features = [
     {
@@ -55,5 +50,3 @@ geojson_data = {
 # Write GeoJSON to file
 with open("ne_currents_data.geojson", "w") as geojson_file:
     json.dump(geojson_data, geojson_file)
-
-print(f"Created {len(features)} features")

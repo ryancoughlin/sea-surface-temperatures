@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from services.erddap_service import ERDDAPService
 from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
@@ -16,77 +16,101 @@ class ProcessingManager:
     """Coordinates data processing workflow using existing services"""
     
     def __init__(self, metadata_assembler: MetadataAssembler):
+        """Initialize with required services"""
+        # Core services
         self.metadata_assembler = metadata_assembler
         self.erddap_service = ERDDAPService()
         self.tile_generator = TileGenerator()
+        
+        # Factories
         self.processor_factory = ProcessorFactory()
-    
+        self.geojson_converter_factory = GeoJSONConverterFactory()
+
     async def process_dataset(
         self, 
         date: datetime,
         region_id: str, 
         dataset: str
-    ) -> Dict:
-        """Orchestrates the processing workflow"""
+    ) -> Dict[str, Union[str, Path, dict]]:
+        """Process a single dataset for a region."""
         try:
+            region = REGIONS[region_id]
+            dataset_config = SOURCES[dataset]
             timestamp = date.strftime('%Y%m%d')
-            
-            # Download data
-            data_file = await self.erddap_service.save_data(
+
+            # Download data using ERDDAPService directly
+            data_path: Path = await self.erddap_service.save_data(
                 date=date,
-                dataset=SOURCES[dataset],
-                region=REGIONS[region_id],
+                dataset=dataset_config,
+                region=region,
                 output_path=DATA_DIR
             )
             
+            if not data_path.exists():
+                raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
+
             # Process data
-            processor = self.processor_factory.create(dataset)
-            image_path = processor.generate_image(
-                data_file, 
-                region_id, 
-                dataset, 
-                timestamp
-            )
-            
-            # Generate GeoJSON
-            geojson_converter = GeoJSONConverterFactory.create(dataset)
-            geojson_path = geojson_converter.convert(
-                data_file, 
-                region_id, 
-                dataset, 
-                timestamp
-            )
-            
-            # Generate tiles
-            self.tile_generator.generate_tiles(
-                image=image_path,
+            processor = ProcessorFactory.create(dataset)
+            logger.info(f"Processing {dataset} data for {region_id}")
+            logger.info(f"Region bounds: {region['bounds']}")
+
+            # Generate image with all original processing logic
+            image_path: Path = processor.generate_image(
+                data_path=data_path,
                 region=region_id,
                 dataset=dataset,
                 timestamp=timestamp
             )
             
-            # Use existing metadata assembler
-            metadata_path = self.metadata_assembler.assemble_metadata(
+            # Convert to GeoJSON with original conversion logic
+            geojson_converter = GeoJSONConverterFactory.create(dataset)
+            geojson_path: Path = geojson_converter.convert(
+                data_path=data_path,
+                region=region_id,
+                dataset=dataset,
+                timestamp=timestamp
+            )
+
+            # Generate metadata
+            metadata_path: Path = self.metadata_assembler.assemble_metadata(
                 region=region_id,
                 dataset=dataset,
                 timestamp=timestamp,
                 image_path=image_path,
-                geojson_path=geojson_path,
-                mapbox_url=mapbox_url
+                geojson_path=geojson_path
             )
-            
-            return {
-                "status": "success",
-                "metadata_path": str(metadata_path),
-                "image_path": str(image_path),
-                "geojson_path": str(geojson_path)
+
+            # Validate all outputs exist and have content
+            outputs = {
+                'data': data_path,
+                'image': image_path,
+                'geojson': geojson_path,
+                'metadata': metadata_path
             }
-            
+
+            if all(path.exists() and path.stat().st_size > 0 for path in outputs.values()):
+                return {
+                    'status': 'success',
+                    'paths': outputs,
+                    'region': region_id,
+                    'dataset': dataset
+                }
+            else:
+                missing = [k for k, v in outputs.items() 
+                          if not v.exists() or v.stat().st_size == 0]
+                raise FileNotFoundError(f"Missing or empty output files: {missing}")
+
         except Exception as e:
             logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
             return {
-                "status": "error",
-                "error": str(e),
-                "region": region_id,
-                "dataset": dataset
+                'status': 'error',
+                'error': str(e),
+                'region': region_id,
+                'dataset': dataset
             }
+
+    def serialize_paths(self, result: dict) -> dict:
+        """Convert Path objects to strings for JSON serialization."""
+        if result.get('status') == 'success' and 'paths' in result:
+            result['paths'] = {k: str(v) for k, v in result['paths'].items()}
+        return result

@@ -61,8 +61,6 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
             output_path = self.generate_geojson_path(region, dataset, timestamp)
             with open(output_path, 'w') as f:
                 json.dump(geojson, f)
-            
-            logger.info(f"Generated GeoJSON file: {output_path}")
             return output_path
             
         except Exception as e:

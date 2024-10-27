@@ -1,5 +1,4 @@
 import logging
-import urllib.parse
 import aiohttp
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -114,8 +113,6 @@ class ERDDAPService:
                 constraints=constraints,
                 file_type='.nc'
             )
-            
-            logger.info(f"Generated URL: {url}")
 
             # Prepare output path
             output_dir = output_path / region['name'].lower().replace(" ", "_") / source_config['name'].lower().replace(" ", "_")
