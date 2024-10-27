@@ -37,7 +37,6 @@ class SSTProcessor(BaseImageProcessor):
             
             # Get region bounds
             bounds = REGIONS[region]['bounds']
-            logger.info(f"Region bounds: {bounds}")
             
             # Mask to region using detected coordinate names
             lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])

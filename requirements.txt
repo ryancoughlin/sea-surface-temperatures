@@ -1,6 +1,6 @@
 # Core data processing
-xarray
-numpy
+xarray==2024.3.0
+numpy==1.26.4
 scipy
 netCDF4
 dask[complete]  # For parallel processing with xarray

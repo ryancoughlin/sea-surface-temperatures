@@ -44,32 +44,47 @@ class OutputManager:
         dataset_dir = self.get_dataset_path(region, metadata.id, metadata.timestamp)
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save dataset-specific metadata
-        data = {
-            "dataset_info": {
-                "id": metadata.id,
-                "name": metadata.name,
-                "category": metadata.category,
-            },
-            "timestamp": metadata.timestamp,
-            "processing_time": datetime.utcnow().isoformat(),
-            "paths": {
-                "image": str(metadata.image_path.relative_to(self.base_dir)),
-                "geojson": str(metadata.geojson_path.relative_to(self.base_dir)),
-                "tiles": f"{region}/datasets/{metadata.id}/{metadata.timestamp}/tiles",
-                "mapbox_url": metadata.mapbox_url
+        logger.info(f"Saving dataset with paths - Image: {metadata.image_path}, GeoJSON: {metadata.geojson_path}")
+        logger.info(f"Base directory: {self.base_dir}")
+
+        try:
+            # Verify paths exist before processing
+            if not metadata.image_path.exists():
+                raise FileNotFoundError(f"Image file not found: {metadata.image_path}")
+            if not metadata.geojson_path.exists():
+                raise FileNotFoundError(f"GeoJSON file not found: {metadata.geojson_path}")
+
+            # Save dataset-specific metadata
+            data = {
+                "dataset_info": {
+                    "id": metadata.id,
+                    "name": metadata.name,
+                    "category": metadata.category,
+                },
+                "timestamp": metadata.timestamp,
+                "processing_time": datetime.utcnow().isoformat(),
+                "paths": {
+                    "image": str(metadata.image_path.relative_to(self.base_dir)),
+                    "geojson": str(metadata.geojson_path.relative_to(self.base_dir)),
+                    "tiles": f"{region}/datasets/{metadata.id}/{metadata.timestamp}/tiles",
+                    "mapbox_url": metadata.mapbox_url
+                }
             }
-        }
 
-        data_path = dataset_dir / "data.json"
-        with open(data_path, 'w') as f:
-            json.dump(data, f, indent=2)
+            data_path = dataset_dir / "data.json"
+            with open(data_path, 'w') as f:
+                json.dump(data, f, indent=2)
 
-        # Update indices
-        self._update_dataset_index(region, metadata.id)
-        self._update_region_index(region)
+            # Update indices
+            self._update_dataset_index(region, metadata.id)
+            self._update_region_index(region)
 
-        return data_path
+            return data_path
+
+        except Exception as e:
+            logger.error(f"Error saving dataset {metadata.id} for region {region}: {str(e)}")
+            logger.error(f"Full metadata: {vars(metadata)}")
+            raise
 
     def _update_dataset_index(self, region: str, dataset: str) -> None:
         """Update dataset-specific index."""

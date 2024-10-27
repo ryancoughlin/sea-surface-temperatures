@@ -34,7 +34,6 @@ class ChlorophyllProcessor(BaseImageProcessor):
             
             # Get bounds and coordinates
             bounds = REGIONS[region]['bounds']
-            logger.info(f"Region bounds: {bounds}")
             
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'

@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install system dependencies for NetCDF
 RUN apt-get update && apt-get install -y \
@@ -8,20 +8,21 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /app
+WORKDIR /
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/output
+# Create necessary directories with correct permissions
+RUN mkdir -p /downloaded_data /output && \
+    chmod -R 777 /downloaded_data /output
 
 # Create a non-root user
-RUN useradd -m appuser && chown -R appuser:appuser /app
+RUN useradd -m appuser
 USER appuser
 
 # Command to run the script

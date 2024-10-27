@@ -11,10 +11,23 @@ from processors.metadata_assembler import MetadataAssembler
 from processors.processor_factory import ProcessorFactory
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processing_manager import ProcessingManager
+import sys
+import numpy
+import xarray
+import pandas
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def log_environment():
+    logger.info("Environment Information:")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"NumPy version: {numpy.__version__}")
+    logger.info(f"xarray version: {xarray.__version__}")
+    logger.info(f"pandas version: {pandas.__version__}")
+    logger.info(f"Working directory: {os.getcwd()}")
 
 async def process_data_for_region_and_dataset(
     date: datetime,
@@ -109,6 +122,7 @@ async def main():
     logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
 
 if __name__ == "__main__":
+    log_environment()
     # Create directories
     settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

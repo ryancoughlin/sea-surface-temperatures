@@ -52,7 +52,6 @@ class ProcessingManager:
             # Process data
             processor = ProcessorFactory.create(dataset)
             logger.info(f"Processing {dataset} data for {region_id}")
-            logger.info(f"Region bounds: {region['bounds']}")
 
             # Generate image with all original processing logic
             image_path: Path = processor.generate_image(
