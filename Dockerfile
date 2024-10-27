@@ -25,5 +25,5 @@ RUN mkdir -p /downloaded_data /output && \
 RUN useradd -m appuser
 USER appuser
 
-# Command to run the script
+# Simple command - script runs once and exits
 CMD ["python", "main.py"]

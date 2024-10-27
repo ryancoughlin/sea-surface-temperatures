@@ -19,12 +19,16 @@ class ProcessingManager:
         """Initialize with required services"""
         # Core services
         self.metadata_assembler = metadata_assembler
-        self.erddap_service = ERDDAPService()
-        self.tile_generator = TileGenerator()
+        self.session = None
+        self.erddap_service = None
         
         # Factories
         self.processor_factory = ProcessorFactory()
         self.geojson_converter_factory = GeoJSONConverterFactory()
+
+    def start_session(self, session):
+        self.session = session
+        self.erddap_service = ERDDAPService(session)  # Create service with session
 
     async def process_dataset(
         self, 

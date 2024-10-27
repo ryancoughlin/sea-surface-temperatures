@@ -16,18 +16,11 @@ import numpy
 import xarray
 import pandas
 import os
+import aiohttp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-def log_environment():
-    logger.info("Environment Information:")
-    logger.info(f"Python version: {sys.version}")
-    logger.info(f"NumPy version: {numpy.__version__}")
-    logger.info(f"xarray version: {xarray.__version__}")
-    logger.info(f"pandas version: {pandas.__version__}")
-    logger.info(f"Working directory: {os.getcwd()}")
 
 async def process_data_for_region_and_dataset(
     date: datetime,
@@ -94,35 +87,36 @@ async def process_data_for_region_and_dataset(
         }
 
 async def main():
-    # Initialize services
-    metadata_assembler = MetadataAssembler()
-    processing_manager = ProcessingManager(metadata_assembler)
-    
-    date = datetime.now()
-    tasks = []
-    
-    # Create processing tasks
-    for dataset in SOURCES:
-        for region_id in REGIONS:
-            task = asyncio.create_task(
-                processing_manager.process_dataset(
-                    date=date,
-                    region_id=region_id,
-                    dataset=dataset
+    async with aiohttp.ClientSession() as session:
+        # Initialize services
+        metadata_assembler = MetadataAssembler()
+        processing_manager = ProcessingManager(metadata_assembler)
+        processing_manager.start_session(session)  # Initialize session
+        
+        date = datetime.now()
+        tasks = []
+        
+        # Create processing tasks
+        for dataset in SOURCES:
+            for region_id in REGIONS:
+                task = asyncio.create_task(
+                    processing_manager.process_dataset(
+                        date=date,
+                        region_id=region_id,
+                        dataset=dataset
+                    )
                 )
-            )
-            tasks.append(task)
-    
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Process results
-    successes = [r for r in results if r.get('status') == 'success']
-    failures = [r for r in results if r.get('status') == 'error']
-    
-    logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
+                tasks.append(task)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        successes = [r for r in results if r.get('status') == 'success']
+        failures = [r for r in results if r.get('status') == 'error']
+        
+        logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
 
 if __name__ == "__main__":
-    log_environment()
     # Create directories
     settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

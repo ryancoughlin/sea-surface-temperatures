@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 class ERDDAPService:
     """Service for fetching oceanographic data from ERDDAP servers"""
     
-    def __init__(self):
-        self.clients = {}
+    def __init__(self, session: aiohttp.ClientSession):
+        self.session = session  # Store the session
         
     def build_constraint(self, 
                         dim_name: str,
@@ -120,17 +120,16 @@ class ERDDAPService:
             output_file = output_dir / f"{source_config['dataset_id']}_{region['name'].lower().replace(' ', '_')}_{date.strftime('%Y%m%d')}.nc"
 
             # Download file using aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        raise Exception(f"Failed to download data: {response.status}")
-                    
-                    with open(output_file, 'wb') as f:
-                        while True:
-                            chunk = await response.content.read(8192)
-                            if not chunk:
-                                break
-                            f.write(chunk)
+            async with self.session.get(url) as response:
+                if response.status != 200:
+                    raise Exception(f"Failed to download data: {response.status}")
+                
+                with open(output_file, 'wb') as f:
+                    while True:
+                        chunk = await response.content.read(8192)
+                        if not chunk:
+                            break
+                        f.write(chunk)
 
             logger.info(f"Successfully saved data to {output_file}")
             return output_file
@@ -139,4 +138,3 @@ class ERDDAPService:
             logger.error(f"Error saving ERDDAP data: {e}")
             logger.error(f"Failed URL: {url if 'url' in locals() else 'URL not available'}")
             raise
-
