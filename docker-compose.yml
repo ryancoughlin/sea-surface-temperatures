@@ -4,7 +4,8 @@ services:
     volumes:
       - ./downloaded_data:/downloaded_data
       - ./output:/output
-      - ./config:/config  # If you have config files
+      - ./config:/config
+    restart: "no"
 
   nginx:
     image: nginx:alpine
