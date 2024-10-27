@@ -31,15 +31,12 @@ def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.
 def interpolate_data(data: xr.DataArray, factor: int = 2) -> xr.DataArray:
     """Interpolate data to add more points."""
     
-    # Extract latitude and longitude
-    lat = data.coords['latitude']
-    lon = data.coords['longitude']
+    latitude = data.coords['latitude']
+    longitude = data.coords['longitude']
     
-    # Create new coordinates with more points
-    new_lat = np.linspace(lat.min(), lat.max(), len(lat) * factor)
-    new_lon = np.linspace(lon.min(), lon.max(), len(lon) * factor)
+    new_lat = np.linspace(latitude.min(), latitude.max(), len(latitude) * factor)
+    new_lon = np.linspace(longitude.min(), longitude.max(), len(longitude) * factor)
     
-    # Try simple linear interpolation first
     interpolated_data = data.interp(
         latitude=new_lat, 
         longitude=new_lon, 
