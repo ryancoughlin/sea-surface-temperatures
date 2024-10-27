@@ -14,5 +14,4 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /sea-surface-temperatures
             ./deploy.sh
