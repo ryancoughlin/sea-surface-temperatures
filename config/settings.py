@@ -79,7 +79,7 @@ SOURCES = {
     },
     "chlorophyll_oci": {
         "source_type": "erddap",
-        "name": "Chlorophyll OCI",
+        "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
         "variables": ["chlor_a"],
