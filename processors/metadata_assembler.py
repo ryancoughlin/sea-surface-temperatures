@@ -31,7 +31,8 @@ class MetadataAssembler:
                     }
                 }
             ],
-            "supportedLayers": SOURCES[dataset].get("layers", [])
+            "supportedLayers": SOURCES[dataset].get("supportedLayers", []),
+            "type": SOURCES[dataset].get("type", ""),
         }
 
         if additional_layers:

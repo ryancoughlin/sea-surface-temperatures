@@ -31,7 +31,7 @@ TILE_SETTINGS = {
 SOURCES = {
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
-        "category": "sst",
+        "type": "sst",
         "name": "LEO ACSPO SST L3S NRT C Daily",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
@@ -49,7 +49,7 @@ SOURCES = {
         "variables": ["u_current", "v_current"],
         "lag_days": 2,
         "color_scale": "viridis",
-        "category": "currents",
+        "type": "currents",
         "supportedLayers": ["image", "geojson"]
     },
     "chlorophyll_oci": {
@@ -61,7 +61,7 @@ SOURCES = {
         "lag_days": 2,
         "color_scale": "YlGnBu",
         "altitude": "[0:1:0]",
-        "category": "chlorophyll",
+        "type": "chlorophyll",
         "supportedLayers": ["image", "geojson"]
     }
 }
