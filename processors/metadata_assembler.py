@@ -4,7 +4,7 @@ import logging
 import json
 from config.settings import SOURCES, REGIONS_DIR, OUTPUT_DIR
 from config.regions import REGIONS
-from .output_manager import OutputManager, DatasetMetadata
+from .output_manager import OutputManager
 from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)

@@ -42,30 +42,34 @@ class ProcessingManager:
             dataset_config = SOURCES[dataset]
             timestamp = date.strftime('%Y%m%d')
 
-            # Construct the expected data file path
             expected_data_path = Path(DATA_DIR) / region_id / "datasets" / dataset / timestamp / "data.geojson"
 
-            # Check if the data file already exists
             if expected_data_path.exists():
                 logger.info(f"Data file already exists: {expected_data_path}")
                 data_path = expected_data_path
             else:
-                # Download data using ERDDAPService directly
-                data_path: Path = await self.erddap_service.save_data(
-                    date=date,
-                    dataset=dataset_config,
-                    region=region,
-                    output_path=DATA_DIR
-                )
-                
-                if not data_path.exists():
-                    raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
+                try:
+                    data_path: Path = await self.erddap_service.save_data(
+                        date=date,
+                        dataset=dataset_config,
+                        region=region,
+                        output_path=DATA_DIR
+                    )
+                    
+                    if not data_path.exists():
+                        raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
+                except Exception as e:
+                    logger.error(f"Error fetching data for {dataset}: {str(e)}")
+                    return {
+                        'status': 'error',
+                        'error': str(e),
+                        'region': region_id,
+                        'dataset': dataset
+                    }
 
-            # Process data
             processor = ProcessorFactory.create(dataset)
             logger.info(f"Processing {dataset} data for {region_id}")
 
-            # Generate primary outputs
             processing_result = processor.generate_image(
                 data_path=data_path,
                 region=region_id,
@@ -73,14 +77,12 @@ class ProcessingManager:
                 timestamp=timestamp
             )
 
-            # Handle both single path and tuple returns
             if isinstance(processing_result, tuple):
                 image_path, additional_layers = processing_result
             else:
                 image_path = processing_result
                 additional_layers = None
 
-            # Generate GeoJSON data layer
             geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
             geojson_path = geojson_converter.convert(
                 data_path=data_path,
@@ -89,7 +91,6 @@ class ProcessingManager:
                 timestamp=timestamp
             )
 
-            # Generate contours for SST
             if SOURCES[dataset].get('category') == 'sst':
                 contour_converter = self.geojson_converter_factory.create(dataset, 'contours')
                 contour_path = contour_converter.convert(
@@ -104,7 +105,6 @@ class ProcessingManager:
                     }
                 }
 
-            # Generate metadata
             metadata_path: Path = self.metadata_assembler.assemble_metadata(
                 region=region_id,
                 dataset=dataset,
