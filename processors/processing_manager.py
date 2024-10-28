@@ -42,16 +42,24 @@ class ProcessingManager:
             dataset_config = SOURCES[dataset]
             timestamp = date.strftime('%Y%m%d')
 
-            # Download data using ERDDAPService directly
-            data_path: Path = await self.erddap_service.save_data(
-                date=date,
-                dataset=dataset_config,
-                region=region,
-                output_path=DATA_DIR
-            )
-            
-            if not data_path.exists():
-                raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
+            # Construct the expected data file path
+            expected_data_path = Path(DATA_DIR) / region_id / "datasets" / dataset / timestamp / "data.geojson"
+
+            # Check if the data file already exists
+            if expected_data_path.exists():
+                logger.info(f"Data file already exists: {expected_data_path}")
+                data_path = expected_data_path
+            else:
+                # Download data using ERDDAPService directly
+                data_path: Path = await self.erddap_service.save_data(
+                    date=date,
+                    dataset=dataset_config,
+                    region=region,
+                    output_path=DATA_DIR
+                )
+                
+                if not data_path.exists():
+                    raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
 
             # Process data
             processor = ProcessorFactory.create(dataset)
