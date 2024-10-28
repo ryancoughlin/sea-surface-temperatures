@@ -8,6 +8,8 @@ from config.regions import REGIONS
 import xarray as xr
 import json
 from datetime import datetime
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +32,8 @@ class CurrentsProcessor(BaseImageProcessor):
             u = ds_subset.u_current
             v = ds_subset.v_current
             
-            # Create figure
-            fig, ax = plt.subplots(figsize=(10, 8), facecolor='none')
-            ax.set_facecolor('none')
+            # Create masked figure and axes
+            fig, ax = self.create_masked_axes(region)
             
             # Create grid
             lon_grid, lat_grid = np.meshgrid(ds_subset.longitude, ds_subset.latitude)
@@ -42,38 +43,21 @@ class CurrentsProcessor(BaseImageProcessor):
             
             # Plot arrows
             ax.quiver(
-                lon_grid[::stride, ::stride],  # Reduced density
+                lon_grid[::stride, ::stride],
                 lat_grid[::stride, ::stride],
-                u.values[::stride, ::stride].T,
-                v.values[::stride, ::stride].T,
+                u.values[::stride, ::stride],
+                v.values[::stride, ::stride],
                 color='white',
-                scale=8,  # Adjusted for more visible arrows
-                width=0.004,  # Thicker arrows
-                headwidth=6,  # Larger arrow heads
+                scale=8,
+                width=0.004,
+                headwidth=6,
                 headlength=7,
                 headaxislength=6,
-                alpha=0.8  # More opaque
+                alpha=0.8,
+                transform=ccrs.PlateCarree()
             )
             
-            # Clean up plot
-            ax.axis('off')
-            plt.tight_layout(pad=0)
-            
-            # Save image
-            image_path = self.generate_image_path(region, dataset, timestamp)
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            fig.savefig(
-                image_path,
-                dpi=300,
-                bbox_inches='tight',
-                transparent=True,
-                pad_inches=0
-            )
-            plt.close(fig)
-            
-            logger.info(f"Currents image saved to {image_path}")
-            return image_path
+            return self.save_image(fig, region, dataset, timestamp)
             
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")

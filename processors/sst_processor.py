@@ -8,6 +8,8 @@ from config.settings import SOURCES
 from config.settings import OUTPUT_DIR
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f, interpolate_data
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ class SSTProcessor(BaseImageProcessor):
             ds = xr.open_dataset(data_path)
             
             # Get variable name from settings
-            var_name = SOURCES[dataset]['variables'][0]  # Get first variable since SST only has one
+            var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
             # Select first time slice if time dimension exists
@@ -28,12 +30,9 @@ class SSTProcessor(BaseImageProcessor):
                 logger.debug("Selecting first time slice from 3D data")
                 data = data.isel(time=0)
             
-            # Get coordinate names (they might be longitude/latitude or lon/lat)
+            # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
-            
-            logger.debug(f"Using coordinate names: {lon_name}, {lat_name}")
-            logger.debug(f"Data dimensions after time selection: {data.dims}")
             
             # Get region bounds
             bounds = REGIONS[region]['bounds']
@@ -43,50 +42,26 @@ class SSTProcessor(BaseImageProcessor):
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
             
-            # Convert temperature to Fahrenheit with auto-detection
+            # Convert temperature to Fahrenheit
             regional_data = convert_temperature_to_f(regional_data)
             
-            # Interpolate data
-            data_interpolated = interpolate_data(regional_data, factor=2)
-            
-            # Create figure
-            fig, ax = plt.subplots(figsize=(10, 8))
+            # Create masked figure and axes
+            fig, ax = self.create_masked_axes(region)
             
             # Plot data
             contour = ax.contourf(
-                data_interpolated,
+                regional_data[lon_name],
+                regional_data[lat_name],
+                regional_data,
                 levels=70,
                 cmap=SOURCES[dataset]['color_scale'],
                 extend='both',
                 vmin=32,
-                vmax=88
+                vmax=88,
+                transform=ccrs.PlateCarree()
             )
             
-            # Add contour lines
-            ax.contour(
-                data_interpolated,
-                colors='black',
-                alpha=0.2,
-                linewidths=0.5,
-                levels=5
-            )
-            
-            # Finalize plot
-            ax.axis('off')
-            plt.tight_layout(pad=0)
-            
-            # Generate image path using base class method
-            image_path = self.generate_image_path(region, dataset, timestamp)
-            
-            # Ensure directory exists
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Save image
-            fig.savefig(image_path, dpi=self.settings['dpi'], bbox_inches='tight')
-            plt.close(fig)
-            
-            logger.info(f"SST image saved to {image_path}")
-            return image_path
+            return self.save_image(fig, region, dataset, timestamp)
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")

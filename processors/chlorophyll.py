@@ -8,6 +8,7 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import interpolate_data
 import matplotlib.colors as mcolors
+import cartopy.crs as ccrs
 
 logger = logging.getLogger(__name__)
 
@@ -65,26 +66,21 @@ class ChlorophyllProcessor(BaseImageProcessor):
             else:
                 # Interpolate and mask data
                 data_interpolated = interpolate_data(regional_data, factor=1)                
-                # Create figure and plot
-                fig, ax = plt.subplots(figsize=(10, 8))
+                # Create masked figure and axes
+                fig, ax = self.create_masked_axes(region)
                 
+                # Plot data with proper transform
                 contour = ax.contourf(
+                    regional_data[lon_name],
+                    regional_data[lat_name],
                     data_interpolated,
                     levels=20,
                     cmap=SOURCES[dataset]['color_scale'],
-                    extend='both'
+                    extend='both',
+                    transform=ccrs.PlateCarree()
                 )
-                
-                ax.axis('off')
             
-            # Save figure
-            image_path = self.generate_image_path(region, dataset, timestamp)
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(image_path, dpi=self.settings['dpi'], bbox_inches='tight')
-            plt.close()
-            
-            logger.info(f"Chlorophyll image saved to {image_path}")
-            return image_path
+            return self.save_image(fig, region, dataset, timestamp)
             
         except Exception as e:
             logger.error(f"Error processing chlorophyll data: {str(e)}")
