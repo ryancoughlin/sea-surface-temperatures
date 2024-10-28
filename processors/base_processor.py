@@ -40,7 +40,6 @@ class BaseImageProcessor(ABC):
     def save_image(self, fig, region: str, dataset: str, timestamp: str) -> Path:
         """Save figure to standardized location."""
         try:
-            logger.info(f"Figure type: {type(fig)}")
             image_path = self.generate_image_path(region, dataset, timestamp)
             
             if not hasattr(fig, 'savefig'):

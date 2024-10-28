@@ -8,6 +8,7 @@ dask[complete]  # For parallel processing with xarray
 # Visualization
 matplotlib
 pillow
+cartopy
 
 # Data formats
 geojson

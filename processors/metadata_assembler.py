@@ -44,7 +44,6 @@ class MetadataAssembler:
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
         metadata_path = dataset_dir / "metadata.json"
-        logger.info(f"Saving metadata to {metadata_path}")
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f)
 

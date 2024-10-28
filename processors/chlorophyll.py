@@ -23,16 +23,11 @@ class ChlorophyllProcessor(BaseImageProcessor):
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            logger.debug(f"Initial data shape: {data.shape}")
-            logger.debug(f"Initial data dims: {data.dims}")
-            
             # Handle dimensions
             if 'time' in data.dims:
                 data = data.isel(time=0)
             if 'altitude' in data.dims:
                 data = data.isel(altitude=0)
-            
-            logger.debug(f"Data shape after dimension reduction: {data.shape}")
             
             # Get bounds and coordinates
             bounds = REGIONS[region]['bounds']
@@ -45,15 +40,11 @@ class ChlorophyllProcessor(BaseImageProcessor):
             if data[lon_name].size == 0 or data[lat_name].size == 0:
                 logger.warning("Empty coordinate dimensions found")
                 raise ValueError("Dataset has empty coordinate dimensions")
-                
-            logger.debug(f"Coordinate sizes - lon: {data[lon_name].size}, lat: {data[lat_name].size}")
             
             # Mask to region
             lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
-            
-            logger.debug(f"Regional data shape: {regional_data.shape}")
             
             # Check if we have any data after masking
             if regional_data.size == 0:
