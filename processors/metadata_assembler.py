@@ -31,17 +31,16 @@ class MetadataAssembler:
                     }
                 }
             ],
+            "supportedLayers": SOURCES[dataset].get("layers", [])
         }
 
         if additional_layers:
             if "contours" in additional_layers:
                 metadata["contours"] = str(additional_layers["contours"]["layers"])
 
-        # Create the dataset directory path
         dataset_dir = Path(REGIONS_DIR) / region / "datasets" / dataset
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save metadata directly in the dataset directory
         metadata_path = dataset_dir / "metadata.json"
         logger.info(f"Saving metadata to {metadata_path}")
         with open(metadata_path, 'w') as f:
