@@ -4,8 +4,9 @@ import cartopy.feature as cfeature
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from config.settings import IMAGE_SETTINGS, REGIONS_DIR  # Direct imports
+from config.settings import IMAGE_SETTINGS, REGIONS_DIR
 from config.regions import REGIONS
+from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +23,13 @@ class BaseImageProcessor(ABC):
         )
 
     @abstractmethod
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
-        """Each processor must implement this."""
-        pass
+    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Tuple[Path, Optional[Dict]]:
+        """
+        Generate visualization and any additional layers.
+        Returns:
+            Tuple[Path, Optional[Dict]]: (image_path, additional_layers)
+        """
+        raise NotImplementedError
 
     def generate_image_path(self, region: str, dataset: str, timestamp: str) -> Path:
         """Generate standardized path for image storage."""

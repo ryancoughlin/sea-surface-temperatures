@@ -57,15 +57,22 @@ class ProcessingManager:
             processor = ProcessorFactory.create(dataset)
             logger.info(f"Processing {dataset} data for {region_id}")
 
-            # Generate image with all original processing logic
-            image_path: Path = processor.generate_image(
+            # Generate primary outputs
+            processing_result = processor.generate_image(
                 data_path=data_path,
                 region=region_id,
                 dataset=dataset,
                 timestamp=timestamp
             )
-            
-            # Convert to GeoJSON with original conversion logic
+
+            # Handle both single path and tuple returns
+            if isinstance(processing_result, tuple):
+                image_path, additional_layers = processing_result
+            else:
+                image_path = processing_result
+                additional_layers = None
+
+            # Convert to GeoJSON
             geojson_converter = GeoJSONConverterFactory.create(dataset)
             geojson_path: Path = geojson_converter.convert(
                 data_path=data_path,
@@ -80,28 +87,21 @@ class ProcessingManager:
                 dataset=dataset,
                 timestamp=timestamp,
                 image_path=image_path,
-                geojson_path=geojson_path
+                geojson_path=geojson_path,
+                additional_layers=additional_layers
             )
 
-            # Validate all outputs exist and have content
-            outputs = {
-                'data': data_path,
-                'image': image_path,
-                'geojson': geojson_path,
-                'metadata': metadata_path
+            return {
+                'status': 'success',
+                'paths': {
+                    'data': data_path,
+                    'image': image_path,
+                    'geojson': geojson_path,
+                    'metadata': metadata_path
+                },
+                'region': region_id,
+                'dataset': dataset
             }
-
-            if all(path.exists() and path.stat().st_size > 0 for path in outputs.values()):
-                return {
-                    'status': 'success',
-                    'paths': outputs,
-                    'region': region_id,
-                    'dataset': dataset
-                }
-            else:
-                missing = [k for k, v in outputs.items() 
-                          if not v.exists() or v.stat().st_size == 0]
-                raise FileNotFoundError(f"Missing or empty output files: {missing}")
 
         except Exception as e:
             logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")

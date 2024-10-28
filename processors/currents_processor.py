@@ -10,11 +10,12 @@ import json
 from datetime import datetime
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
+    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Tuple[Path, None]:
         """Generate ocean currents visualization with readable arrow coverage."""
         try:
             # Load data
@@ -57,7 +58,7 @@ class CurrentsProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            return self.save_image(fig, region, dataset, timestamp)
+            return self.save_image(fig, region, dataset, timestamp), None
             
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")

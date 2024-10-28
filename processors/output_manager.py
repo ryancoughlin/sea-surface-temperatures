@@ -17,6 +17,7 @@ class DatasetMetadata:
     image_path: Path
     geojson_path: Path
     mapbox_url: Optional[str] = None
+    additional_layers: Optional[Dict] = None  # For optional layers like contours
 
 class OutputManager:
     def __init__(self, base_dir: Path):
@@ -54,7 +55,7 @@ class OutputManager:
             if not metadata.geojson_path.exists():
                 raise FileNotFoundError(f"GeoJSON file not found: {metadata.geojson_path}")
 
-            # Save dataset-specific metadata
+            # Base metadata structure
             data = {
                 "dataset_info": {
                     "id": metadata.id,
@@ -65,11 +66,23 @@ class OutputManager:
                 "processing_time": datetime.utcnow().isoformat(),
                 "paths": {
                     "image": str(metadata.image_path.relative_to(self.base_dir)),
-                    "geojson": str(metadata.geojson_path.relative_to(self.base_dir)),
+                    "geojson": {
+                        "data": str(metadata.geojson_path.relative_to(self.base_dir))
+                    },
                     "tiles": f"{region}/datasets/{metadata.id}/{metadata.timestamp}/tiles",
-                    "mapbox_url": metadata.mapbox_url
+                },
+                "layers": {
+                    metadata.category: {
+                        "type": "raster",
+                        "source": "image"
+                    }
                 }
             }
+
+            # Add optional layers if present
+            if metadata.additional_layers:
+                data["paths"]["geojson"].update(metadata.additional_layers.get("paths", {}))
+                data["layers"].update(metadata.additional_layers.get("layers", {}))
 
             data_path = dataset_dir / "data.json"
             with open(data_path, 'w') as f:

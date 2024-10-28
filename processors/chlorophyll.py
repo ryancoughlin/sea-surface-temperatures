@@ -9,11 +9,12 @@ from config.regions import REGIONS
 from utils.data_utils import interpolate_data
 import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
 class ChlorophyllProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
+    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Tuple[Path, None]:
         """Generate chlorophyll visualization."""
         try:
             # Load data with debug logging
@@ -80,7 +81,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
                     transform=ccrs.PlateCarree()
                 )
             
-            return self.save_image(fig, region, dataset, timestamp)
+            return self.save_image(fig, region, dataset, timestamp), None
             
         except Exception as e:
             logger.error(f"Error processing chlorophyll data: {str(e)}")

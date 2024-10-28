@@ -1,8 +1,9 @@
 import logging
 import aiohttp
+import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 from config.settings import SOURCES
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,9 @@ class ERDDAPService:
     
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session  # Store the session
+        self.max_retries = 3
+        self.retry_delay = 1  # seconds
+        self.timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes total timeout
         
     def build_constraint(self, 
                         dim_name: str,
@@ -120,21 +124,27 @@ class ERDDAPService:
             output_file = output_dir / f"{source_config['dataset_id']}_{region['name'].lower().replace(' ', '_')}_{date.strftime('%Y%m%d')}.nc"
 
             # Download file using aiohttp
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    raise Exception(f"Failed to download data: {response.status}")
-                
-                with open(output_file, 'wb') as f:
-                    while True:
-                        chunk = await response.content.read(8192)
-                        if not chunk:
-                            break
-                        f.write(chunk)
+            async with self.session.get(url, timeout=self.timeout) as response:
+                if response.status == 200:
+                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(output_file, 'wb') as f:
+                        while True:
+                            chunk = await response.content.read(8192)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                    logger.info(f"Successfully saved data to {output_file}")
+                    return output_file
+                else:
+                    logger.error(f"Failed to download data: {response.status}")
+                    raise aiohttp.ClientError(f"HTTP {response.status}")
 
-            logger.info(f"Successfully saved data to {output_file}")
-            return output_file
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"Error saving ERDDAP data: {str(e)}")
+            logger.error(f"Failed URL: {url}")
+            raise
 
         except Exception as e:
-            logger.error(f"Error saving ERDDAP data: {e}")
-            logger.error(f"Failed URL: {url if 'url' in locals() else 'URL not available'}")
+            logger.error(f"Error saving ERDDAP data: {str(e)}")
+            logger.error(f"Failed URL: {url}")
             raise

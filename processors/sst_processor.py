@@ -4,19 +4,28 @@ import xarray as xr
 import numpy as np
 import logging
 from .base_processor import BaseImageProcessor
-from config.settings import SOURCES
-from config.settings import OUTPUT_DIR
+from config.settings import SOURCES, REGIONS_DIR, IMAGE_SETTINGS
 from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f, interpolate_data
+from utils.data_utils import convert_temperature_to_f
+from utils.contour_utils import generate_temperature_contours, contours_to_geojson
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import json
+from datetime import datetime
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
-        """Generate SST image for a specific region."""
+    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> tuple[Path, Dict]:
+        """Generate SST image and contours."""
         try:
+            dataset_dir = REGIONS_DIR / region / "datasets" / dataset / timestamp
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+            
+            image_path = dataset_dir / "image.png"
+            contour_path = dataset_dir / "contours.geojson" if SOURCES[dataset]['category'] == 'sst' else None
+
             # Load data
             logger.info(f"Processing SST data for {region}")
             ds = xr.open_dataset(data_path)
@@ -48,8 +57,8 @@ class SSTProcessor(BaseImageProcessor):
             # Create masked figure and axes
             fig, ax = self.create_masked_axes(region)
             
-            # Plot data
-            contour = ax.contourf(
+            # Plot filled contours
+            filled_contours = ax.contourf(
                 regional_data[lon_name],
                 regional_data[lat_name],
                 regional_data,
@@ -61,7 +70,46 @@ class SSTProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            return self.save_image(fig, region, dataset, timestamp)
+            # Generate contour lines
+            contour_lines = generate_temperature_contours(
+                ax=ax,
+                data=regional_data,
+                lons=regional_data[lon_name],
+                lats=regional_data[lat_name]
+            )
+            
+            # Save image
+            plt.savefig(image_path, dpi=IMAGE_SETTINGS['dpi'], bbox_inches='tight')
+            plt.close()
+
+            # Generate contours for SST only
+            additional_layers = None
+            if contour_path:
+                contour_lines = generate_temperature_contours(
+                    ax=ax,
+                    data=regional_data,
+                    lons=regional_data[lon_name],
+                    lats=regional_data[lat_name]
+                )
+                
+                contour_geojson = contours_to_geojson(contour_lines)
+                
+                with open(contour_path, 'w') as f:
+                    json.dump(contour_geojson, f)
+
+                additional_layers = {
+                    "contours": {
+                        "path": str(contour_path.relative_to(REGIONS_DIR)),
+                        "type": "vector",
+                        "style": {
+                            "line-color": "#000",
+                            "line-width": 1,
+                            "line-opacity": 0.7
+                        }
+                    }
+                }
+
+            return image_path, additional_layers
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")
