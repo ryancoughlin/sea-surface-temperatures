@@ -39,7 +39,7 @@ SOURCES = {
         "lag_days": 2,
         "color_scale": "RdYlBu_r",
         "stride": None,
-        "layers": ["image", "geojson", "contours"]
+        "supportedLayers": ["image", "geojson", "contours"]
    },
     "BLENDEDNRTcurrentsDaily": {
         "source_type": "erddap",
@@ -50,7 +50,7 @@ SOURCES = {
         "lag_days": 2,
         "color_scale": "viridis",
         "category": "currents",
-        "layers": ["image", "geojson"]
+        "supportedLayers": ["image", "geojson"]
     },
     "chlorophyll_oci": {
         "source_type": "erddap",
@@ -62,6 +62,7 @@ SOURCES = {
         "color_scale": "YlGnBu",
         "altitude": "[0:1:0]",
         "category": "chlorophyll",
-        "layers": ["image", "geojson"]
+        "supportedLayers": ["image", "geojson"]
     }
 }
+
