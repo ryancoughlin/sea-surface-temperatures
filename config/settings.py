@@ -65,37 +65,3 @@ SOURCES = {
         "layers": ["image", "geojson"]
     }
 }
-
-# Assuming we have a function to generate metadata for each dataset
-def generate_metadata(dataset_id, dataset_name, category, date, processing_time):
-    return {
-        "dataset_info": {
-            "id": dataset_id,
-            "name": dataset_name,
-            "category": category
-        },
-        "dates": [
-            {
-                "date": date,
-                "processing_time": processing_time,
-                "paths": {
-                    "image": f"cape_cod/datasets/{dataset_id}/{date}/image.png",
-                    "geojson": f"cape_cod/datasets/{dataset_id}/{date}/data.geojson",
-                    "tiles": f"cape_cod/datasets/{dataset_id}/{date}/tiles"
-                }
-            }
-        ],
-        "last_updated": processing_time
-    }
-
-# Example usage for LEOACSPOSSTL3SnrtCDaily
-metadata = generate_metadata(
-    dataset_id="LEOACSPOSSTL3SnrtCDaily",
-    dataset_name="LEO ACSPO SST L3S NRT C Daily",
-    category="sst",
-    date="20241028",
-    processing_time="2024-10-28T10:38:35.683293"
-)
-
-# Output the modified metadata
-print(metadata)

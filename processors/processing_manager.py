@@ -6,7 +6,7 @@ from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
-from config.settings import DATA_DIR, SOURCES, REGIONS_DIR
+from config.settings import OUTPUT_DIR, SOURCES, REGIONS_DIR
 from config.regions import REGIONS
 import logging
 
@@ -42,7 +42,7 @@ class ProcessingManager:
             dataset_config = SOURCES[dataset]
             timestamp = date.strftime('%Y%m%d')
 
-            expected_data_path = Path(DATA_DIR) / region_id / "datasets" / dataset / timestamp / "data.geojson"
+            expected_data_path = Path(OUTPUT_DIR) / region_id / "datasets" / dataset / timestamp / "data.geojson"
 
             if expected_data_path.exists():
                 logger.info(f"Data file already exists: {expected_data_path}")
@@ -53,7 +53,7 @@ class ProcessingManager:
                         date=date,
                         dataset=dataset_config,
                         region=region,
-                        output_path=DATA_DIR
+                        output_path=OUTPUT_DIR
                     )
                     
                     if not data_path.exists():

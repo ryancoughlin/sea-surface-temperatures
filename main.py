@@ -11,11 +11,6 @@ from processors.metadata_assembler import MetadataAssembler
 from processors.processor_factory import ProcessorFactory
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processing_manager import ProcessingManager
-import sys
-import numpy
-import xarray
-import pandas
-import os
 import aiohttp
 
 # Configure logging
@@ -32,8 +27,6 @@ async def process_data_for_region_and_dataset(
 ) -> dict:
     """Process data for a single region and dataset"""
     try:
-        logger.info(f"Processing {region_id} for dataset {dataset}")
-        
         region = REGIONS[region_id]
         dataset_config = SOURCES[dataset]
         timestamp = date.strftime('%Y%m%d')
@@ -87,11 +80,14 @@ async def process_data_for_region_and_dataset(
         }
 
 async def main():
-    async with aiohttp.ClientSession() as session:
+    # Configure connection pooling
+    connector = aiohttp.TCPConnector(limit=5)  # Limit concurrent connections
+    
+    async with aiohttp.ClientSession(connector=connector) as session:
         # Initialize services
         metadata_assembler = MetadataAssembler()
         processing_manager = ProcessingManager(metadata_assembler)
-        processing_manager.start_session(session)  # Initialize session
+        processing_manager.start_session(session)
         
         date = datetime.now()
         tasks = []
@@ -111,8 +107,8 @@ async def main():
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Process results
-        successes = [r for r in results if r.get('status') == 'success']
-        failures = [r for r in results if r.get('status') == 'error']
+        successes = [r for r in results if isinstance(r, dict) and r.get('status') == 'success']
+        failures = [r for r in results if isinstance(r, dict) and r.get('status') == 'error']
         
         logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
 

@@ -4,14 +4,13 @@ import logging
 import json
 from config.settings import SOURCES, REGIONS_DIR, OUTPUT_DIR
 from config.regions import REGIONS
-from .output_manager import OutputManager
 from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
 class MetadataAssembler:
     def __init__(self):
-        self.output_manager = OutputManager(REGIONS_DIR)
+        pass
 
     def assemble_metadata(
         self,
@@ -23,9 +22,6 @@ class MetadataAssembler:
         additional_layers: Optional[Dict] = None
     ) -> Path:
         metadata = {
-            "id": dataset,
-            "name": SOURCES[dataset]['name'],
-            "category": SOURCES[dataset]['category'],
             "dates": [
                 {
                     "date": timestamp,
@@ -37,13 +33,17 @@ class MetadataAssembler:
             ],
         }
 
-        if additional_layers and "contours" in additional_layers:
-            metadata["dates"][0]["layers"]["contours"] = str(additional_layers["contours"])
+        if additional_layers:
+            if "contours" in additional_layers:
+                metadata["contours"] = str(additional_layers["contours"]["layers"])
 
-        dataset_dir = Path(REGIONS_DIR) / region / "datasets" / dataset / timestamp
+        # Create the dataset directory path
+        dataset_dir = Path(REGIONS_DIR) / region / "datasets" / dataset
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
+        # Save metadata directly in the dataset directory
         metadata_path = dataset_dir / "metadata.json"
+        logger.info(f"Saving metadata to {metadata_path}")
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f)
 

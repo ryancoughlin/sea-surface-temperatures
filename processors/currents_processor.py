@@ -85,12 +85,7 @@ class CurrentsProcessor(BaseImageProcessor):
             'speed': speed.where(region_mask, drop=True),
             'direction': direction.where(region_mask, drop=True)
         }
-        
-        # Log what we got
-        logger.info(f"Processed current data:")
-        logger.info(f"Region shape: {currents_data['lon'].shape}")
-        logger.info(f"Speed range: {currents_data['speed'].min().item():.2f} to {currents_data['speed'].max().item():.2f} m/s")
-        
+  
         return currents_data
 
     def plot_currents(self, data, ax):
