@@ -9,7 +9,7 @@ class GeoJSONConverterFactory:
     """Factory for creating appropriate GeoJSON converters."""
     
     @classmethod
-    def create(cls, dataset: str) -> BaseGeoJSONConverter:
+    def create(cls, dataset: str, converter_type: str = 'data') -> BaseGeoJSONConverter:
         """Create appropriate GeoJSON converter based on dataset type."""
         dataset_config = SOURCES[dataset]
         category = dataset_config.get('category')

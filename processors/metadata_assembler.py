@@ -2,7 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import logging
 import json
-from config.settings import SOURCES, REGIONS_DIR
+from config.settings import SOURCES, REGIONS_DIR, OUTPUT_DIR
 from config.regions import REGIONS
 from .output_manager import OutputManager, DatasetMetadata
 from typing import Optional, Dict
@@ -22,48 +22,30 @@ class MetadataAssembler:
         geojson_path: Path,
         additional_layers: Optional[Dict] = None
     ) -> Path:
-        """Assemble metadata for any dataset type."""
-        try:
-            dataset_config = SOURCES[dataset]
-            
-            metadata = {
-                "dataset": {
-                    "id": dataset,
-                    "name": dataset_config['name'],
-                    "category": dataset_config['category']
-                },
-                "timestamp": timestamp,
-                "paths": {
-                    "image": str(image_path.relative_to(REGIONS_DIR)),
-                    "data": str(geojson_path.relative_to(REGIONS_DIR))
-                },
-                "layers": {
-                    "base": {
-                        "type": dataset_config['category'],
-                        "source": "image"
+        metadata = {
+            "id": dataset,
+            "name": SOURCES[dataset]['name'],
+            "category": SOURCES[dataset]['category'],
+            "dates": [
+                {
+                    "date": timestamp,
+                    "layers": {
+                        "image": str(image_path),
+                        "geojson": str(geojson_path),
                     }
                 }
-            }
+            ],
+        }
 
-            # Add additional layers if present
-            if additional_layers:
-                metadata["paths"].update(
-                    {name: layer["path"] for name, layer in additional_layers.items()}
-                )
-                metadata["layers"].update(
-                    {name: {k:v for k,v in layer.items() if k != "path"}
-                     for name, layer in additional_layers.items()}
-                )
+        if additional_layers and "contours" in additional_layers:
+            metadata["dates"][0]["layers"]["contours"] = str(additional_layers["contours"])
 
-            output_dir = REGIONS_DIR / region / "datasets" / dataset / timestamp
-            output_dir.mkdir(parents=True, exist_ok=True)
-            metadata_path = output_dir / "data.json"
-            
-            with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
+        dataset_dir = Path(REGIONS_DIR) / region / "datasets" / dataset / timestamp
+        dataset_dir.mkdir(parents=True, exist_ok=True)
 
-            return metadata_path
+        metadata_path = dataset_dir / "metadata.json"
+        logger.info(f"Saving metadata to {metadata_path}")
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f)
 
-        except Exception as e:
-            logger.error(f"Error assembling metadata: {str(e)}")
-            raise
+        return metadata_path

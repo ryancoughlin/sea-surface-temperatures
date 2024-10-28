@@ -73,7 +73,7 @@ class ProcessingManager:
                 additional_layers = None
 
             # Generate GeoJSON data layer
-            geojson_converter = GeoJSONConverterFactory.create(dataset, 'data')
+            geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
             geojson_path = geojson_converter.convert(
                 data_path=data_path,
                 region=region_id,
@@ -83,7 +83,7 @@ class ProcessingManager:
 
             # Generate contours for SST
             if SOURCES[dataset].get('category') == 'sst':
-                contour_converter = GeoJSONConverterFactory.create(dataset, 'contours')
+                contour_converter = self.geojson_converter_factory.create(dataset, 'contours')
                 contour_path = contour_converter.convert(
                     data_path=data_path,
                     region=region_id,
@@ -92,7 +92,7 @@ class ProcessingManager:
                 )
                 additional_layers = {
                     "contours": {
-                        "path": str(contour_path.relative_to(REGIONS_DIR)),
+                        "layers": str(contour_path.relative_to(REGIONS_DIR)),
                     }
                 }
 
@@ -105,6 +105,7 @@ class ProcessingManager:
                 geojson_path=geojson_path,
                 additional_layers=additional_layers
             )
+            logger.info(f"Metadata saved at {metadata_path}")
 
             return {
                 'status': 'success',
