@@ -6,7 +6,7 @@ from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
-from config.settings import DATA_DIR, SOURCES
+from config.settings import DATA_DIR, SOURCES, REGIONS_DIR
 from config.regions import REGIONS
 import logging
 
@@ -72,14 +72,29 @@ class ProcessingManager:
                 image_path = processing_result
                 additional_layers = None
 
-            # Convert to GeoJSON
-            geojson_converter = GeoJSONConverterFactory.create(dataset)
-            geojson_path: Path = geojson_converter.convert(
+            # Generate GeoJSON data layer
+            geojson_converter = GeoJSONConverterFactory.create(dataset, 'data')
+            geojson_path = geojson_converter.convert(
                 data_path=data_path,
                 region=region_id,
                 dataset=dataset,
                 timestamp=timestamp
             )
+
+            # Generate contours for SST
+            if SOURCES[dataset].get('category') == 'sst':
+                contour_converter = GeoJSONConverterFactory.create(dataset, 'contours')
+                contour_path = contour_converter.convert(
+                    data_path=data_path,
+                    region=region_id,
+                    dataset=dataset,
+                    timestamp=timestamp
+                )
+                additional_layers = {
+                    "contours": {
+                        "path": str(contour_path.relative_to(REGIONS_DIR)),
+                    }
+                }
 
             # Generate metadata
             metadata_path: Path = self.metadata_assembler.assemble_metadata(
