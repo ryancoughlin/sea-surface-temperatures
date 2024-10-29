@@ -57,7 +57,7 @@ class SSTProcessor(BaseImageProcessor):
             # Create masked figure and axes
             fig, ax = self.create_masked_axes(region)
             
-            # Plot filled contours
+            # Plot filled contours only (removed contour lines from plot)
             filled_contours = ax.contourf(
                 regional_data[lon_name],
                 regional_data[lat_name],
@@ -70,29 +70,22 @@ class SSTProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            # Generate contour lines
-            contour_lines = generate_temperature_contours(
-                ax=ax,
-                data=regional_data,
-                lons=regional_data[lon_name],
-                lats=regional_data[lat_name]
-            )
-            
-            # Save image
+            # Save image without contour lines
             plt.savefig(image_path, dpi=IMAGE_SETTINGS['dpi'], bbox_inches='tight')
             plt.close()
 
-            # Generate contours for SST only
+            # Generate contours for GeoJSON only (not displayed on image)
             additional_layers = None
             if contour_path:
                 contour_lines = generate_temperature_contours(
-                    ax=ax,
+                    ax=plt.gca(),  # Use temporary axes for contour generation
                     data=regional_data,
                     lons=regional_data[lon_name],
                     lats=regional_data[lat_name]
                 )
                 
                 contour_geojson = contours_to_geojson(contour_lines)
+                plt.close()  # Close temporary figure
                 
                 with open(contour_path, 'w') as f:
                     json.dump(contour_geojson, f)
@@ -100,12 +93,6 @@ class SSTProcessor(BaseImageProcessor):
                 additional_layers = {
                     "contours": {
                         "path": str(contour_path.relative_to(REGIONS_DIR)),
-                        "type": "vector",
-                        "style": {
-                            "line-color": "#000",
-                            "line-width": 1,
-                            "line-opacity": 0.7
-                        }
                     }
                 }
 
