@@ -4,9 +4,10 @@ import xarray as xr
 import numpy as np
 import logging
 from .base_processor import BaseImageProcessor
-from config.settings import SOURCES, REGIONS_DIR, IMAGE_SETTINGS
+from config.settings import SOURCES, IMAGE_SETTINGS
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
+from utils.path_manager import PathManager
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import json
@@ -16,14 +17,20 @@ from typing import Dict
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> tuple[Path, Dict]:
+    def __init__(self, path_manager: PathManager):
+        super().__init__(path_manager)
+
+    def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
         """Generate SST image and contours."""
         try:
-            dataset_dir = REGIONS_DIR / region / "datasets" / dataset / timestamp
-            dataset_dir.mkdir(parents=True, exist_ok=True)
+            # Replace current path construction with PathManager
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             
-            image_path = dataset_dir / "image.png"
-            contour_path = dataset_dir / "contours.geojson" if SOURCES[dataset]['type'] == 'sst' else None
+            # Use asset_paths.image instead of constructing path
+            image_path = asset_paths.image
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            contour_path = asset_paths.contours if SOURCES[dataset]['type'] == 'sst' else None
 
             # Load data
             logger.info(f"Processing SST data for {region}")

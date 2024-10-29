@@ -5,11 +5,6 @@ import os
 # Define the root directory
 ROOT_DIR = Path(__file__).parent.parent
 
-# Define main directories
-OUTPUT_DIR = ROOT_DIR / "output"
-DATA_DIR = ROOT_DIR / "downloaded_data"
-REGIONS_DIR = OUTPUT_DIR / "regions"
-
 # Load color scale relative to ROOT_DIR
 with open(ROOT_DIR / 'color_scale.json', 'r') as f:  # Update color scale path
     color_scale = json.load(f)
@@ -27,7 +22,7 @@ TILE_SETTINGS = {
     "tile_size": 256,
 }
 
-# Data source configurations
+# Data source configurations p
 SOURCES = {
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",

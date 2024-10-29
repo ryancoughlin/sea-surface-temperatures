@@ -15,7 +15,7 @@ from typing import Tuple
 logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Tuple[Path, None]:
+    def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
         """Generate ocean currents visualization with readable arrow coverage."""
         try:
             # Load data
@@ -58,7 +58,7 @@ class CurrentsProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            return self.save_image(fig, region, dataset, timestamp), None
+            return self.save_image(fig, region, dataset, date), None
             
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")

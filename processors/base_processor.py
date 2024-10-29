@@ -4,18 +4,19 @@ import cartopy.feature as cfeature
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from config.settings import IMAGE_SETTINGS, REGIONS_DIR
+from config.settings import IMAGE_SETTINGS
 from config.regions import REGIONS
 from typing import Dict, Optional, Tuple
+from utils.path_manager import PathManager
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class BaseImageProcessor(ABC):
     """Base class for all image processors."""
-    def __init__(self):
+    def __init__(self, path_manager: PathManager):
+        self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
-        self.base_dir = REGIONS_DIR
-        # Create land feature once during initialization
         self.land_feature = cfeature.NaturalEarthFeature(
             'physical', 'land', '10m',
             edgecolor='none',
@@ -23,7 +24,7 @@ class BaseImageProcessor(ABC):
         )
 
     @abstractmethod
-    def generate_image(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
         """
         Generate visualization and any additional layers.
         Returns:
@@ -31,30 +32,29 @@ class BaseImageProcessor(ABC):
         """
         raise NotImplementedError
 
-    def generate_image_path(self, region: str, dataset: str, timestamp: str) -> Path:
+    def generate_image_path(self, region: str, dataset: str, date: datetime) -> Path:
         """Generate standardized path for image storage."""
-        path = self.base_dir / region / "datasets" / dataset / timestamp / "image.png"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
+        path = self.path_manager.get_asset_paths(date, dataset, region)
+        return path.image
 
-    def save_image(self, fig, region: str, dataset: str, timestamp: str) -> Path:
+    def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
         """Save figure to standardized location."""
         try:
-            image_path = self.generate_image_path(region, dataset, timestamp)
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             
             if not hasattr(fig, 'savefig'):
                 raise ValueError(f"Expected matplotlib figure, got {type(fig)}")
             
             # Save with transparency    
             fig.savefig(
-                image_path,
+                asset_paths.image,
                 dpi=self.settings['dpi'],
                 bbox_inches='tight',
                 pad_inches=0,
                 transparent=True
             )
             plt.close(fig)
-            return image_path
+            return asset_paths.image
         except Exception as e:
             logger.error(f"Error in save_image: {str(e)}")
             raise

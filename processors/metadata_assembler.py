@@ -2,49 +2,40 @@ from pathlib import Path
 from datetime import datetime
 import logging
 import json
-from config.settings import SOURCES, REGIONS_DIR, OUTPUT_DIR
+from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Optional, Dict
+from utils.path_manager import PathManager, AssetPaths
 
 logger = logging.getLogger(__name__)
 
 class MetadataAssembler:
-    def __init__(self):
-        pass
+    def __init__(self, path_manager: PathManager):
+        self.path_manager = path_manager
 
-    def assemble_metadata(
-        self,
-        region: str,
-        dataset: str,
-        timestamp: str,
-        image_path: Path,
-        geojson_path: Path,
-        additional_layers: Optional[Dict] = None
-    ) -> Path:
+    def assemble_metadata(self, region: str, dataset: str, date: datetime) -> Path:
+        """Assemble metadata for processed assets."""
+        # Get all paths from PathManager
+        asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+        
         metadata = {
-            "dates": [
-                {
-                    "date": timestamp,
-                    "layers": {
-                        "image": str(image_path),
-                        "geojson": str(geojson_path),
-                    }
-                }
-            ],
-            "supportedLayers": SOURCES[dataset].get("supportedLayers", []),
-            "type": SOURCES[dataset].get("type", ""),
+            "region": region,
+            "dataset": dataset,
+            "date": date.strftime('%Y%m%d'),
+            "paths": {
+                "image": str(asset_paths.image.relative_to(self.path_manager.base_dir)),
+                "metadata": str(asset_paths.metadata.relative_to(self.path_manager.base_dir))
+            }
         }
-
-        if additional_layers:
-            if "contours" in additional_layers:
-                metadata["contours"] = str(additional_layers["contours"]["layers"])
-
-        dataset_dir = Path(REGIONS_DIR) / region / "datasets" / dataset
-        dataset_dir.mkdir(parents=True, exist_ok=True)
-
-        metadata_path = dataset_dir / "metadata.json"
-        logger.info(f"Saving metadata to {metadata_path}")
-        with open(metadata_path, 'w') as f:
-            json.dump(metadata, f)
-
-        return metadata_path
+        
+        if asset_paths.contours:
+            metadata["paths"]["contours"] = str(asset_paths.contours.relative_to(self.path_manager.base_dir))
+        
+        # Ensure directory exists
+        asset_paths.metadata.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write metadata
+        with open(asset_paths.metadata, 'w') as f:
+            json.dump(metadata, f, indent=2)
+            
+        return asset_paths.metadata

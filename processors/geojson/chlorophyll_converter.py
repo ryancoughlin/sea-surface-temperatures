@@ -3,11 +3,11 @@ import xarray as xr
 from pathlib import Path
 import logging
 from .base_converter import BaseGeoJSONConverter
-
+import datetime
 logger = logging.getLogger(__name__)
 
 class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
-    def convert(self, data_path: Path, region: str, dataset: str, timestamp: str) -> Path:
+    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
             # Load the netCDF data
@@ -46,9 +46,9 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                         continue
             
             # Save to GeoJSON
-            output_path = self.generate_geojson_path(region, dataset, timestamp)
-            self.save_geojson({"type": "FeatureCollection", "features": features}, output_path)
-            return output_path
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            self.save_geojson({"type": "FeatureCollection", "features": features}, asset_paths.contours)
+            return asset_paths.contours
             
         except Exception as e:
             logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}")

@@ -2,50 +2,53 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Union
 from services.erddap_service import ERDDAPService
-from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
-from config.settings import OUTPUT_DIR, SOURCES, REGIONS_DIR, DATA_DIR
+from config.settings import SOURCES
 from config.regions import REGIONS
 import logging
 from utils.file_checker import check_existing_data
+from utils.path_manager import PathManager
 
 logger = logging.getLogger(__name__)
 
 class ProcessingManager:
     """Coordinates data processing workflow using existing services"""
-    
-    def __init__(self, metadata_assembler: MetadataAssembler):
-        """Initialize with required services"""
-        # Core services
+ 
+    def __init__(self, path_manager: PathManager, metadata_assembler: MetadataAssembler):
+        """Initialize with core dependencies"""
+        self.path_manager = path_manager
         self.metadata_assembler = metadata_assembler
         self.session = None
         self.erddap_service = None
         
         # Factories
-        self.processor_factory = ProcessorFactory()
-        self.geojson_converter_factory = GeoJSONConverterFactory()
+        self.processor_factory = ProcessorFactory(path_manager)
+        self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
 
-    def start_session(self, session):
+    async def initialize(self, session):
+        """Initialize async services"""
         self.session = session
-        self.erddap_service = ERDDAPService(session)  # Create service with session
+        self.erddap_service = ERDDAPService(session, self.path_manager)
 
-    async def process_dataset(
-        self, 
-        date: datetime,
-        region_id: str, 
-        dataset: str
-    ) -> Dict[str, Union[str, Path, dict]]:
+    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict[str, Union[str, Path, dict]]:
         """Process a single dataset for a region."""
+        if not self.erddap_service:
+            raise RuntimeError("ProcessingManager not initialized. Call initialize() first.")
+            
         try:
             region = REGIONS[region_id]
             dataset_config = SOURCES[dataset]
 
+            # Get paths using PathManager
+            data_path = self.path_manager.get_data_path(date, dataset, region_id)
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
+
             # Check for existing NetCDF data
             existing_data = check_existing_data(
-                data_dir=DATA_DIR,
-                region=region,  # Pass full region dict
+                path=data_path,
+                region=region,
                 dataset_id=dataset_config['dataset_id'],
                 date=date
             )
@@ -58,8 +61,7 @@ class ProcessingManager:
                 netcdf_path = await self.erddap_service.save_data(
                     date=date,
                     dataset=dataset_config,
-                    region=region,
-                    output_path=DATA_DIR
+                    region_id=region_id
                 )
 
             # Process the netCDF file
@@ -70,7 +72,7 @@ class ProcessingManager:
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
-                    timestamp=date.strftime('%Y%m%d')
+                    date=date
                 )
 
                 # Generate image
@@ -80,26 +82,19 @@ class ProcessingManager:
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
-                    timestamp=date.strftime('%Y%m%d')
+                    date=date
                 )
 
                 metadata_path: Path = self.metadata_assembler.assemble_metadata(
                     region=region_id,
                     dataset=dataset,
-                    timestamp=date.strftime('%Y%m%d'),
-                    image_path=image_path,
-                    geojson_path=geojson_path
+                    date=date
                 )
                 logger.info(f"Metadata saved at {metadata_path}")
 
                 return {
                     'status': 'success',
-                    'paths': {
-                        'data': netcdf_path,
-                        'image': image_path,
-                        'geojson': geojson_path,
-                        'metadata': metadata_path
-                    },
+                    'paths': asset_paths._asdict(),
                     'region': region_id,
                     'dataset': dataset
                 }

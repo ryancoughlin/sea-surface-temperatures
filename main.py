@@ -1,121 +1,58 @@
 import asyncio
 import logging
+import aiohttp
 from datetime import datetime
 from pathlib import Path
-from config import settings
-from config.settings import DATA_DIR, SOURCES
+from config.settings import SOURCES
 from config.regions import REGIONS
-from services.erddap_service import ERDDAPService
-from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
-from processors.processor_factory import ProcessorFactory
-from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processing_manager import ProcessingManager
-import aiohttp
+from utils.path_manager import PathManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def process_data_for_region_and_dataset(
-    date: datetime,
-    region_id: str,
-    dataset: str,
-    service: ERDDAPService,
-    tile_generator: TileGenerator,
-    metadata_assembler: MetadataAssembler,
-) -> dict:
-    """Process data for a single region and dataset"""
-    try:
-        region = REGIONS[region_id]
-        dataset_config = SOURCES[dataset]
-        timestamp = date.strftime('%Y%m%d')
-
-        # Download data returns Path
-        data_file: Path = await service.save_data(
-            date=date,
-            dataset=dataset_config,
-            region=region,
-            output_path=DATA_DIR
-        )
-        
-        if not data_file.exists():
-            raise FileNotFoundError(f"Data file not found for {region_id}, {dataset}")
-
-        # Process data - all methods return Path objects
-        processor = ProcessorFactory.create(dataset)
-        geojson_converter = GeoJSONConverterFactory.create(dataset)
-        
-        image_path: Path = processor.generate_image(data_file, region_id, dataset, timestamp)
-        geojson_path: Path = geojson_converter.convert(data_file, region_id, dataset, timestamp)
-
-        # Generate metadata returns Path
-        metadata_path: Path = metadata_assembler.assemble_metadata(
-            region=region_id,
-            dataset=dataset,
-            timestamp=timestamp,
-            image_path=image_path,
-            geojson_path=geojson_path
-        )
-        
-        return {
-            "status": "success",
-            "paths": {
-                "data_file": data_file,
-                "image_path": image_path,
-                "geojson_path": geojson_path,
-                "metadata_path": metadata_path
-            },
-            "region": region_id,
-            "dataset": dataset
-        }
-        
-    except Exception as e:
-        logger.error(f"Error processing {region_id} for {dataset}: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "region": region_id,
-            "dataset": dataset
-        }
-
 async def main():
-    # Configure connection pooling
-    connector = aiohttp.TCPConnector(limit=5)  # Limit concurrent connections
+    # Initialize core services
+    path_manager = PathManager()
+    metadata_assembler = MetadataAssembler(path_manager)
+    processing_manager = ProcessingManager(path_manager, metadata_assembler)
     
-    async with aiohttp.ClientSession(connector=connector) as session:
-        # Initialize services
-        metadata_assembler = MetadataAssembler()
-        processing_manager = ProcessingManager(metadata_assembler)
-        processing_manager.start_session(session)
+    # Get current date
+    date = datetime.now()
+    
+    # Track results
+    successful = 0
+    failed = 0
+    
+    async with aiohttp.ClientSession() as session:
+        # Initialize processing manager with session
+        await processing_manager.initialize(session)
         
-        date = datetime.now()
+        # Process each dataset for each region
         tasks = []
-        
-        # Create processing tasks
-        for dataset in SOURCES:
-            for region_id in REGIONS:
-                task = asyncio.create_task(
+        for region_id in REGIONS:
+            for dataset in SOURCES:
+                tasks.append(
                     processing_manager.process_dataset(
                         date=date,
                         region_id=region_id,
                         dataset=dataset
                     )
                 )
-                tasks.append(task)
         
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*tasks)
         
-        # Process results
-        successes = [r for r in results if isinstance(r, dict) and r.get('status') == 'success']
-        failures = [r for r in results if isinstance(r, dict) and r.get('status') == 'error']
-        
-        logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
+        # Count successes and failures
+        for result in results:
+            if result['status'] == 'success':
+                successful += 1
+            else:
+                failed += 1
+    
+    logger.info(f"Completed: {successful} successful, {failed} failed")
 
 if __name__ == "__main__":
-    settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    settings.REGIONS_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Run application
     asyncio.run(main())

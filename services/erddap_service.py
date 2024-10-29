@@ -5,13 +5,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Union, Any
 from config.settings import SOURCES
+from config.regions import REGIONS
+from utils.path_manager import PathManager
+
 logger = logging.getLogger(__name__)
 
 class ERDDAPService:
     """Service for fetching oceanographic data from ERDDAP servers"""
     
-    def __init__(self, session: aiohttp.ClientSession):
+    def __init__(self, session: aiohttp.ClientSession, path_manager: PathManager):
         self.session = session  # Store the session
+        self.path_manager = path_manager
         self.max_retries = 3
         self.retry_delay = 1  # seconds
         self.timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes total timeout
@@ -72,8 +76,7 @@ class ERDDAPService:
     async def save_data(self,
                        date: datetime,
                        dataset: Dict,
-                       region: Dict,
-                       output_path: Path) -> Path:
+                       region_id: str) -> Path:
         """Fetch and save data to NetCDF file"""
         url = None
         try:
@@ -88,9 +91,18 @@ class ERDDAPService:
                 raise ValueError(f"No configuration found for dataset {dataset.get('dataset_id')}")
 
             # Calculate time range using lag_days
-            today = datetime.utcnow()
-            offset_date = today - timedelta(days=source_config.get('lag_days', 1))
-            # Build constraints
+            lag_days = source_config.get('lag_days', 1)
+            offset_date = date - timedelta(days=lag_days)
+            region = REGIONS[region_id]
+            
+            # Get data path first to ensure date is valid
+            output_path = self.path_manager.get_data_path(
+                date=date,
+                dataset=dataset['dataset_id'],
+                region=region_id
+            )
+            
+            # Build constraints using ISO format for ERDDAP
             constraints = {
                 'time': {
                     'start': offset_date.strftime('%Y-%m-%dT00:00:00Z'),
@@ -119,12 +131,7 @@ class ERDDAPService:
                 file_type='.nc'
             )
 
-            # Prepare output path
-            output_dir = output_path / region['name'].lower().replace(" ", "_") / source_config['name'].lower().replace(" ", "_")
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_file = output_dir / f"{source_config['dataset_id']}_{region['name'].lower().replace(' ', '_')}_{date.strftime('%Y%m%d')}.nc"
-
-            # Enhanced error handling for the request
+            # Write directly to output_path instead of constructing new path
             try:
                 async with self.session.get(url, timeout=self.timeout) as response:
                     if response.status == 200:
@@ -133,10 +140,11 @@ class ERDDAPService:
                             expected_size = int(content_length)
                             logger.info(f"Downloading {expected_size/1024/1024:.2f}MB from ERDDAP")
                         
-                        output_file.parent.mkdir(parents=True, exist_ok=True)
+                        # Ensure directory exists
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
                         bytes_downloaded = 0
                         
-                        with open(output_file, 'wb') as f:
+                        with open(output_path, 'wb') as f:
                             while True:
                                 try:
                                     chunk = await response.content.read(8192)
@@ -148,14 +156,14 @@ class ERDDAPService:
                                     logger.error(f"Timeout while downloading chunk after {bytes_downloaded/1024/1024:.2f}MB")
                                     raise
                         
-                        logger.info(f"Successfully saved {bytes_downloaded/1024/1024:.2f}MB to {output_file}")
-                        return output_file
+                        logger.info(f"Successfully saved {bytes_downloaded/1024/1024:.2f}MB to {output_path}")
+                        return output_path
                     
                     elif response.status == 429:
                         logger.error("ERDDAP rate limit exceeded. Consider increasing delay between requests")
                         raise aiohttp.ClientError("Rate limit exceeded")
                     elif response.status == 404:
-                        logger.error(f"Dataset not found on ERDDAP server: {url}")
+                        logger.error(f"404 – Not found on ERDDAP server: {url}")
                         raise aiohttp.ClientError("Dataset not found")
                     elif response.status >= 500:
                         logger.error(f"ERDDAP server error {response.status}: {await response.text()}")
