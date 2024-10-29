@@ -88,7 +88,8 @@ class ProcessingManager:
                 metadata_path: Path = self.metadata_assembler.assemble_metadata(
                     region=region_id,
                     dataset=dataset,
-                    date=date
+                    date=date,
+                    asset_paths=asset_paths
                 )
                 logger.info(f"Metadata saved at {metadata_path}")
 

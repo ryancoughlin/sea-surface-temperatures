@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from typing import NamedTuple, Optional
+from config.settings import SOURCES
 
 class AssetPaths(NamedTuple):
     image: Path
@@ -14,10 +15,9 @@ class PathManager:
     project_root/
     ├── data/                     # Raw NetCDF data files
     │   └── {dataset}_{region}_{date}.nc
-    │
-    └── output/                   # Processed data organized by dataset/region/date
-        └── {dataset}/
-            └── {region}/
+    └── output/                   # Processed data organized by region/dataset/date
+        └── {region}/
+            └── {dataset}/
                 └── {date}/
                     ├── image.png
                     ├── contours.geojson  # Only for SST
@@ -43,11 +43,11 @@ class PathManager:
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
         """Get paths for processed assets"""
         date_str = date.strftime('%Y%m%d')
-        dataset_dir = self.output_dir / dataset / region / date_str
+        dataset_dir = self.output_dir / region / dataset / date_str
         dataset_dir.mkdir(parents=True, exist_ok=True)
         
         return AssetPaths(
             image=dataset_dir / "image.png",
-            contours=dataset_dir / "contours.geojson" if dataset == 'LEOACSPOSSTL3SnrtCDaily' else None,
+            contours=dataset_dir / "contours.geojson" if "contours" in SOURCES[dataset]["supportedLayers"] else None,
             metadata=dataset_dir / "metadata.json"
         ) 
