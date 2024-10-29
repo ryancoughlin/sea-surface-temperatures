@@ -12,7 +12,7 @@ class GeoJSONConverterFactory:
     def create(cls, dataset: str, converter_type: str = 'data') -> BaseGeoJSONConverter:
         """Create appropriate GeoJSON converter based on dataset type."""
         dataset_config = SOURCES[dataset]
-        category = dataset_config.get('category')
+        type = dataset_config.get('type')
         
         converters = {
             'sst': SSTGeoJSONConverter,
@@ -20,8 +20,8 @@ class GeoJSONConverterFactory:
             'chlorophyll': ChlorophyllGeoJSONConverter
         }
         
-        converter_class = converters.get(category)
+        converter_class = converters.get(type)
         if not converter_class:
-            raise ValueError(f"No GeoJSON converter available for category: {category}")
+            raise ValueError(f"No GeoJSON converter available for type: {type}")
             
         return converter_class()

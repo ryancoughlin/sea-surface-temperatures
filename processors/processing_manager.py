@@ -91,7 +91,7 @@ class ProcessingManager:
                 timestamp=timestamp
             )
 
-            if SOURCES[dataset].get('category') == 'sst':
+            if SOURCES[dataset].get('type') == 'sst':
                 contour_converter = self.geojson_converter_factory.create(dataset, 'contours')
                 contour_path = contour_converter.convert(
                     data_path=data_path,

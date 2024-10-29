@@ -24,7 +24,7 @@ class SSTProcessor(BaseImageProcessor):
             dataset_dir.mkdir(parents=True, exist_ok=True)
             
             image_path = dataset_dir / "image.png"
-            contour_path = dataset_dir / "contours.geojson" if SOURCES[dataset]['category'] == 'sst' else None
+            contour_path = dataset_dir / "contours.geojson" if SOURCES[dataset]['type'] == 'sst' else None
 
             # Load data
             logger.info(f"Processing SST data for {region}")

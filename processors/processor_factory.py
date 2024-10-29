@@ -13,7 +13,7 @@ class ProcessorFactory:
     
     @classmethod
     def create(cls, dataset: str) -> BaseImageProcessor:
-        category = SOURCES[dataset]['category']
+        type = SOURCES[dataset]['type']
         
         processors = {
             'sst': SSTProcessor,
@@ -21,4 +21,4 @@ class ProcessorFactory:
             'chlorophyll': ChlorophyllProcessor
         }
         
-        return processors[category]()
+        return processors[type]()
