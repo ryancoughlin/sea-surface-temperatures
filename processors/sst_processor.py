@@ -7,7 +7,6 @@ from .base_processor import BaseImageProcessor
 from config.settings import SOURCES, REGIONS_DIR, IMAGE_SETTINGS
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
-from utils.contour_utils import generate_temperature_contours, contours_to_geojson
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import json
@@ -70,33 +69,11 @@ class SSTProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            # Save image without contour lines
+            # Save the figure
             plt.savefig(image_path, dpi=IMAGE_SETTINGS['dpi'], bbox_inches='tight')
             plt.close()
 
-            # Generate contours for GeoJSON only (not displayed on image)
-            additional_layers = None
-            if contour_path:
-                contour_lines = generate_temperature_contours(
-                    ax=plt.gca(),  # Use temporary axes for contour generation
-                    data=regional_data,
-                    lons=regional_data[lon_name],
-                    lats=regional_data[lat_name]
-                )
-                
-                contour_geojson = contours_to_geojson(contour_lines)
-                plt.close()  # Close temporary figure
-                
-                with open(contour_path, 'w') as f:
-                    json.dump(contour_geojson, f)
-
-                additional_layers = {
-                    "contours": {
-                        "path": str(contour_path.relative_to(REGIONS_DIR)),
-                    }
-                }
-
-            return image_path, additional_layers
+            return image_path
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")

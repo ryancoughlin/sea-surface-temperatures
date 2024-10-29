@@ -46,7 +46,6 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
                             },
                             "properties": {
                                 "value": value,
-                                "unit": "°F"  # Assuming temperature is in Fahrenheit
                             }
                         }
                         features.append(feature)

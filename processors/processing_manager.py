@@ -64,6 +64,7 @@ class ProcessingManager:
 
             # Process the netCDF file
             try:
+                # Generate base GeoJSON data
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
                 geojson_path = geojson_converter.convert(
                     data_path=netcdf_path,
@@ -72,43 +73,22 @@ class ProcessingManager:
                     timestamp=date.strftime('%Y%m%d')
                 )
 
-                processor = ProcessorFactory.create(dataset)
+                # Generate image
+                processor = self.processor_factory.create(dataset)
                 logger.info(f"Processing {dataset} data for {region_id}")
-
-                processing_result = processor.generate_image(
+                image_path = processor.generate_image(
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
                     timestamp=date.strftime('%Y%m%d')
                 )
 
-                if isinstance(processing_result, tuple):
-                    image_path, additional_layers = processing_result
-                else:
-                    image_path = processing_result
-                    additional_layers = None
-
-                if SOURCES[dataset].get('type') == 'sst':
-                    contour_converter = self.geojson_converter_factory.create(dataset, 'contours')
-                    contour_path = contour_converter.convert(
-                        data_path=netcdf_path,
-                        region=region_id,
-                        dataset=dataset,
-                        timestamp=date.strftime('%Y%m%d')
-                    )
-                    additional_layers = {
-                        "contours": {
-                            "layers": str(contour_path.relative_to(REGIONS_DIR)),
-                        }
-                    }
-
                 metadata_path: Path = self.metadata_assembler.assemble_metadata(
                     region=region_id,
                     dataset=dataset,
                     timestamp=date.strftime('%Y%m%d'),
                     image_path=image_path,
-                    geojson_path=geojson_path,
-                    additional_layers=additional_layers
+                    geojson_path=geojson_path
                 )
                 logger.info(f"Metadata saved at {metadata_path}")
 

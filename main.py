@@ -113,9 +113,9 @@ async def main():
         logger.info(f"Completed: {len(successes)} successful, {len(failures)} failed")
 
 if __name__ == "__main__":
-    # Create directories
     settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    settings.REGIONS_DIR.mkdir(parents=True, exist_ok=True)
     
     # Run application
     asyncio.run(main())
