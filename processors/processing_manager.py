@@ -6,9 +6,10 @@ from processors.tile_generator import TileGenerator
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
-from config.settings import OUTPUT_DIR, SOURCES, REGIONS_DIR
+from config.settings import OUTPUT_DIR, SOURCES, REGIONS_DIR, DATA_DIR
 from config.regions import REGIONS
 import logging
+from utils.file_checker import check_existing_data
 
 logger = logging.getLogger(__name__)
 
@@ -40,41 +41,35 @@ class ProcessingManager:
         try:
             region = REGIONS[region_id]
             dataset_config = SOURCES[dataset]
-            timestamp = date.strftime('%Y%m%d')
 
-            # Check for existing GeoJSON
-            expected_geojson_path = Path(OUTPUT_DIR) / region_id / "datasets" / dataset / timestamp / "data.geojson"
+            # Check for existing NetCDF data
+            existing_data = check_existing_data(
+                data_dir=DATA_DIR,
+                region=region,  # Pass full region dict
+                dataset_id=dataset_config['dataset_id'],
+                date=date
+            )
             
-            if expected_geojson_path.exists():
-                logger.info(f"GeoJSON file already exists: {expected_geojson_path}")
-                return {
-                    'status': 'success',
-                    'paths': {
-                        'geojson': expected_geojson_path
-                    },
-                    'region': region_id,
-                    'dataset': dataset
-                }
-
-            # If no GeoJSON exists, get the netCDF data and process it
-            try:
-                netcdf_path: Path = await self.erddap_service.save_data(
+            if existing_data:
+                logger.info(f"Using existing data file: {existing_data}")
+                netcdf_path = existing_data
+            else:
+                # If no data exists, download it
+                netcdf_path = await self.erddap_service.save_data(
                     date=date,
                     dataset=dataset_config,
                     region=region,
                     output_path=OUTPUT_DIR
                 )
-                
-                if not netcdf_path.exists():
-                    raise FileNotFoundError(f"NetCDF file not found for {region_id}, {dataset}")
 
-                # Process the netCDF file
+            # Process the netCDF file
+            try:
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
                 geojson_path = geojson_converter.convert(
-                    data_path=netcdf_path,  # Use the netCDF path here
+                    data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
-                    timestamp=timestamp
+                    timestamp=date.strftime('%Y%m%d')
                 )
 
                 processor = ProcessorFactory.create(dataset)
@@ -84,7 +79,7 @@ class ProcessingManager:
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
-                    timestamp=timestamp
+                    timestamp=date.strftime('%Y%m%d')
                 )
 
                 if isinstance(processing_result, tuple):
@@ -99,7 +94,7 @@ class ProcessingManager:
                         data_path=netcdf_path,
                         region=region_id,
                         dataset=dataset,
-                        timestamp=timestamp
+                        timestamp=date.strftime('%Y%m%d')
                     )
                     additional_layers = {
                         "contours": {
@@ -110,7 +105,7 @@ class ProcessingManager:
                 metadata_path: Path = self.metadata_assembler.assemble_metadata(
                     region=region_id,
                     dataset=dataset,
-                    timestamp=timestamp,
+                    timestamp=date.strftime('%Y%m%d'),
                     image_path=image_path,
                     geojson_path=geojson_path,
                     additional_layers=additional_layers
