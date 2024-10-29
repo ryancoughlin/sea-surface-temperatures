@@ -59,7 +59,7 @@ class ProcessingManager:
                     date=date,
                     dataset=dataset_config,
                     region=region,
-                    output_path=OUTPUT_DIR
+                    output_path=DATA_DIR
                 )
 
             # Process the netCDF file
