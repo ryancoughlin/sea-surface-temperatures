@@ -4,6 +4,7 @@ import logging
 import xarray as xr
 import numpy as np
 import json
+import netCDF4
 from config.settings import REGIONS_DIR
 
 logger = logging.getLogger(__name__)
@@ -17,9 +18,25 @@ class BaseGeoJSONConverter(ABC):
     def load_dataset(self, data_path: Path) -> xr.Dataset:
         """Common dataset loading with error handling."""
         try:
-            return xr.open_dataset(data_path)
+            logger.info(f"Attempting to load dataset from: {data_path}")
+            logger.info(f"File exists: {data_path.exists()}")
+            if data_path.exists():
+                logger.info(f"File size: {data_path.stat().st_size} bytes")
+                
+            # Try h5netcdf first as it's often faster
+            try:
+                ds = xr.open_dataset(str(data_path), engine='h5netcdf')
+            except:
+                # Fall back to netcdf4 if h5netcdf fails
+                ds = xr.open_dataset(str(data_path), engine='netcdf4')
+                
+            logger.info(f"Successfully loaded dataset with variables: {list(ds.variables)}")
+            return ds
+            
         except Exception as e:
-            logger.error(f"Error loading dataset: {str(e)}")
+            logger.error(f"Error loading dataset from {data_path}")
+            logger.error(f"Available engines: {xr.backends.list_engines()}")
+            logger.error(f"Error details: {str(e)}")
             raise
 
     def get_coordinates(self, ds: xr.Dataset) -> tuple:

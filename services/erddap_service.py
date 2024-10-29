@@ -75,6 +75,7 @@ class ERDDAPService:
                        region: Dict,
                        output_path: Path) -> Path:
         """Fetch and save data to NetCDF file"""
+        url = None
         try:
             # Get source configuration
             source_config = next(
@@ -123,28 +124,64 @@ class ERDDAPService:
             output_dir.mkdir(parents=True, exist_ok=True)
             output_file = output_dir / f"{source_config['dataset_id']}_{region['name'].lower().replace(' ', '_')}_{date.strftime('%Y%m%d')}.nc"
 
-            # Download file using aiohttp
-            async with self.session.get(url, timeout=self.timeout) as response:
-                if response.status == 200:
-                    output_file.parent.mkdir(parents=True, exist_ok=True)
-                    with open(output_file, 'wb') as f:
-                        while True:
-                            chunk = await response.content.read(8192)
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                    logger.info(f"Successfully saved data to {output_file}")
-                    return output_file
-                else:
-                    logger.error(f"Failed to download data: {response.status}")
-                    raise aiohttp.ClientError(f"HTTP {response.status}")
+            # Enhanced error handling for the request
+            try:
+                async with self.session.get(url, timeout=self.timeout) as response:
+                    if response.status == 200:
+                        content_length = response.headers.get('Content-Length')
+                        if content_length:
+                            expected_size = int(content_length)
+                            logger.info(f"Downloading {expected_size/1024/1024:.2f}MB from ERDDAP")
+                        
+                        output_file.parent.mkdir(parents=True, exist_ok=True)
+                        bytes_downloaded = 0
+                        
+                        with open(output_file, 'wb') as f:
+                            while True:
+                                try:
+                                    chunk = await response.content.read(8192)
+                                    if not chunk:
+                                        break
+                                    bytes_downloaded += len(chunk)
+                                    f.write(chunk)
+                                except asyncio.TimeoutError:
+                                    logger.error(f"Timeout while downloading chunk after {bytes_downloaded/1024/1024:.2f}MB")
+                                    raise
+                        
+                        logger.info(f"Successfully saved {bytes_downloaded/1024/1024:.2f}MB to {output_file}")
+                        return output_file
+                    
+                    elif response.status == 429:
+                        logger.error("ERDDAP rate limit exceeded. Consider increasing delay between requests")
+                        raise aiohttp.ClientError("Rate limit exceeded")
+                    elif response.status == 404:
+                        logger.error(f"Dataset not found on ERDDAP server: {url}")
+                        raise aiohttp.ClientError("Dataset not found")
+                    elif response.status >= 500:
+                        logger.error(f"ERDDAP server error {response.status}: {await response.text()}")
+                        raise aiohttp.ClientError(f"Server error: {response.status}")
+                    else:
+                        logger.error(f"Failed to download data: HTTP {response.status}")
+                        logger.error(f"Response: {await response.text()}")
+                        raise aiohttp.ClientError(f"HTTP {response.status}")
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"Error saving ERDDAP data: {str(e)}")
-            logger.error(f"Failed URL: {url}")
-            raise
+            except asyncio.TimeoutError:
+                logger.error(f"Request timed out after {self.timeout.total} seconds")
+                logger.error(f"URL: {url}")
+                raise
+
+            except aiohttp.ClientConnectorError as e:
+                logger.error(f"Connection error to ERDDAP server: {str(e)}")
+                logger.error(f"URL: {url}")
+                raise
+
+            except aiohttp.ClientError as e:
+                logger.error(f"HTTP client error: {str(e)}")
+                logger.error(f"URL: {url}")
+                raise
 
         except Exception as e:
+            if url:  # Only log URL if we got far enough to create it
+                logger.error(f"Failed URL: {url}")
             logger.error(f"Error saving ERDDAP data: {str(e)}")
-            logger.error(f"Failed URL: {url}")
             raise
