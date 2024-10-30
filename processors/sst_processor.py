@@ -63,7 +63,7 @@ class SSTProcessor(BaseImageProcessor):
             # Create masked figure and axes
             fig, ax = self.create_masked_axes(region)
             
-            # Plot filled contours only (removed contour lines from plot)
+            # Plot filled contours
             filled_contours = ax.contourf(
                 regional_data[lon_name],
                 regional_data[lat_name],
@@ -76,11 +76,8 @@ class SSTProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree()
             )
             
-            # Save the figure
-            plt.savefig(image_path, dpi=IMAGE_SETTINGS['dpi'], bbox_inches='tight')
-            plt.close()
-
-            return image_path
+            # Save using base class method that properly handles zero padding
+            return self.save_image(fig, region, dataset, date)
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")

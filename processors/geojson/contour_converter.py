@@ -33,43 +33,62 @@ class ContourConverter(BaseGeoJSONConverter):
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
 
-            # Light smoothing to reduce noise while preserving temperature breaks
+            # Check if we have valid data
+            if regional_data.isnull().all():
+                logger.warning(f"No valid data found for region {region}")
+                return None
+
+            # Get min/max values safely
+            valid_data = regional_data.values[~np.isnan(regional_data.values)]
+            if len(valid_data) == 0:
+                logger.warning(f"No valid data points found for region {region}")
+                return None
+
+            min_temp = np.floor(np.nanmin(valid_data))
+            max_temp = np.ceil(np.nanmax(valid_data))
+
+            # Ensure we have a valid range
+            if min_temp >= max_temp:
+                logger.warning(f"Invalid temperature range: min={min_temp}, max={max_temp}")
+                return None
+
+            # Create levels with 2°F intervals
+            levels = np.arange(min_temp, max_temp + 2, 2)
+            
+            # Light smoothing
             smoothed_data = gaussian_filter(regional_data.values, sigma=1.2)
 
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
             
-            # Create levels with larger intervals to focus on significant breaks
-            min_temp = np.floor(float(regional_data.min()))
-            max_temp = np.ceil(float(regional_data.max()))
-            levels = np.arange(min_temp, max_temp + 1.5, 1.5)  # Changed from 2°F to 1.5°F intervals
-            
-            contour_set: QuadContourSet = ax.contour(
+            contour_set = ax.contour(
                 regional_data[lon_name],
                 regional_data[lat_name],
                 smoothed_data,
                 levels=levels,
-                corner_mask=True
+                corner_mask=True,
+                linewidths=1,
+                antialiased=True
             )
             plt.close(fig)
 
-            # Convert to GeoJSON with minimal simplification
+            # Process contours
             features = []
             for level_index, level_value in enumerate(contour_set.levels):
                 for path in contour_set.collections[level_index].get_paths():
                     vertices = path.vertices
-                    if len(vertices) < 3:  # Reduced minimum points requirement
+                    if len(vertices) < 3:
                         continue
                     
-                    # Enhanced path simplification
+                    # Path simplification
                     simplified_coords = []
                     prev_point = None
-                    min_distance = 0.03  # Reduced from 0.05 to allow more detail
-                    max_distance = 0.3   # Reduced from 0.5 to prevent long connections
+                    min_distance = 0.03
+                    max_distance = 0.3
                     
                     for lon, lat in vertices:
                         if prev_point is None:
-                            simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])  # Increased precision
+                            simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])
                             prev_point = (lon, lat)
                         else:
                             distance = np.sqrt((lon - prev_point[0])**2 + (lat - prev_point[1])**2)
@@ -77,9 +96,7 @@ class ContourConverter(BaseGeoJSONConverter):
                                 simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])
                                 prev_point = (lon, lat)
                     
-                    # Only create feature if we have enough points and no large gaps
-                    if len(simplified_coords) >= 4:  # Require more points for a valid feature
-                        # Check for large gaps in final path
+                    if len(simplified_coords) >= 4:
                         valid_path = True
                         for i in range(1, len(simplified_coords)):
                             dist = np.sqrt(
