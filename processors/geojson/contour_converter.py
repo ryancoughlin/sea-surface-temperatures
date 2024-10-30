@@ -2,11 +2,13 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
+from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
 from matplotlib.contour import QuadContourSet
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from config.regions import REGIONS
+from scipy.interpolate import RectBivariateSpline
 
 logger = logging.getLogger(__name__)
 
@@ -31,45 +33,76 @@ class ContourConverter(BaseGeoJSONConverter):
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
 
-            # Generate contours using matplotlib
+            # Light smoothing to reduce noise while preserving temperature breaks
+            smoothed_data = gaussian_filter(regional_data.values, sigma=1.2)
+
+            # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
             
-            # Round min/max to nearest 2°F and create levels every 2°F
-            min_temp = np.floor(float(regional_data.min()) / 2) * 2
-            max_temp = np.ceil(float(regional_data.max()) / 2) * 2
-            levels = np.arange(min_temp, max_temp + 2, 2)  # +2 to include max value
+            # Create levels with larger intervals to focus on significant breaks
+            min_temp = np.floor(float(regional_data.min()))
+            max_temp = np.ceil(float(regional_data.max()))
+            levels = np.arange(min_temp, max_temp + 1.5, 1.5)  # Changed from 2°F to 1.5°F intervals
             
             contour_set: QuadContourSet = ax.contour(
                 regional_data[lon_name],
                 regional_data[lat_name],
-                regional_data.values,
-                levels=levels
+                smoothed_data,
+                levels=levels,
+                corner_mask=True
             )
             plt.close(fig)
 
-            # Convert to GeoJSON features
+            # Convert to GeoJSON with minimal simplification
             features = []
             for level_index, level_value in enumerate(contour_set.levels):
                 for path in contour_set.collections[level_index].get_paths():
                     vertices = path.vertices
-                    if len(vertices) < 2:
+                    if len(vertices) < 3:  # Reduced minimum points requirement
                         continue
-                        
-                    coordinates = [[round(float(lon), 2), round(float(lat), 2)] 
-                                 for lon, lat in vertices]
                     
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": coordinates
-                        },
-                        "properties": {
-                            "value": round(float(level_value), 2),
-                            "unit": "fahrenheit"
-                        }
-                    }
-                    features.append(feature)
+                    # Enhanced path simplification
+                    simplified_coords = []
+                    prev_point = None
+                    min_distance = 0.03  # Reduced from 0.05 to allow more detail
+                    max_distance = 0.3   # Reduced from 0.5 to prevent long connections
+                    
+                    for lon, lat in vertices:
+                        if prev_point is None:
+                            simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])  # Increased precision
+                            prev_point = (lon, lat)
+                        else:
+                            distance = np.sqrt((lon - prev_point[0])**2 + (lat - prev_point[1])**2)
+                            if distance >= min_distance and distance <= max_distance:
+                                simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])
+                                prev_point = (lon, lat)
+                    
+                    # Only create feature if we have enough points and no large gaps
+                    if len(simplified_coords) >= 4:  # Require more points for a valid feature
+                        # Check for large gaps in final path
+                        valid_path = True
+                        for i in range(1, len(simplified_coords)):
+                            dist = np.sqrt(
+                                (simplified_coords[i][0] - simplified_coords[i-1][0])**2 +
+                                (simplified_coords[i][1] - simplified_coords[i-1][1])**2
+                            )
+                            if dist > max_distance:
+                                valid_path = False
+                                break
+                        
+                        if valid_path:
+                            feature = {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "LineString",
+                                    "coordinates": simplified_coords
+                                },
+                                "properties": {
+                                    "value": round(float(level_value), 1),
+                                    "unit": "fahrenheit"
+                                }
+                            }
+                            features.append(feature)
 
             # Get asset paths and create GeoJSON
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
