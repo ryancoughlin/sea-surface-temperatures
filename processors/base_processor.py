@@ -38,38 +38,35 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure to standardized location with absolutely no padding."""
+        """Save figure with zero padding."""
         try:
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            
-            if not hasattr(fig, 'savefig'):
-                raise ValueError(f"Expected matplotlib figure, got {type(fig)}")
+            path = self.path_manager.get_asset_paths(date, dataset, region)
             
             # Save with zero padding and transparency
             fig.savefig(
-                asset_paths.image,
+                path.image,
                 dpi=self.settings['dpi'],
-                bbox_inches=None,     # Don't use bbox_inches='tight' as it adds padding
-                pad_inches=0,         # Explicitly set padding to 0
-                transparent=True,     # Ensure transparency
-                format='png'          # Explicitly set format
+                bbox_inches=None,  # Disable bbox_inches to prevent padding
+                pad_inches=0,      # Explicitly set padding to 0
+                transparent=True,
+                format='png'
             )
             plt.close(fig)
-            return asset_paths.image
+            return path.image
         except Exception as e:
-            logger.error(f"Error in save_image: {str(e)}")
+            logger.error(f"Error saving image: {str(e)}")
             raise
 
     def create_masked_axes(self, region: str, figsize=(10, 8)) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with land areas masked and no padding."""
+        """Create figure and axes with zero padding."""
         bounds = REGIONS[region]['bounds']
         
-        # Create figure with zero padding and transparent background
+        # Create figure with transparent background
         fig = plt.figure(figsize=figsize, frameon=False)
         fig.patch.set_alpha(0.0)
         
-        # Create axes that fills the entire figure with zero padding
-        ax = plt.axes([0, 0, 1, 1], projection=ccrs.Mercator(), frameon=False)
+        # Create axes that fills entire figure with zero padding
+        ax = plt.axes([0, 0, 1, 1], projection=ccrs.Mercator())
         ax.patch.set_alpha(0.0)
         
         # Set map extent
@@ -80,15 +77,8 @@ class BaseImageProcessor(ABC):
             bounds[1][1]   # north
         ], crs=ccrs.PlateCarree())
         
-        # Add land feature
+        # Add land feature and remove all axes elements
         ax.add_feature(self.land_feature)
-        
-        # Remove all axes elements and padding
         ax.set_axis_off()
-        ax.set_frame_on(False)
-        
-        # Remove all margins and spacing
-        plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        plt.margins(0, 0)
         
         return fig, ax
