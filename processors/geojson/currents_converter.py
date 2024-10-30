@@ -111,8 +111,8 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             
             # Save using base class method
-            self.save_geojson(geojson, asset_paths.contours)
-            return asset_paths.contours
+            self.save_geojson(geojson, asset_paths.data)
+            return asset_paths.data
             
         except Exception as e:
             logger.error(f"Error converting currents to GeoJSON: {str(e)}")

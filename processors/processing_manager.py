@@ -68,12 +68,22 @@ class ProcessingManager:
             try:
                 # Generate base GeoJSON data
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
-                geojson_path = geojson_converter.convert(
+                data_path = geojson_converter.convert(
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
+
+                # Generate contours for SST data
+                if SOURCES[dataset]['type'] == 'sst':
+                    contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+                    contour_path = contour_converter.convert(
+                        data_path=netcdf_path,
+                        region=region_id,
+                        dataset=dataset,
+                        date=date
+                    )
 
                 # Generate image
                 processor = self.processor_factory.create(dataset)

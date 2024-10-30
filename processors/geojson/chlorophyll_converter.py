@@ -47,8 +47,8 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
             
             # Save to GeoJSON
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            self.save_geojson({"type": "FeatureCollection", "features": features}, asset_paths.contours)
-            return asset_paths.contours
+            self.save_geojson({"type": "FeatureCollection", "features": features}, asset_paths.data)
+            return asset_paths.data
             
         except Exception as e:
             logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}")

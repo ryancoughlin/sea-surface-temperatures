@@ -5,6 +5,7 @@ from config.settings import SOURCES
 
 class AssetPaths(NamedTuple):
     image: Path
+    data: Path
     contours: Optional[Path]
     metadata: Path
 class PathManager:
@@ -29,6 +30,7 @@ class PathManager:
         
         return AssetPaths(
             image=dataset_dir / "image.png",
-            contours=dataset_dir / "contours.geojson" if "contours" in SOURCES[dataset]["supportedLayers"] else None,
+            data=dataset_dir / "data.json",
+            contours=dataset_dir / "contours.json" if "contours" in SOURCES[dataset]["supportedLayers"] else None,
             metadata=dataset_dir / "metadata.json"
         )

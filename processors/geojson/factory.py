@@ -1,6 +1,7 @@
 from .sst_converter import SSTGeoJSONConverter
 from .currents_converter import CurrentsGeoJSONConverter
 from .chlorophyll_converter import ChlorophyllGeoJSONConverter
+from .contour_converter import ContourConverter
 from utils.path_manager import PathManager
 
 class GeoJSONConverterFactory:
@@ -10,8 +11,10 @@ class GeoJSONConverterFactory:
         self.path_manager = path_manager
     
     def create(self, dataset: str, converter_type: str = 'data'):
-        """Create appropriate converter based on dataset type."""
+        """Create appropriate converter based on dataset type and converter type."""
         if dataset == 'LEOACSPOSSTL3SnrtCDaily':
+            if converter_type == 'contour':
+                return ContourConverter(self.path_manager)
             return SSTGeoJSONConverter(self.path_manager)
         elif dataset == 'BLENDEDNRTcurrentsDaily':
             return CurrentsGeoJSONConverter(self.path_manager)

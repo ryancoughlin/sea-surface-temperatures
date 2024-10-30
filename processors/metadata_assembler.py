@@ -15,6 +15,8 @@ class MetadataAssembler:
         layers = {}
         if asset_paths.image.exists():
             layers["image"] = self.get_full_url(asset_paths.image.relative_to(self.path_manager.base_dir))
+        if asset_paths.data.exists():
+            layers["data"] = self.get_full_url(asset_paths.data.relative_to(self.path_manager.base_dir))
         if asset_paths.contours and asset_paths.contours.exists():
             layers["contours"] = self.get_full_url(asset_paths.contours.relative_to(self.path_manager.base_dir))
             
@@ -73,6 +75,8 @@ class MetadataAssembler:
         layers = {}
         if asset_paths.image.exists():
             layers["image"] = self.get_full_url(asset_paths.image.relative_to(self.path_manager.base_dir))
+        if asset_paths.data.exists():
+            layers["data"] = self.get_full_url(asset_paths.data.relative_to(self.path_manager.base_dir))
         if asset_paths.contours and asset_paths.contours.exists():
             layers["contours"] = self.get_full_url(asset_paths.contours.relative_to(self.path_manager.base_dir))
             

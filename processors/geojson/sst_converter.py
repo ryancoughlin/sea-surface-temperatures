@@ -82,8 +82,8 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
             }
             
             # Save using base class method
-            self.save_geojson(geojson, asset_paths.contours)
-            return asset_paths.contours
+            self.save_geojson(geojson, asset_paths.data)
+            return asset_paths.data
             
         except Exception as e:
             logger.error(f"Error converting SST data to GeoJSON: {str(e)}")
