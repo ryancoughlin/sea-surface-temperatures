@@ -8,7 +8,7 @@ class MetadataAssembler:
         self.path_manager = path_manager
 
     def assemble_metadata(self, date: datetime, dataset: str, region: str, asset_paths) -> dict:
-        """Assemble metadata in the new format and save to disk"""
+        """Assemble metadata for a single dataset and update the global metadata file"""
         now = datetime.now()
         
         # Build layers paths
@@ -36,34 +36,47 @@ class MetadataAssembler:
         with open(asset_paths.metadata, 'w') as f:
             json.dump(metadata, f, indent=2)
             
-        # Update region-level metadata
-        self.update_region_metadata(region, dataset, date, asset_paths)
+        # Update global metadata file
+        self.update_global_metadata(region, dataset, date, asset_paths)
         
         return metadata
 
-    def update_region_metadata(self, region: str, dataset: str, date: datetime, asset_paths) -> None:
-        """Update or create the region-level metadata file that aggregates all datasets"""
-        region_metadata_path = self.path_manager.output_dir / region / "metadata.json"
+    def update_global_metadata(self, region: str, dataset: str, date: datetime, asset_paths) -> None:
+        """Update or create the global metadata file that contains all regions and datasets"""
+        global_metadata_path = self.path_manager.output_dir / "metadata.json"
         
         # Load existing metadata if it exists, or create new
-        if region_metadata_path.exists():
-            with open(region_metadata_path) as f:
-                region_metadata = json.load(f)
+        if global_metadata_path.exists():
+            with open(global_metadata_path) as f:
+                metadata = json.load(f)
         else:
-            region_metadata = {}
-            
-        # Initialize dataset entry if it doesn't exist
-        if dataset not in region_metadata:
-            region_metadata[dataset] = {
+            metadata = {"regions": [], "lastUpdated": datetime.now().isoformat()}
+        
+        # Find or create region entry
+        region_entry = next((r for r in metadata["regions"] if r["id"] == region), None)
+        if not region_entry:
+            from config.regions import REGIONS
+            region_entry = {
+                "id": region,
+                "name": REGIONS[region]["name"],
+                "bounds": REGIONS[region]["bounds"],
+                "datasets": []
+            }
+            metadata["regions"].append(region_entry)
+        
+        # Find or create dataset entry
+        dataset_entry = next((d for d in region_entry["datasets"] if d["id"] == dataset), None)
+        if not dataset_entry:
+            dataset_entry = {
                 "id": dataset,
+                "category": SOURCES[dataset]["type"],
                 "name": SOURCES[dataset]["name"],
-                "type": SOURCES[dataset]["type"],
                 "supportedLayers": SOURCES[dataset]["supportedLayers"],
                 "dates": []
             }
-            
-        # Add or update the date entry
-        date_str = date.strftime('%Y%m%d')
+            region_entry["datasets"].append(dataset_entry)
+        
+        # Build layers paths
         layers = {}
         if asset_paths.image.exists():
             layers["image"] = str(asset_paths.image.relative_to(self.path_manager.base_dir))
@@ -71,18 +84,18 @@ class MetadataAssembler:
             layers["contours"] = str(asset_paths.contours.relative_to(self.path_manager.base_dir))
             
         # Remove existing entry for this date if it exists
-        region_metadata[dataset]["dates"] = [
-            d for d in region_metadata[dataset]["dates"] 
-            if d["date"] != date_str
-        ]
+        date_str = date.strftime('%Y%m%d')
+        dataset_entry["dates"] = [d for d in dataset_entry["dates"] if d["date"] != date_str]
         
         # Add new date entry
-        region_metadata[dataset]["dates"].append({
+        dataset_entry["dates"].append({
             "date": date_str,
-            "processing_time": datetime.now().isoformat(),
             "layers": layers
         })
         
+        # Update lastUpdated timestamp
+        metadata["lastUpdated"] = datetime.now().isoformat()
+        
         # Save updated metadata
-        with open(region_metadata_path, 'w') as f:
-            json.dump(region_metadata, f, indent=2)
+        with open(global_metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
