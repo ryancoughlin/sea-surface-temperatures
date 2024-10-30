@@ -58,5 +58,17 @@ SOURCES = {
         "altitude": "[0:1:0]",
         "type": "chlorophyll",
         "supportedLayers": ["image", "geojson"]
+    },
+    "BLENDEDsstDNDaily": {
+        "source_type": "erddap",
+        "type": "sst",
+        "name": "NOAA Geo-polar Blended SST Analysis Day+Night",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwBLENDEDsstDNDaily",
+        "variables": ["analysed_sst"],
+        "lag_days": 2,
+        "color_scale": "RdYlBu_r",
+        "stride": None,
+        "supportedLayers": ["image", "geojson", "contours"]
     }
 }

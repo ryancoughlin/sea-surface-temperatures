@@ -12,7 +12,8 @@ class GeoJSONConverterFactory:
     
     def create(self, dataset: str, converter_type: str = 'data'):
         """Create appropriate converter based on dataset type and converter type."""
-        if dataset == 'LEOACSPOSSTL3SnrtCDaily':
+        # Handle both SST datasets
+        if dataset in ['LEOACSPOSSTL3SnrtCDaily', 'BLENDEDsstDNDaily']:
             if converter_type == 'contour':
                 return ContourConverter(self.path_manager)
             return SSTGeoJSONConverter(self.path_manager)
