@@ -2,14 +2,14 @@ from pathlib import Path
 import json
 import os
 
-# Define the root directory
+SERVER_URL = "http://157.245.10.94"
+
 ROOT_DIR = Path(__file__).parent.parent
 
 # Load color scale relative to ROOT_DIR
 with open(ROOT_DIR / 'color_scale.json', 'r') as f:  # Update color scale path
     color_scale = json.load(f)
 
-# Image generation settings
 IMAGE_SETTINGS = {
     'colors': color_scale['colors'],
     "colormap": "RdYlBu_r",
@@ -60,4 +60,3 @@ SOURCES = {
         "supportedLayers": ["image", "geojson"]
     }
 }
-
