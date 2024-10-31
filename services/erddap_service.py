@@ -14,11 +14,22 @@ class ERDDAPService:
     """Service for fetching oceanographic data from ERDDAP servers"""
     
     def __init__(self, session: aiohttp.ClientSession, path_manager: PathManager):
-        self.session = session  # Store the session
+        # Create connector with rate limiting
+        connector = aiohttp.TCPConnector(
+            limit=3,  # Max 3 concurrent connections
+            limit_per_host=2,  # Max 2 concurrent connections per host
+            force_close=True  # Close connection after each request
+        )
+        
+        self.session = session
         self.path_manager = path_manager
         self.max_retries = 3
-        self.retry_delay = 1  # seconds
-        self.timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes total timeout
+        self.retry_delay = 5  # Increased to 5 seconds between retries
+        self.timeout = aiohttp.ClientTimeout(
+            total=300,  # 5 min total timeout
+            connect=60,  # 60 seconds to establish connection
+            sock_read=60  # 60 seconds to read response chunk
+        )
         
     def build_constraint(self, 
                         dim_name: str,
@@ -77,7 +88,7 @@ class ERDDAPService:
                        date: datetime,
                        dataset: Dict,
                        region_id: str) -> Path:
-        """Fetch and save data to NetCDF file"""
+        """Fetch and save data with built-in rate limiting"""
         url = None
         try:
             # Get source configuration
@@ -132,61 +143,57 @@ class ERDDAPService:
             )
 
             # Write directly to output_path instead of constructing new path
-            try:
-                async with self.session.get(url, timeout=self.timeout) as response:
-                    if response.status == 200:
-                        content_length = response.headers.get('Content-Length')
-                        if content_length:
-                            expected_size = int(content_length)
-                            logger.info(f"Downloading {expected_size/1024/1024:.2f}MB from ERDDAP")
+            for attempt in range(self.max_retries):
+                try:
+                    async with self.session.get(url, timeout=self.timeout) as response:
+                        if response.status == 429:  # Rate limit hit
+                            retry_after = int(response.headers.get('Retry-After', self.retry_delay))
+                            logger.warning(f"Rate limit exceeded, waiting {retry_after}s")
+                            await asyncio.sleep(retry_after)
+                            break  # Exit the with block
                         
-                        # Ensure directory exists
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
-                        bytes_downloaded = 0
+                        if response.status == 200:
+                            content_length = response.headers.get('Content-Length')
+                            if content_length:
+                                expected_size = int(content_length)
+                                logger.info(f"Downloading {expected_size/1024/1024:.2f}MB from ERDDAP")
+                            
+                            # Ensure directory exists
+                            output_path.parent.mkdir(parents=True, exist_ok=True)
+                            bytes_downloaded = 0
+                            
+                            with open(output_path, 'wb') as f:
+                                while True:
+                                    try:
+                                        chunk = await response.content.read(8192)
+                                        if not chunk:
+                                            break
+                                        bytes_downloaded += len(chunk)
+                                        f.write(chunk)
+                                    except asyncio.TimeoutError:
+                                        logger.error(f"Timeout while downloading chunk after {bytes_downloaded/1024/1024:.2f}MB")
+                                        raise
+                            
+                            logger.info(f"Successfully saved {bytes_downloaded/1024/1024:.2f}MB to {output_path}")
+                            return output_path
                         
-                        with open(output_path, 'wb') as f:
-                            while True:
-                                try:
-                                    chunk = await response.content.read(8192)
-                                    if not chunk:
-                                        break
-                                    bytes_downloaded += len(chunk)
-                                    f.write(chunk)
-                                except asyncio.TimeoutError:
-                                    logger.error(f"Timeout while downloading chunk after {bytes_downloaded/1024/1024:.2f}MB")
-                                    raise
-                        
-                        logger.info(f"Successfully saved {bytes_downloaded/1024/1024:.2f}MB to {output_path}")
-                        return output_path
-                    
-                    elif response.status == 429:
-                        logger.error("ERDDAP rate limit exceeded. Consider increasing delay between requests")
-                        raise aiohttp.ClientError("Rate limit exceeded")
-                    elif response.status == 404:
-                        logger.error(f"404 – Not found on ERDDAP server: {url}")
-                        raise aiohttp.ClientError("Dataset not found")
-                    elif response.status >= 500:
-                        logger.error(f"ERDDAP server error {response.status}: {await response.text()}")
-                        raise aiohttp.ClientError(f"Server error: {response.status}")
-                    else:
-                        logger.error(f"Failed to download data: HTTP {response.status}")
-                        logger.error(f"Response: {await response.text()}")
-                        raise aiohttp.ClientError(f"HTTP {response.status}")
+                        elif response.status == 404:
+                            logger.error(f"404 – Not found on ERDDAP server: {url}")
+                            raise aiohttp.ClientError("Dataset not found")
+                        elif response.status >= 500:
+                            logger.error(f"ERDDAP server error {response.status}: {await response.text()}")
+                            raise aiohttp.ClientError(f"Server error: {response.status}")
+                        else:
+                            logger.error(f"Failed to download data: HTTP {response.status}")
+                            logger.error(f"Response: {await response.text()}")
+                            raise aiohttp.ClientError(f"HTTP {response.status}")
 
-            except asyncio.TimeoutError:
-                logger.error(f"Request timed out after {self.timeout.total} seconds")
-                logger.error(f"URL: {url}")
-                raise
-
-            except aiohttp.ClientConnectorError as e:
-                logger.error(f"Connection error to ERDDAP server: {str(e)}")
-                logger.error(f"URL: {url}")
-                raise
-
-            except aiohttp.ClientError as e:
-                logger.error(f"HTTP client error: {str(e)}")
-                logger.error(f"URL: {url}")
-                raise
+                except Exception as e:
+                    logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
+                    if attempt < self.max_retries - 1:
+                        await asyncio.sleep(self.retry_delay)
+                        continue
+                    raise
 
         except Exception as e:
             if url:  # Only log URL if we got far enough to create it
