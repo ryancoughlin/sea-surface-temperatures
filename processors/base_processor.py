@@ -17,11 +17,9 @@ class BaseImageProcessor(ABC):
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
-        self.land_feature = cfeature.NaturalEarthFeature(
-            'physical', 'land', '10m',
-            edgecolor='none',
-            facecolor='none'
-        )
+        # Keep land feature but configure it for masking only
+        self.land_feature = cfeature.LAND.with_scale('10m')
+        self.ocean_feature = cfeature.OCEAN.with_scale('10m')
 
     @abstractmethod
     def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
@@ -38,16 +36,31 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure with zero padding."""
+        """Save figure with zero padding and ensure land masking."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
+            
+            # Get the current axes
+            ax = plt.gca()
+            
+            # Ensure land mask is applied with proper z-order
+            ax.add_feature(self.land_feature, facecolor='none', edgecolor='none', zorder=2)
+            
+            # Ensure correct extent
+            bounds = REGIONS[region]['bounds']
+            ax.set_extent([
+                bounds[0][0],
+                bounds[1][0],
+                bounds[0][1],
+                bounds[1][1]
+            ], crs=ccrs.PlateCarree())
             
             # Save with zero padding and transparency
             fig.savefig(
                 path.image,
                 dpi=self.settings['dpi'],
-                bbox_inches=None,  # Disable bbox_inches to prevent padding
-                pad_inches=0,      # Explicitly set padding to 0
+                bbox_inches=None,
+                pad_inches=0,
                 transparent=True,
                 format='png'
             )
@@ -77,8 +90,8 @@ class BaseImageProcessor(ABC):
             bounds[1][1]   # north
         ], crs=ccrs.PlateCarree())
         
-        # Add land feature and remove all axes elements
-        ax.add_feature(self.land_feature)
+        # Add land feature but make it transparent
+        ax.add_feature(self.land_feature, facecolor='none', edgecolor='none')
         ax.set_axis_off()
         
         return fig, ax

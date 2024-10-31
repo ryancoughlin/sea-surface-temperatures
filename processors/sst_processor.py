@@ -6,7 +6,7 @@ import cartopy.crs as ccrs
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f
+from utils.data_utils import convert_temperature_to_f, interpolate_data
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +45,23 @@ class SSTProcessor(BaseImageProcessor):
             
             # Convert temperature and create visualization
             regional_data = convert_temperature_to_f(regional_data)
+            
+            # Create figure and axes
             fig, ax = self.create_masked_axes(region)
             
-            ax.contourf(
+            # Plot filled contours for ocean data
+            contour = ax.contourf(
                 regional_data[lon_name],
                 regional_data[lat_name],
                 regional_data,
                 levels=70,
                 cmap=SOURCES[dataset]['color_scale'],
                 extend='both',
-                vmin=32,
-                vmax=88,
-                transform=ccrs.PlateCarree()
+                vmin=36,
+                vmax=82,
+                transform=ccrs.PlateCarree(),
+                zorder=1,
+                antialiased=True
             )
             
             return self.save_image(fig, region, dataset, date)

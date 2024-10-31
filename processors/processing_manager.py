@@ -101,7 +101,6 @@ class ProcessingManager:
                     date=date,
                     asset_paths=asset_paths
                 )
-                logger.info(f"Metadata saved at {metadata_path}")
 
                 return {
                     'status': 'success',
