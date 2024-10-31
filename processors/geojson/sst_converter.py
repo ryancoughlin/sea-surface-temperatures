@@ -47,11 +47,12 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
                         value = float(regional_data[i, j])
                         
                         if not np.isnan(value):
+                            # Convert Celsius to Fahrenheit
+                            value_f = (value * 9/5) + 32
                             feature = self.create_feature(
                                 lon, lat,
                                 {
-                                    "value": value,
-                                    "unit": "celsius"
+                                    "value": value_f,
                                 }
                             )
                             features.append(feature)
