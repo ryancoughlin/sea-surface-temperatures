@@ -54,7 +54,7 @@ class SSTProcessor(BaseImageProcessor):
                 regional_data[lon_name],
                 regional_data[lat_name],
                 regional_data,
-                levels=70,
+                levels=50,
                 cmap=SOURCES[dataset]['color_scale'],
                 extend='both',
                 vmin=36,

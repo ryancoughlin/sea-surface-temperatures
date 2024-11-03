@@ -30,7 +30,7 @@ SOURCES = {
         "name": "LEO ACSPO SST L3S NRT C Daily",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
-        "variables": ["sea_surface_temperature"],
+        "variables": ["sea_surface_temperature", "sst_gradient_magnitude"],
         "lag_days": 2,
         "color_scale": "RdYlBu_r",
         "stride": None,
