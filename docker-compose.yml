@@ -2,7 +2,7 @@ services:
   app:
     build: .
     volumes:
-      - ./downloaded_data:/downloaded_data
+      - ./data:/data
       - ./output:/output
       - ./config:/config
     restart: "no"

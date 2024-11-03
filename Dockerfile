@@ -18,8 +18,8 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories with correct permissions
-RUN mkdir -p /downloaded_data /output && \
-    chmod -R 777 /downloaded_data /output
+RUN mkdir -p /data /output && \
+    chmod -R 777 /data /output
 
 # Create a non-root user
 RUN useradd -m appuser
