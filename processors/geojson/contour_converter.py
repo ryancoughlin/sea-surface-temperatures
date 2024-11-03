@@ -17,6 +17,18 @@ def clean_value(value):
     return float(value)
 
 class ContourConverter(BaseGeoJSONConverter):
+    # Add class-level constants
+    KEY_TEMPERATURES = [44, 48, 54, 60, 65, 70, 72, 74, 76]
+    
+    def _generate_temp_levels(self, min_temp: float, max_temp: float) -> np.ndarray:
+        """Generate temperature contour levels based on data range and key temperatures."""
+        # Create ranges with appropriate intervals
+        below_50 = np.arange(np.floor(min_temp), 50, 2)
+        mid_range = np.arange(50, 75, 1)
+        above_75 = np.arange(75, np.ceil(max_temp) + 2, 2)
+        
+        return np.unique(np.concatenate([below_50, mid_range, above_75]))
+
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to fishing-oriented contour GeoJSON format."""
         try:
@@ -62,12 +74,7 @@ class ContourConverter(BaseGeoJSONConverter):
             # Generate temperature levels
             min_temp = np.floor(np.nanmin(smoothed_data))
             max_temp = np.ceil(np.nanmax(smoothed_data))
-            
-            base_levels = np.concatenate([
-                np.arange(min_temp, 50, 2),
-                np.arange(50, 75, 1),
-                np.arange(75, max_temp + 2, 2)
-            ])
+            base_levels = self._generate_temp_levels(min_temp, max_temp)
             
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
@@ -139,7 +146,7 @@ class ContourConverter(BaseGeoJSONConverter):
                         },
                         "properties": {
                             "value": clean_value(level_value),
-                            "is_key_temp": level_value in [60, 65, 70, 72]
+                            "is_key_temp": level_value in self.KEY_TEMPERATURES
                         }
                     }
                     
