@@ -26,31 +26,42 @@ async def main():
     successful = 0
     failed = 0
     
-    async with aiohttp.ClientSession() as session:
+    # Configure aiohttp session
+    connector = aiohttp.TCPConnector(
+        limit=3,
+        limit_per_host=2,
+        enable_cleanup_closed=True
+    )
+    
+    timeout = aiohttp.ClientTimeout(total=30)
+    
+    async with aiohttp.ClientSession(
+        connector=connector,
+        timeout=timeout,
+        raise_for_status=True
+    ) as session:
         # Initialize processing manager with session
         await processing_manager.initialize(session)
         
-        # Process each dataset for each region
-        tasks = []
+        # Process datasets sequentially for each region
         for region_id in REGIONS:
             for dataset in SOURCES:
-                tasks.append(
-                    processing_manager.process_dataset(
+                try:
+                    result = await processing_manager.process_dataset(
                         date=date,
                         region_id=region_id,
                         dataset=dataset
                     )
-                )
-        
-        # Wait for all tasks to complete
-        results = await asyncio.gather(*tasks)
-        
-        # Count successes and failures
-        for result in results:
-            if result['status'] == 'success':
-                successful += 1
-            else:
-                failed += 1
+                    
+                    if result['status'] == 'success':
+                        successful += 1
+                    else:
+                        failed += 1
+                        
+                except Exception as e:
+                    logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
+                    failed += 1
+                    continue
     
     logger.info(f"Completed: {successful} successful, {failed} failed")
 
