@@ -6,7 +6,7 @@ import cartopy.crs as ccrs
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f, interpolate_data
+from utils.data_utils import convert_temperature_to_f
 
 logger = logging.getLogger(__name__)
 

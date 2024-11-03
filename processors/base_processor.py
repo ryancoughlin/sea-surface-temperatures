@@ -59,7 +59,7 @@ class BaseImageProcessor(ABC):
             fig.savefig(
                 path.image,
                 dpi=self.settings['dpi'],
-                bbox_inches=None,
+                bbox_inches='tight',
                 pad_inches=0,
                 transparent=True,
                 format='png'
@@ -74,12 +74,22 @@ class BaseImageProcessor(ABC):
         """Create figure and axes with zero padding."""
         bounds = REGIONS[region]['bounds']
         
-        # Create figure with transparent background
-        fig = plt.figure(figsize=figsize, frameon=False)
+        # Calculate aspect ratio from bounds
+        lon_span = bounds[1][0] - bounds[0][0]
+        lat_span = bounds[1][1] - bounds[0][1]
+        aspect = lon_span / lat_span
+        
+        # Adjust figsize to match aspect ratio
+        height = 8  # base height
+        width = height * aspect
+        
+        fig = plt.figure(figsize=(width, height), frameon=False)
         fig.patch.set_alpha(0.0)
         
-        # Create axes that fills entire figure with zero padding
-        ax = plt.axes([0, 0, 1, 1], projection=ccrs.Mercator())
+        # Calculate center longitude for projection
+        center_lon = (bounds[0][0] + bounds[1][0]) / 2
+        ax = plt.axes([0, 0, 1, 1], 
+                     projection=ccrs.Mercator(central_longitude=center_lon))
         ax.patch.set_alpha(0.0)
         
         # Set map extent

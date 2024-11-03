@@ -24,102 +24,90 @@ class ContourConverter(BaseGeoJSONConverter):
             # Convert Celsius to Fahrenheit
             data = data * 1.8 + 32
             
-            # Get coordinate names and mask data
+            # Create regular grid from the data points
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
             
+            # Get regional bounds and mask
             bounds = REGIONS[region]['bounds']
             lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
-
-            # Check if we have valid data
-            if regional_data.isnull().all():
-                logger.warning(f"No valid data found for region {region}")
-                return None
-
-            # Get min/max values safely
-            valid_data = regional_data.values[~np.isnan(regional_data.values)]
-            if len(valid_data) == 0:
-                logger.warning(f"No valid data points found for region {region}")
-                return None
-
-            min_temp = np.floor(np.nanmin(valid_data))
-            max_temp = np.ceil(np.nanmax(valid_data))
-
-            # Ensure we have a valid range
-            if min_temp >= max_temp:
-                logger.warning(f"Invalid temperature range: min={min_temp}, max={max_temp}")
-                return None
-
-            # Create levels with 2°F intervals
-            levels = np.arange(min_temp, max_temp + 2, 2)
             
-            # Light smoothing
-            smoothed_data = gaussian_filter(regional_data.values, sigma=1.2)
+            # Apply stronger smoothing to identify major features
+            smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
+            
+            # Calculate gradients with additional smoothing
+            dy, dx = np.gradient(smoothed_data)
+            gradient_magnitude = gaussian_filter(np.sqrt(dx**2 + dy**2), sigma=1.5)
+            
+            # More selective threshold - top 5% of gradients
+            gradient_threshold = np.nanpercentile(gradient_magnitude, 95)
+            
+            # Create temperature levels
+            min_temp = np.floor(np.nanmin(smoothed_data))
+            max_temp = np.ceil(np.nanmax(smoothed_data))
+            base_levels = np.arange(min_temp, max_temp + 2, 2)
 
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
-            
             contour_set = ax.contour(
                 regional_data[lon_name],
                 regional_data[lat_name],
                 smoothed_data,
-                levels=levels,
-                corner_mask=True,
-                linewidths=1,
-                antialiased=True
+                levels=base_levels
             )
             plt.close(fig)
 
-            # Process contours
+            # Process contours with stricter filtering
             features = []
-            for level_index, level_value in enumerate(contour_set.levels):
-                for path in contour_set.collections[level_index].get_paths():
-                    vertices = path.vertices
-                    if len(vertices) < 3:
+            for level_idx, level_value in enumerate(contour_set.levels):
+                for segment in contour_set.allsegs[level_idx]:
+                    # Require longer minimum length
+                    if len(segment) < 10:  # Increased from 5
                         continue
                     
-                    # Path simplification
-                    simplified_coords = []
-                    prev_point = None
-                    min_distance = 0.03
-                    max_distance = 0.3
+                    path_length = np.sum(np.sqrt(np.sum(np.diff(segment, axis=0)**2, axis=1)))
+                    # Increased minimum path length
+                    if path_length < 0.5:  # Increased from 0.1
+                        continue
                     
-                    for lon, lat in vertices:
-                        if prev_point is None:
-                            simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])
-                            prev_point = (lon, lat)
-                        else:
-                            distance = np.sqrt((lon - prev_point[0])**2 + (lat - prev_point[1])**2)
-                            if distance >= min_distance and distance <= max_distance:
-                                simplified_coords.append([round(float(lon), 4), round(float(lat), 4)])
-                                prev_point = (lon, lat)
+                    x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
+                    y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
+                    x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
+                    y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
                     
-                    if len(simplified_coords) >= 4:
-                        valid_path = True
-                        for i in range(1, len(simplified_coords)):
-                            dist = np.sqrt(
-                                (simplified_coords[i][0] - simplified_coords[i-1][0])**2 +
-                                (simplified_coords[i][1] - simplified_coords[i-1][1])**2
-                            )
-                            if dist > max_distance:
-                                valid_path = False
-                                break
-                        
-                        if valid_path:
-                            feature = {
-                                "type": "Feature",
-                                "geometry": {
-                                    "type": "LineString",
-                                    "coordinates": simplified_coords
-                                },
-                                "properties": {
-                                    "value": round(float(level_value), 1),
-                                    "unit": "fahrenheit"
-                                }
-                            }
-                            features.append(feature)
+                    # Calculate average gradient along the contour
+                    avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
+                    
+                    # More strict break definition
+                    is_break = (avg_gradient > gradient_threshold and path_length > 1.0)
+                    
+                    # Skip features that aren't breaks
+                    if not is_break:
+                        continue
+                    
+                    # Simplify coordinates to reduce noise
+                    coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
+                             if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
+                    
+                    if len(coords) < 5:  # Ensure we still have enough points after simplification
+                        continue
+                    
+                    feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": coords
+                        },
+                        "properties": {
+                            "value": float(level_value),
+                            "unit": "fahrenheit",
+                            "gradient": float(avg_gradient) if not np.isnan(avg_gradient) else 0.0,
+                            "is_temp_break": bool(is_break)
+                        }
+                    }
+                    features.append(feature)
 
             # Get asset paths and create GeoJSON
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
