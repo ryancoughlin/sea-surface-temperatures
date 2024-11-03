@@ -96,14 +96,23 @@ class ContourConverter(BaseGeoJSONConverter):
                         x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
                         y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
                         
-                        avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
-                        max_gradient = float(np.nanmax(gradient_magnitude[y_indices, x_indices]))
+                        # Get gradient values and check for valid data
+                        gradient_values = gradient_magnitude[y_indices, x_indices]
+                        valid_gradients = gradient_values[~np.isnan(gradient_values)]
                         
-                        break_strength = 'none'
-                        if avg_gradient > strong_break:
-                            break_strength = 'strong'
-                        elif avg_gradient > moderate_break:
-                            break_strength = 'moderate'
+                        if len(valid_gradients) > 0:
+                            avg_gradient = float(np.mean(valid_gradients))
+                            max_gradient = float(np.max(valid_gradients))
+                            
+                            break_strength = 'none'
+                            if avg_gradient > strong_break:
+                                break_strength = 'strong'
+                            elif avg_gradient > moderate_break:
+                                break_strength = 'moderate'
+                        else:
+                            avg_gradient = None
+                            max_gradient = None
+                            break_strength = 'none'
                     else:
                         avg_gradient = None
                         max_gradient = None
@@ -121,6 +130,7 @@ class ContourConverter(BaseGeoJSONConverter):
                     if len(coords) < 5:
                         continue
                     
+                    # Base properties for all datasets
                     feature = {
                         "type": "Feature",
                         "geometry": {
@@ -129,14 +139,19 @@ class ContourConverter(BaseGeoJSONConverter):
                         },
                         "properties": {
                             "value": clean_value(level_value),
-                            "unit": "fahrenheit",
-                            "gradient": clean_value(avg_gradient),
-                            "max_gradient": clean_value(max_gradient),
-                            "break_strength": break_strength,
-                            "length_nm": clean_value(path_length * 60),
                             "is_key_temp": level_value in [60, 65, 70, 72]
                         }
                     }
+                    
+                    # Add additional properties only for LEOACSPOSSTL3SnrtCDaily
+                    if dataset == 'LEOACSPOSSTL3SnrtCDaily':
+                        feature["properties"].update({
+                            "gradient": clean_value(avg_gradient),
+                            "max_gradient": clean_value(max_gradient),
+                            "break_strength": break_strength,
+                            "length_nm": clean_value(path_length * 60)
+                        })
+                    
                     features.append(feature)
             
             geojson = {
