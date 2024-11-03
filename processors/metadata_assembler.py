@@ -81,12 +81,17 @@ class MetadataAssembler:
             layers["contours"] = self.get_full_url(asset_paths.contours.relative_to(self.path_manager.base_dir))
             
         date_str = date.strftime('%Y%m%d')
+        # Remove existing entry for this date if it exists
         dataset_entry["dates"] = [d for d in dataset_entry["dates"] if d["date"] != date_str]
         
+        # Add new entry
         dataset_entry["dates"].append({
             "date": date_str,
             "layers": layers
         })
+        
+        # Sort dates in descending order (newest first)
+        dataset_entry["dates"].sort(key=lambda x: x["date"], reverse=True)
         
         metadata["lastUpdated"] = datetime.now().isoformat()
         

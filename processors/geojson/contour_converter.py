@@ -37,30 +37,36 @@ class ContourConverter(BaseGeoJSONConverter):
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
             regional_data = data.where(lon_mask & lat_mask, drop=True)
             
-            # Enhanced smoothing for major features
-            smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
+            # Check if this dataset supports gradient magnitude
+            has_gradient = (dataset == 'LEOACSPOSSTL3SnrtCDaily' and 
+                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'])
             
-            # Calculate gradients with directional components
-            dy, dx = np.gradient(smoothed_data)
-            gradient_magnitude = np.sqrt(dx**2 + dy**2)
-            gradient_direction = np.arctan2(dy, dx)
+            if has_gradient:
+                # Enhanced smoothing for major features
+                smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
+                
+                # Calculate gradients with directional components
+                dy, dx = np.gradient(smoothed_data)
+                gradient_magnitude = np.sqrt(dx**2 + dy**2)
+                gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
+                
+                # Calculate break thresholds
+                strong_break = np.nanpercentile(gradient_magnitude, 95)
+                moderate_break = np.nanpercentile(gradient_magnitude, 85)
+            else:
+                smoothed_data = regional_data.values
+                gradient_magnitude = None
+                strong_break = None
+                moderate_break = None
             
-            # Apply additional smoothing to gradients
-            gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
-            
-            # Calculate break thresholds
-            strong_break = np.nanpercentile(gradient_magnitude, 95)  # Strong temperature break
-            moderate_break = np.nanpercentile(gradient_magnitude, 85)  # Moderate break
-            
-            # Generate temperature levels with finer resolution in key ranges
+            # Generate temperature levels
             min_temp = np.floor(np.nanmin(smoothed_data))
             max_temp = np.ceil(np.nanmax(smoothed_data))
             
-            # Create custom levels focusing on key fishing temperatures
             base_levels = np.concatenate([
-                np.arange(min_temp, 50, 2),  # Wider spacing for cold water
-                np.arange(50, 75, 1),        # Finer spacing for prime fishing temps
-                np.arange(75, max_temp + 2, 2)  # Wider spacing for warm water
+                np.arange(min_temp, 50, 2),
+                np.arange(50, 75, 1),
+                np.arange(75, max_temp + 2, 2)
             ])
             
             # Generate contours
@@ -79,34 +85,37 @@ class ContourConverter(BaseGeoJSONConverter):
                     if len(segment) < 10:
                         continue
                     
-                    # Calculate path characteristics
                     path_length = np.sum(np.sqrt(np.sum(np.diff(segment, axis=0)**2, axis=1)))
                     if path_length < 0.5:
                         continue
                     
-                    # Sample gradients along contour
-                    x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
-                    y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
-                    x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
-                    y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
+                    # Calculate gradient properties only if available
+                    if has_gradient:
+                        x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
+                        y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
+                        x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
+                        y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
+                        
+                        avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
+                        max_gradient = float(np.nanmax(gradient_magnitude[y_indices, x_indices]))
+                        
+                        break_strength = 'none'
+                        if avg_gradient > strong_break:
+                            break_strength = 'strong'
+                        elif avg_gradient > moderate_break:
+                            break_strength = 'moderate'
+                    else:
+                        avg_gradient = None
+                        max_gradient = None
+                        break_strength = 'none'
                     
-                    # Calculate gradient statistics
-                    avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
-                    max_gradient = float(np.nanmax(gradient_magnitude[y_indices, x_indices]))
-                    
-                    # Classify break strength
-                    break_strength = 'none'
-                    if avg_gradient > strong_break:
-                        break_strength = 'strong'
-                    elif avg_gradient > moderate_break:
-                        break_strength = 'moderate'
-                    
-                    # Skip non-significant features
-                    if break_strength == 'none' and level_value not in [60, 65, 70, 72]:  # Key fishing temps
+                    # Skip non-significant features for gradient-enabled datasets
+                    if has_gradient and break_strength == 'none' and level_value not in [60, 65, 70, 72]:
                         continue
                     
-                    # Simplify coordinates while preserving important points
-                    coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
+                    # Round coordinates to 3 decimal places
+                    coords = [[round(float(x), 3), round(float(y), 3)] 
+                             for i, (x, y) in enumerate(segment) 
                              if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
                     
                     if len(coords) < 5:
@@ -124,13 +133,12 @@ class ContourConverter(BaseGeoJSONConverter):
                             "gradient": clean_value(avg_gradient),
                             "max_gradient": clean_value(max_gradient),
                             "break_strength": break_strength,
-                            "length_nm": clean_value(path_length * 60),  # Convert to nautical miles
+                            "length_nm": clean_value(path_length * 60),
                             "is_key_temp": level_value in [60, 65, 70, 72]
                         }
                     }
                     features.append(feature)
             
-            # Clean metadata values
             geojson = {
                 "type": "FeatureCollection",
                 "features": features,
