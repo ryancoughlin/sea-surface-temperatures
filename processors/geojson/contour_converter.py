@@ -10,6 +10,12 @@ from config.regions import REGIONS
 
 logger = logging.getLogger(__name__)
 
+def clean_value(value):
+    """Convert NaN or invalid values to null, otherwise return the float value."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    return float(value)
+
 class ContourConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to fishing-oriented contour GeoJSON format."""
@@ -113,35 +119,36 @@ class ContourConverter(BaseGeoJSONConverter):
                             "coordinates": coords
                         },
                         "properties": {
-                            "value": float(level_value),
+                            "value": clean_value(level_value),
                             "unit": "fahrenheit",
-                            "gradient": float(avg_gradient),
-                            "max_gradient": float(max_gradient),
+                            "gradient": clean_value(avg_gradient),
+                            "max_gradient": clean_value(max_gradient),
                             "break_strength": break_strength,
-                            "length_nm": float(path_length * 60),  # Convert to nautical miles
+                            "length_nm": clean_value(path_length * 60),  # Convert to nautical miles
                             "is_key_temp": level_value in [60, 65, 70, 72]
                         }
                     }
                     features.append(feature)
             
+            # Clean metadata values
             geojson = {
                 "type": "FeatureCollection",
                 "features": features,
                 "properties": {
                     "date": date.strftime('%Y-%m-%d'),
                     "bounds": {
-                        "min_lon": round(float(regional_data[lon_name].min()), 2),
-                        "max_lon": round(float(regional_data[lon_name].max()), 2),
-                        "min_lat": round(float(regional_data[lat_name].min()), 2),
-                        "max_lat": round(float(regional_data[lat_name].max()), 2)
+                        "min_lon": clean_value(np.nanmin(regional_data[lon_name])),
+                        "max_lon": clean_value(np.nanmax(regional_data[lon_name])),
+                        "min_lat": clean_value(np.nanmin(regional_data[lat_name])),
+                        "max_lat": clean_value(np.nanmax(regional_data[lat_name]))
                     },
                     "gradient_thresholds": {
-                        "strong_break": float(strong_break),
-                        "moderate_break": float(moderate_break)
+                        "strong_break": clean_value(strong_break),
+                        "moderate_break": clean_value(moderate_break)
                     },
                     "value_range": {
-                        "min": round(float(regional_data.min()), 2),
-                        "max": round(float(regional_data.max()), 2)
+                        "min": clean_value(np.nanmin(regional_data)),
+                        "max": clean_value(np.nanmax(regional_data))
                     }
                 }
             }
