@@ -18,8 +18,8 @@ class BaseImageProcessor(ABC):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
         # Keep land feature but configure it for masking only
-        self.land_feature = cfeature.LAND.with_scale('10m')
-        self.ocean_feature = cfeature.OCEAN.with_scale('10m')
+        self.land_feature = cfeature.LAND.with_scale('50m')
+        self.ocean_feature = cfeature.OCEAN.with_scale('50m')
 
     @abstractmethod
     def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
@@ -80,7 +80,7 @@ class BaseImageProcessor(ABC):
         aspect = lon_span / lat_span
         
         # Adjust figsize to match aspect ratio
-        height = 8  # base height
+        height = 16  # base height
         width = height * aspect
         
         fig = plt.figure(figsize=(width, height), frameon=False)
