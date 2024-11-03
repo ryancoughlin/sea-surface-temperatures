@@ -86,13 +86,16 @@ class BaseImageProcessor(ABC):
         fig = plt.figure(figsize=(width, height), frameon=False)
         fig.patch.set_alpha(0.0)
         
-        # Calculate center longitude for projection
-        center_lon = (bounds[0][0] + bounds[1][0]) / 2
+        # Use western-most point as reference for projection
         ax = plt.axes([0, 0, 1, 1], 
-                     projection=ccrs.Mercator(central_longitude=center_lon))
+                     projection=ccrs.Mercator(
+                        central_longitude=bounds[0][0],  # Use western bound
+                        false_easting=0.0,
+                        false_northing=0.0
+                     ))
         ax.patch.set_alpha(0.0)
         
-        # Set map extent
+        # Set extent from top-left reference
         ax.set_extent([
             bounds[0][0],  # west
             bounds[1][0],  # east
@@ -100,7 +103,6 @@ class BaseImageProcessor(ABC):
             bounds[1][1]   # north
         ], crs=ccrs.PlateCarree())
         
-        # Add land feature but make it transparent
         ax.add_feature(self.land_feature, facecolor='none', edgecolor='none')
         ax.set_axis_off()
         
