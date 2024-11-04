@@ -37,13 +37,12 @@ class ContourConverter(BaseGeoJSONConverter):
         # Prime fishing temperatures (60-75°F)
         levels.extend(np.arange(60, 75, 1))
         
-        # Warm waters (> 75°F)
+        # Warm waters (75°F+)
         if max_temp > 75:
+            # Extend range to cover Gulf temps (up to 90°F if needed)
             levels.extend(np.arange(75, np.ceil(max_temp) + 2, 2))
         
-        # Ensure key temperatures are included
-        levels.extend(self.KEY_TEMPERATURES)
-        
+        # Ensure unique values only
         return np.unique(levels)
 
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
@@ -88,10 +87,13 @@ class ContourConverter(BaseGeoJSONConverter):
                 strong_break = None
                 moderate_break = None
             
-            # Generate temperature levels
+            # Generate temperature levels based on actual data range
             min_temp = np.floor(np.nanmin(smoothed_data))
             max_temp = np.ceil(np.nanmax(smoothed_data))
+            
+            logger.debug(f"Temperature range: {min_temp}°F to {max_temp}°F")
             base_levels = self._generate_temp_levels(min_temp, max_temp)
+            logger.debug(f"Generated contour levels: {base_levels}")
             
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
