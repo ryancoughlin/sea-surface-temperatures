@@ -113,30 +113,31 @@ class ContourConverter(BaseGeoJSONConverter):
                     if path_length < 0.5:
                         continue
                     
-                    # Calculate gradient properties only if available
-                    if has_gradient:
+                    # Initialize gradient variables
+                    avg_gradient = None
+                    max_gradient = None
+                    break_strength = 'none'
+                    
+                    # Calculate gradient properties only for LEOACSPOSSTL3SnrtCDaily
+                    if dataset == 'LEOACSPOSSTL3SnrtCDaily' and has_gradient:
                         x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
                         y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
                         x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
                         y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
                         
-                        avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
-                        max_gradient = float(np.nanmax(gradient_magnitude[y_indices, x_indices]))
+                        gradient_values = gradient_magnitude[y_indices, x_indices]
+                        valid_gradients = gradient_values[~np.isnan(gradient_values)]
                         
-                        break_strength = 'none'
-                        if avg_gradient > strong_break:
-                            break_strength = 'strong'
-                        elif avg_gradient > moderate_break:
-                            break_strength = 'moderate'
-                    else:
-                        avg_gradient = None
-                        max_gradient = None
-                        break_strength = 'none'
+                        if len(valid_gradients) > 0:
+                            avg_gradient = float(np.mean(valid_gradients))
+                            max_gradient = float(np.max(valid_gradients))
+                            
+                            if avg_gradient > strong_break:
+                                break_strength = 'strong'
+                            elif avg_gradient > moderate_break:
+                                break_strength = 'moderate'
                     
-                    # Skip non-significant features for gradient-enabled datasets
-                    if has_gradient and break_strength == 'none' and level_value not in [60, 65, 70, 72]:
-                        continue
-                    
+                    # Removed temperature filtering - show all contours
                     coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
                              if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
                     
