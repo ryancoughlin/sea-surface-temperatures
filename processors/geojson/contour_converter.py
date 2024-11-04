@@ -17,17 +17,34 @@ def clean_value(value):
     return float(value)
 
 class ContourConverter(BaseGeoJSONConverter):
-    # Add class-level constants
+    # Define key temperatures and breaks
     KEY_TEMPERATURES = [44, 48, 54, 60, 65, 70, 72, 74, 76]
     
     def _generate_temp_levels(self, min_temp: float, max_temp: float) -> np.ndarray:
         """Generate temperature contour levels based on data range and key temperatures."""
-        # Create ranges with appropriate intervals
-        below_50 = np.arange(np.floor(min_temp), 50, 2)
-        mid_range = np.arange(50, 75, 1)
-        above_75 = np.arange(75, np.ceil(max_temp) + 2, 2)
+        levels = []
         
-        return np.unique(np.concatenate([below_50, mid_range, above_75]))
+        # Very cold waters (< 44°F)
+        if min_temp < 44:
+            levels.extend(np.arange(np.floor(min_temp), 44, 2))
+            
+        # Cold waters (44-54°F)
+        levels.extend(np.arange(44, 54, 2))
+        
+        # Transition waters (54-60°F)
+        levels.extend(np.arange(54, 60, 1))
+        
+        # Prime fishing temperatures (60-75°F)
+        levels.extend(np.arange(60, 75, 1))
+        
+        # Warm waters (> 75°F)
+        if max_temp > 75:
+            levels.extend(np.arange(75, np.ceil(max_temp) + 2, 2))
+        
+        # Ensure key temperatures are included
+        levels.extend(self.KEY_TEMPERATURES)
+        
+        return np.unique(levels)
 
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to fishing-oriented contour GeoJSON format."""
@@ -51,25 +68,20 @@ class ContourConverter(BaseGeoJSONConverter):
             
             # Check if this dataset supports gradient magnitude
             has_gradient = (dataset == 'LEOACSPOSSTL3SnrtCDaily' and 
-                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'] and
-                          'sst_gradient_magnitude' in ds)
+                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'])
             
             if has_gradient:
                 # Enhanced smoothing for major features
                 smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
                 
-                # Get gradient data directly from dataset
-                gradient_magnitude = ds['sst_gradient_magnitude'].values
+                # Calculate gradients with directional components
+                dy, dx = np.gradient(smoothed_data)
+                gradient_magnitude = np.sqrt(dx**2 + dy**2)
                 gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
                 
                 # Calculate break thresholds
-                valid_gradients = gradient_magnitude[~np.isnan(gradient_magnitude)]
-                if len(valid_gradients) > 0:
-                    strong_break = np.percentile(valid_gradients, 95)
-                    moderate_break = np.percentile(valid_gradients, 85)
-                else:
-                    strong_break = None
-                    moderate_break = None
+                strong_break = np.nanpercentile(gradient_magnitude, 95)
+                moderate_break = np.nanpercentile(gradient_magnitude, 85)
             else:
                 smoothed_data = regional_data.values
                 gradient_magnitude = None
@@ -108,24 +120,14 @@ class ContourConverter(BaseGeoJSONConverter):
                         x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
                         y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
                         
-                        # Get gradient values along the contour
-                        gradient_values = gradient_magnitude[y_indices, x_indices]
-                        valid_gradients = gradient_values[~np.isnan(gradient_values)]
+                        avg_gradient = float(np.nanmean(gradient_magnitude[y_indices, x_indices]))
+                        max_gradient = float(np.nanmax(gradient_magnitude[y_indices, x_indices]))
                         
-                        if len(valid_gradients) > 0:
-                            avg_gradient = float(np.nanmean(gradient_values))  # Use nanmean to handle any NaN values
-                            max_gradient = float(np.nanmax(gradient_values))   # Use nanmax to handle any NaN values
-                            
-                            break_strength = 'none'
-                            if strong_break is not None:  # Check if thresholds were calculated
-                                if avg_gradient > strong_break:
-                                    break_strength = 'strong'
-                                elif avg_gradient > moderate_break:
-                                    break_strength = 'moderate'
-                        else:
-                            avg_gradient = None
-                            max_gradient = None
-                            break_strength = 'none'
+                        break_strength = 'none'
+                        if avg_gradient > strong_break:
+                            break_strength = 'strong'
+                        elif avg_gradient > moderate_break:
+                            break_strength = 'moderate'
                     else:
                         avg_gradient = None
                         max_gradient = None
@@ -135,15 +137,12 @@ class ContourConverter(BaseGeoJSONConverter):
                     if has_gradient and break_strength == 'none' and level_value not in [60, 65, 70, 72]:
                         continue
                     
-                    # Round coordinates to 3 decimal places
-                    coords = [[round(float(x), 3), round(float(y), 3)] 
-                             for i, (x, y) in enumerate(segment) 
+                    coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
                              if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
                     
                     if len(coords) < 5:
                         continue
                     
-                    # Base properties for all datasets
                     feature = {
                         "type": "Feature",
                         "geometry": {
@@ -152,19 +151,14 @@ class ContourConverter(BaseGeoJSONConverter):
                         },
                         "properties": {
                             "value": clean_value(level_value),
-                            "is_key_temp": level_value in self.KEY_TEMPERATURES
-                        }
-                    }
-                    
-                    # Add additional properties only for LEOACSPOSSTL3SnrtCDaily
-                    if dataset == 'LEOACSPOSSTL3SnrtCDaily':
-                        feature["properties"].update({
+                            "unit": "fahrenheit",
                             "gradient": clean_value(avg_gradient),
                             "max_gradient": clean_value(max_gradient),
                             "break_strength": break_strength,
-                            "length_nm": clean_value(path_length * 60)
-                        })
-                    
+                            "length_nm": clean_value(path_length * 60),
+                            "is_key_temp": level_value in [60, 65, 70, 72]
+                        }
+                    }
                     features.append(feature)
             
             geojson = {
