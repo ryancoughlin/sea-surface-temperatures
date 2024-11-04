@@ -51,20 +51,25 @@ class ContourConverter(BaseGeoJSONConverter):
             
             # Check if this dataset supports gradient magnitude
             has_gradient = (dataset == 'LEOACSPOSSTL3SnrtCDaily' and 
-                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'])
+                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'] and
+                          'sst_gradient_magnitude' in ds)
             
             if has_gradient:
                 # Enhanced smoothing for major features
                 smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
                 
-                # Calculate gradients with directional components
-                dy, dx = np.gradient(smoothed_data)
-                gradient_magnitude = np.sqrt(dx**2 + dy**2)
+                # Get gradient data directly from dataset
+                gradient_magnitude = ds['sst_gradient_magnitude'].values
                 gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
                 
                 # Calculate break thresholds
-                strong_break = np.nanpercentile(gradient_magnitude, 95)
-                moderate_break = np.nanpercentile(gradient_magnitude, 85)
+                valid_gradients = gradient_magnitude[~np.isnan(gradient_magnitude)]
+                if len(valid_gradients) > 0:
+                    strong_break = np.percentile(valid_gradients, 95)
+                    moderate_break = np.percentile(valid_gradients, 85)
+                else:
+                    strong_break = None
+                    moderate_break = None
             else:
                 smoothed_data = regional_data.values
                 gradient_magnitude = None
@@ -103,19 +108,20 @@ class ContourConverter(BaseGeoJSONConverter):
                         x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
                         y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
                         
-                        # Get gradient values and check for valid data
+                        # Get gradient values along the contour
                         gradient_values = gradient_magnitude[y_indices, x_indices]
                         valid_gradients = gradient_values[~np.isnan(gradient_values)]
                         
                         if len(valid_gradients) > 0:
-                            avg_gradient = float(np.mean(valid_gradients))
-                            max_gradient = float(np.max(valid_gradients))
+                            avg_gradient = float(np.nanmean(gradient_values))  # Use nanmean to handle any NaN values
+                            max_gradient = float(np.nanmax(gradient_values))   # Use nanmax to handle any NaN values
                             
                             break_strength = 'none'
-                            if avg_gradient > strong_break:
-                                break_strength = 'strong'
-                            elif avg_gradient > moderate_break:
-                                break_strength = 'moderate'
+                            if strong_break is not None:  # Check if thresholds were calculated
+                                if avg_gradient > strong_break:
+                                    break_strength = 'strong'
+                                elif avg_gradient > moderate_break:
+                                    break_strength = 'moderate'
                         else:
                             avg_gradient = None
                             max_gradient = None

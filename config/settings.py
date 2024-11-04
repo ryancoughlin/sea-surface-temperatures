@@ -36,17 +36,17 @@ SOURCES = {
         "stride": None,
         "supportedLayers": ["image", "data", "contours"]
    },
-    "BLENDEDNRTcurrentsDaily": {
-        "source_type": "erddap",
-        "name": "NOAA Blended NRT Currents Daily",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-        "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
-        "variables": ["u_current", "v_current"],
-        "lag_days": 2,
-        "color_scale": "viridis",
-        "type": "currents",
-        "supportedLayers": ["image", "data"]
-    },
+    # "BLENDEDNRTcurrentsDaily": {
+    #     "source_type": "erddap",
+    #     "name": "NOAA Blended NRT Currents Daily",
+    #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+    #     "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
+    #     "variables": ["u_current", "v_current"],
+    #     "lag_days": 2,
+    #     "color_scale": "viridis",
+    #     "type": "currents",
+    #     "supportedLayers": ["image", "data"]
+    # },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
