@@ -17,8 +17,24 @@ def clean_value(value):
     return float(value)
 
 class ContourConverter(BaseGeoJSONConverter):
-    # Define key temperatures and breaks
-    KEY_TEMPERATURES = [44, 48, 54, 60, 65, 70, 72, 74, 76]
+    # Temperature ranges and their significance
+    TEMP_RANGES = {
+        'very_cold': {'min': 0, 'max': 44, 'interval': 2},
+        'cold': {'min': 44, 'max': 54, 'interval': 2},
+        'transition': {'min': 54, 'max': 60, 'interval': 1},
+        'prime': {'min': 60, 'max': 75, 'interval': 1},
+        'warm': {'min': 75, 'max': 90, 'interval': 2}
+    }
+    
+    # Key fishing temperatures
+    KEY_TEMPERATURES = [60, 65, 70, 72]  # Most significant for fishing
+    
+    # Break strength thresholds
+    BREAK_THRESHOLDS = {
+        'strong': 95,    # 95th percentile - bold lines
+        'moderate': 85,  # 85th percentile - medium lines
+        'weak': 0       # < 85th percentile - low opacity lines
+    }
     
     def _generate_temp_levels(self, min_temp: float, max_temp: float) -> np.ndarray:
         """Generate temperature contour levels based on data range and key temperatures."""
@@ -45,15 +61,33 @@ class ContourConverter(BaseGeoJSONConverter):
         # Ensure unique values only
         return np.unique(levels)
 
+    def _get_break_strength(self, avg_gradient, strong_break, moderate_break):
+        """Classify break strength for styling."""
+        if avg_gradient > strong_break:
+            return 'strong'
+        elif avg_gradient > moderate_break:
+            return 'moderate'
+        return 'weak'  # Instead of 'none'
+
+    def _get_temp_range(self, temp: float) -> str:
+        """Classify temperature into fishing-relevant ranges."""
+        for range_name, range_info in self.TEMP_RANGES.items():
+            if range_info['min'] <= temp < range_info['max']:
+                return range_name
+        return 'extreme'
+
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to fishing-oriented contour GeoJSON format."""
         try:
             ds = self.load_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
-            data = self.select_time_slice(data)
             
-            # Convert to Fahrenheit for fishing industry standard
+            # Handle time dimension first
+            if 'time' in data.dims:
+                data = data.isel(time=0)
+            
+            # Convert to Fahrenheit
             data = data * 1.8 + 32
             
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
@@ -79,8 +113,8 @@ class ContourConverter(BaseGeoJSONConverter):
                 gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
                 
                 # Calculate break thresholds
-                strong_break = np.nanpercentile(gradient_magnitude, 95)
-                moderate_break = np.nanpercentile(gradient_magnitude, 85)
+                strong_break = np.nanpercentile(gradient_magnitude, self.BREAK_THRESHOLDS['strong'])
+                moderate_break = np.nanpercentile(gradient_magnitude, self.BREAK_THRESHOLDS['moderate'])
             else:
                 smoothed_data = regional_data.values
                 gradient_magnitude = None
@@ -133,11 +167,7 @@ class ContourConverter(BaseGeoJSONConverter):
                         if len(valid_gradients) > 0:
                             avg_gradient = float(np.mean(valid_gradients))
                             max_gradient = float(np.max(valid_gradients))
-                            
-                            if avg_gradient > strong_break:
-                                break_strength = 'strong'
-                            elif avg_gradient > moderate_break:
-                                break_strength = 'moderate'
+                            break_strength = self._get_break_strength(avg_gradient, strong_break, moderate_break)
                     
                     # Removed temperature filtering - show all contours
                     coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
@@ -145,6 +175,15 @@ class ContourConverter(BaseGeoJSONConverter):
                     
                     if len(coords) < 5:
                         continue
+                    
+                    # # Skip weak breaks and short segments
+                    # if dataset == 'LEOACSPOSSTL3SnrtCDaily':
+                    #     if break_strength == 'none' and level_value not in self.KEY_TEMPERATURES:
+                    #         continue
+                        
+                    #     # Only include significant gradient features
+                    #     if avg_gradient is not None and avg_gradient < moderate_break:
+                    #         continue
                     
                     feature = {
                         "type": "Feature",
