@@ -45,19 +45,13 @@ class ProcessingManager:
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
 
-            # Check for existing NetCDF data
-            existing_data = check_existing_data(
-                path=data_path,
-                region=region,
-                dataset_id=dataset_config['dataset_id'],
-                date=date
-            )
-            
-            if existing_data:
-                logger.info(f"Using existing data file: {existing_data}")
-                netcdf_path = existing_data
+            # Check if the file already exists
+            if data_path.exists():
+                logger.info(f"Using existing data file: {data_path}")
+                netcdf_path = data_path
             else:
                 # If no data exists, download it
+                logger.info(f"Downloading new data for {dataset} {region_id}")
                 netcdf_path = await self.erddap_service.save_data(
                     date=date,
                     dataset=dataset_config,

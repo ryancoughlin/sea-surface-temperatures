@@ -21,7 +21,12 @@ class PathManager:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def get_data_path(self, date: datetime, dataset: str, region: str) -> Path:
-        return self.data_dir / f"{dataset}_{region}_{date.strftime('%Y%m%d')}.nc"
+        # Get the dataset_id from SOURCES config
+        dataset_id = SOURCES[dataset]['dataset_id']
+        region_name = region.lower().replace(" ", "_")
+        date_str = date.strftime('%Y%m%d')
+        
+        return self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
         date_str = date.strftime('%Y%m%d')
