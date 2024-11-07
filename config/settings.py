@@ -22,8 +22,30 @@ TILE_SETTINGS = {
     "tile_size": 256,
 }
 
-# Data source configurations p
+
 SOURCES = {
+    "CMEMS_Global_Currents_Daily": {
+        "source_type": "cmems",
+        "name": "CMEMS Global Daily Mean Ocean Currents",
+        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "variables": ["uo", "vo"],
+        "color_scale": "viridis",
+        "type": "currents",
+        "lag_days": 0,
+        "supportedLayers": ["image", "data",]
+    },
+    "CMEMS_Global_Temperature_Daily": {
+        "source_type": "cmems",
+        "name": "CMEMS Global Daily Mean Sea Water Temperature",
+        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+        "dataset_id": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+        "variables": ["thetao"],
+        "color_scale": "RdYlBu_r",
+        "type": "sst",
+        "lag_days": 0,
+        "supportedLayers": ["image", "data",]
+    },
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
         "type": "sst",
@@ -36,17 +58,17 @@ SOURCES = {
         "stride": None,
         "supportedLayers": ["image", "data", "contours"]
    },
-    # "BLENDEDNRTcurrentsDaily": {
-    #     "source_type": "erddap",
-    #     "name": "NOAA Blended NRT Currents Daily",
-    #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-    #     "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
-    #     "variables": ["u_current", "v_current"],
-    #     "lag_days": 2,
-    #     "color_scale": "viridis",
-    #     "type": "currents",
-    #     "supportedLayers": ["image", "data"]
-    # },
+    "BLENDEDNRTcurrentsDaily": {
+        "source_type": "erddap",
+        "name": "NOAA Blended NRT Currents Daily",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
+        "variables": ["u_current", "v_current"],
+        "lag_days":3,
+        "color_scale": "viridis",
+        "type": "currents",
+        "supportedLayers": ["image", "data"]
+    },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",

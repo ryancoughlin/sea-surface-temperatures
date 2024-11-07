@@ -11,9 +11,6 @@ from utils.data_utils import convert_temperature_to_f
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):
-    def __init__(self, path_manager):
-        super().__init__(path_manager)
-
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
         """Generate SST visualization."""
         try:
@@ -25,9 +22,11 @@ class SSTProcessor(BaseImageProcessor):
             ds = xr.open_dataset(data_path)
             data = ds[SOURCES[dataset]['variables'][0]]
             
-            # Handle time dimension if present
+            # Force 2D data by selecting first index of time and depth if they exist
             if 'time' in data.dims:
                 data = data.isel(time=0)
+            if 'depth' in data.dims:
+                data = data.isel(depth=0)
             
             # Get coordinates and bounds
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
@@ -43,7 +42,7 @@ class SSTProcessor(BaseImageProcessor):
                 drop=True
             )
             
-            # Convert temperature and create visualization
+            # Convert temperature
             regional_data = convert_temperature_to_f(regional_data)
             
             # Create figure and axes
@@ -62,6 +61,14 @@ class SSTProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree(),
                 zorder=1,
                 antialiased=True
+            )
+            
+            # Add land mask with high zorder to ensure it's on top
+            ax.add_feature(
+                self.land_feature,
+                facecolor='none',
+                edgecolor='none',
+                zorder=100
             )
             
             return self.save_image(fig, region, dataset, date)

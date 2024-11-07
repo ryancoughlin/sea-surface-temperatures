@@ -23,6 +23,30 @@ class BaseGeoJSONConverter(ABC):
         except Exception as e:
             logger.error(f"Error loading dataset: {str(e)}")
             raise
+    
+    def normalize_dataset(self, ds: xr.Dataset, var_name: str) -> xr.DataArray:
+        """Normalize dataset structure by handling different dimension layouts."""
+        data = ds[var_name]
+        
+        # Handle time dimension
+        if 'time' in data.dims:
+            data = data.isel(time=0)
+        
+        # Handle depth dimension if present (CMEMS data)
+        if 'depth' in data.dims:
+            data = data.isel(depth=0)
+        
+        # Handle altitude dimension if present
+        if 'altitude' in data.dims:
+            data = data.isel(altitude=0)
+        
+        return data
+    
+    def get_coordinate_names(self, data: xr.DataArray) -> tuple:
+        """Get standardized coordinate names."""
+        lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
+        lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
+        return lon_name, lat_name
 
     def save_geojson(self, geojson_data: dict, output_path: Path) -> None:
         """Save GeoJSON data to file."""
@@ -33,26 +57,3 @@ class BaseGeoJSONConverter(ABC):
         with open(output_path, 'w') as f:
             json.dump(geojson_data, f)
         logger.info(f"Generated GeoJSON file: {output_path}")
-
-    @abstractmethod
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
-        """Convert data to GeoJSON format."""
-        pass
-
-    def select_time_slice(self, data: xr.DataArray) -> xr.DataArray:
-        """Select first time slice if time dimension exists."""
-        if 'time' in data.dims:
-            logger.debug("Selecting first time slice from 3D data")
-            return data.isel(time=0)
-        return data
-
-    def create_feature(self, lon: float, lat: float, properties: dict) -> dict:
-        """Create a GeoJSON feature."""
-        return {
-            "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [lon, lat]
-            },
-            "properties": properties
-        }

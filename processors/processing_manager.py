@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Union
 from services.erddap_service import ERDDAPService
+from services.cmems_service import CMEMSService
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
@@ -22,6 +23,7 @@ class ProcessingManager:
         self.metadata_assembler = metadata_assembler
         self.session = None
         self.erddap_service = None
+        self.cmems_service = None
         
         # Factories
         self.processor_factory = ProcessorFactory(path_manager)
@@ -31,15 +33,17 @@ class ProcessingManager:
         """Initialize async services"""
         self.session = session
         self.erddap_service = ERDDAPService(session, self.path_manager)
+        self.cmems_service = CMEMSService(session, self.path_manager)
 
     async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict[str, Union[str, Path, dict]]:
         """Process a single dataset for a region."""
         if not self.erddap_service:
             raise RuntimeError("ProcessingManager not initialized. Call initialize() first.")
-            
+        
         try:
             region = REGIONS[region_id]
             dataset_config = SOURCES[dataset]
+            source_type = dataset_config.get('source_type')
 
             # Get paths using PathManager
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
@@ -50,67 +54,63 @@ class ProcessingManager:
                 logger.info(f"Using existing data file: {data_path}")
                 netcdf_path = data_path
             else:
-                # If no data exists, download it
+                # If no data exists, download it using appropriate service
                 logger.info(f"Downloading new data for {dataset} {region_id}")
-                netcdf_path = await self.erddap_service.save_data(
+                
+                # Select service based on source type
+                if source_type == 'cmems':
+                    service = self.cmems_service
+                else:
+                    service = self.erddap_service
+                    
+                netcdf_path = await service.save_data(
                     date=date,
-                    dataset=dataset_config,
+                    dataset=dataset,
                     region_id=region_id
                 )
 
-            # Process the netCDF file
-            try:
-                # Generate base GeoJSON data
-                geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
-                data_path = geojson_converter.convert(
+            # Generate base GeoJSON data
+            geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
+            data_path = geojson_converter.convert(
+                data_path=netcdf_path,
+                region=region_id,
+                dataset=dataset,
+                date=date
+            )
+
+            # Generate contours for SST data
+            if SOURCES[dataset]['type'] == 'sst':
+                contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+                contour_path = contour_converter.convert(
                     data_path=netcdf_path,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
 
-                # Generate contours for SST data
-                if SOURCES[dataset]['type'] == 'sst':
-                    contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
-                    contour_path = contour_converter.convert(
-                        data_path=netcdf_path,
-                        region=region_id,
-                        dataset=dataset,
-                        date=date
-                    )
+            # Generate image
+            processor = self.processor_factory.create(dataset)
+            logger.info(f"Processing {dataset} data for {region_id}")
+            image_path = processor.generate_image(
+                data_path=netcdf_path,
+                region=region_id,
+                dataset=dataset,
+                date=date
+            )
 
-                # Generate image
-                processor = self.processor_factory.create(dataset)
-                logger.info(f"Processing {dataset} data for {region_id}")
-                image_path = processor.generate_image(
-                    data_path=netcdf_path,
-                    region=region_id,
-                    dataset=dataset,
-                    date=date
-                )
+            metadata_path: Path = self.metadata_assembler.assemble_metadata(
+                region=region_id,
+                dataset=dataset,
+                date=date,
+                asset_paths=asset_paths
+            )
 
-                metadata_path: Path = self.metadata_assembler.assemble_metadata(
-                    region=region_id,
-                    dataset=dataset,
-                    date=date,
-                    asset_paths=asset_paths
-                )
-
-                return {
-                    'status': 'success',
-                    'paths': asset_paths._asdict(),
-                    'region': region_id,
-                    'dataset': dataset
-                }
-
-            except Exception as e:
-                logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
-                return {
-                    'status': 'error',
-                    'error': str(e),
-                    'region': region_id,
-                    'dataset': dataset
-                }
+            return {
+                'status': 'success',
+                'paths': asset_paths._asdict(),
+                'region': region_id,
+                'dataset': dataset
+            }
 
         except Exception as e:
             logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")

@@ -72,22 +72,14 @@ class ERDDAPService:
         url += ','.join(var_constraints)
         return url
 
-    async def save_data(self,
-                       date: datetime,
-                       dataset: Dict,
-                       region_id: str) -> Path:
+    async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save data with built-in rate limiting"""
         url = None
         try:
-            # Get source configuration
-            source_config = next(
-                (config for _, config in SOURCES.items() 
-                 if config.get('dataset_id') == dataset.get('dataset_id')),
-                None
-            )
-            
+            # Get source configuration using dataset name
+            source_config = SOURCES[dataset]
             if not source_config:
-                raise ValueError(f"No configuration found for dataset {dataset.get('dataset_id')}")
+                raise ValueError(f"No configuration found for dataset {dataset}")
 
             # Calculate time range using lag_days
             lag_days = source_config.get('lag_days', 1)
@@ -97,7 +89,7 @@ class ERDDAPService:
             # Get data path first to ensure date is valid
             output_path = self.path_manager.get_data_path(
                 date=date,
-                dataset=dataset['dataset_id'],
+                dataset=dataset,
                 region=region_id
             )
             

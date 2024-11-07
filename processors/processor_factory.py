@@ -7,16 +7,21 @@ from utils.path_manager import PathManager
 from config.settings import SOURCES
 
 class ProcessorFactory:
-    """Factory for creating appropriate data processors."""
+    """Factory for creating appropriate data processors based on data type."""
     
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
     
     def create(self, dataset: str) -> BaseImageProcessor:
-        """Create appropriate processor based on dataset type."""
+        """
+        Create appropriate processor based on dataset type.
+        Both CMEMS and ERDDAP data use the same processors based on type.
+        """
         try:
-            dataset_type = SOURCES[dataset]['type']
+            dataset_config = SOURCES[dataset]
+            dataset_type = dataset_config['type']
             
+            # Use same processor for each data type regardless of source
             if dataset_type == 'sst':
                 return SSTProcessor(self.path_manager)
             elif dataset_type == 'currents':

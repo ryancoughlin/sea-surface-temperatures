@@ -36,24 +36,19 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure with zero padding and ensure land masking."""
+        """Save figure with proper land masking and zero padding."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
             
             # Get the current axes
             ax = plt.gca()
             
-            # Ensure land mask is applied with proper z-order
-            ax.add_feature(self.land_feature, facecolor='none', edgecolor='none', zorder=2)
-            
-            # Ensure correct extent
-            bounds = REGIONS[region]['bounds']
-            ax.set_extent([
-                bounds[0][0],
-                bounds[1][0],
-                bounds[0][1],
-                bounds[1][1]
-            ], crs=ccrs.PlateCarree())
+            # Add land mask with proper z-order (only place where land mask is added)
+            ax.add_feature(self.land_feature, 
+                          facecolor='none',
+                          edgecolor='none',
+                          alpha=0,
+                          zorder=100)  # Ensure land is always on top
             
             # Save with zero padding and transparency
             fig.savefig(
@@ -71,7 +66,7 @@ class BaseImageProcessor(ABC):
             raise
 
     def create_masked_axes(self, region: str, figsize=(10, 8)) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with zero padding."""
+        """Create figure and axes with proper land masking and zero padding."""
         bounds = REGIONS[region]['bounds']
         
         # Calculate aspect ratio from bounds
@@ -83,19 +78,20 @@ class BaseImageProcessor(ABC):
         height = 16  # base height
         width = height * aspect
         
-        fig = plt.figure(figsize=(width, height), frameon=False)
+        # Create figure with tight layout and transparent background
+        fig = plt.figure(figsize=(width, height))
         fig.patch.set_alpha(0.0)
         
-        # Use western-most point as reference for projection
+        # Create axes with zero padding
         ax = plt.axes([0, 0, 1, 1], 
                      projection=ccrs.Mercator(
-                        central_longitude=bounds[0][0],  # Use western bound
+                        central_longitude=bounds[0][0],
                         false_easting=0.0,
                         false_northing=0.0
                      ))
         ax.patch.set_alpha(0.0)
         
-        # Set extent from top-left reference
+        # Set exact extent from bounds
         ax.set_extent([
             bounds[0][0],  # west
             bounds[1][0],  # east
@@ -103,7 +99,5 @@ class BaseImageProcessor(ABC):
             bounds[1][1]   # north
         ], crs=ccrs.PlateCarree())
         
-        ax.add_feature(self.land_feature, facecolor='none', edgecolor='none')
         ax.set_axis_off()
-        
         return fig, ax

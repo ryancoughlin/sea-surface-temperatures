@@ -14,7 +14,6 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert currents data to GeoJSON with enhanced vector properties."""
         try:
-            # Load dataset using base class method
             ds = self.load_dataset(data_path)
             
             bounds = REGIONS[region]['bounds']
@@ -26,65 +25,69 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             vector_scale = export_config.get('vector_scale', 50)
             min_magnitude = export_config.get('min_magnitude', 0.05)
             
-            # Create regional subset
-            ds_subset = ds.sel(
-                longitude=slice(bounds[0][0], bounds[1][0]),
-                latitude=slice(bounds[0][1], bounds[1][1]),
-                time=ds.time[0]
-            )
+            # Get variable names from SOURCES config
+            u_var, v_var = dataset_config['variables']
             
-            # Get current components and calculate derived values
-            u = ds_subset.u_current
-            v = ds_subset.v_current
+            # Normalize the dataset structure for both components
+            u = self.normalize_dataset(ds, u_var)
+            v = self.normalize_dataset(ds, v_var)
+            
+            # Get standardized coordinate names
+            lon_name, lat_name = self.get_coordinate_names(u)
+            
+            # Mask to region
+            lon_mask = (u[lon_name] >= bounds[0][0]) & (u[lon_name] <= bounds[1][0])
+            lat_mask = (u[lat_name] >= bounds[0][1]) & (u[lat_name] <= bounds[1][1])
+            
+            u = u.where(lon_mask & lat_mask, drop=True)
+            v = v.where(lon_mask & lat_mask, drop=True)
+            
+            # Calculate derived values
             speed = np.sqrt(u**2 + v**2)
             direction = np.degrees(np.arctan2(v, u)) % 360
             
-            # Convert to numpy arrays
-            u_array = u.values
-            v_array = v.values
-            lon_array = ds_subset.longitude.values
-            lat_array = ds_subset.latitude.values
-            speed_array = speed.values
-            direction_array = direction.values
-            
             features = []
-            
-            # Create streamline points
-            for i in range(0, len(lon_array), decimation):
-                for j in range(0, len(lat_array), decimation):
-                    spd = float(speed_array[j, i])
-                    
-                    if np.isnan(spd) or spd < min_magnitude:
-                        continue
-                    
-                    u_val = float(u_array[j, i])
-                    v_val = float(v_array[j, i])
-                    if np.isnan(u_val) or np.isnan(v_val):
-                        continue
-                    
-                    u_norm = u_val / spd
-                    v_norm = v_val / spd
-                    direction_val = float(direction_array[j, i])
-                    direction_val = None if np.isnan(direction_val) else direction_val
-
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [float(lon_array[i]), float(lat_array[j])]
-                        },
-                        "properties": {
-                            "u": u_val * vector_scale,
-                            "v": v_val * vector_scale,
-                            "u_norm": u_norm,
-                            "v_norm": v_norm,
-                            "speed": spd,
-                            "direction": direction_val,
-                            "speed_normalized": min(1.0, spd / 2.0),
-                            "vector_magnitude": spd * vector_scale
+            for i in range(0, len(u[lat_name]), decimation):
+                for j in range(0, len(u[lon_name]), decimation):
+                    try:
+                        spd = float(speed.values[i, j])
+                        
+                        if np.isnan(spd) or spd < min_magnitude:
+                            continue
+                        
+                        u_val = float(u.values[i, j])
+                        v_val = float(v.values[i, j])
+                        if np.isnan(u_val) or np.isnan(v_val):
+                            continue
+                        
+                        u_norm = u_val / spd if spd > 0 else 0
+                        v_norm = v_val / spd if spd > 0 else 0
+                        direction_val = float(direction.values[i, j])
+                        
+                        feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [
+                                    float(u[lon_name].values[j]), 
+                                    float(u[lat_name].values[i])
+                                ]
+                            },
+                            "properties": {
+                                "u": u_val * vector_scale,
+                                "v": v_val * vector_scale,
+                                "u_norm": u_norm,
+                                "v_norm": v_norm,
+                                "speed": spd,
+                                "direction": direction_val,
+                                "speed_normalized": min(1.0, spd / 2.0),
+                                "vector_magnitude": spd * vector_scale
+                            }
                         }
-                    }
-                    features.append(feature)
+                        features.append(feature)
+                    except Exception as e:
+                        logger.warning(f"Error processing current point ({i},{j}): {e}")
+                        continue
             
             geojson = {
                 "type": "FeatureCollection",
@@ -95,22 +98,19 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                     "decimation_factor": decimation,
                     "min_magnitude": min_magnitude,
                     "bounds": {
-                        "min_lon": float(lon_array.min()),
-                        "max_lon": float(lon_array.max()),
-                        "min_lat": float(lat_array.min()),
-                        "max_lat": float(lat_array.max())
+                        "min_lon": float(u[lon_name].min()),
+                        "max_lon": float(u[lon_name].max()),
+                        "min_lat": float(u[lat_name].min()),
+                        "max_lat": float(u[lat_name].max())
                     },
                     "speed_range": {
-                        "min": float(speed_array.min()),
-                        "max": float(speed_array.max())
+                        "min": float(speed.min()),
+                        "max": float(speed.max())
                     }
                 }
             }
             
-            # Get asset paths from PathManager
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            
-            # Save using base class method
             self.save_geojson(geojson, asset_paths.data)
             return asset_paths.data
             

@@ -13,78 +13,54 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
-            # Load the dataset using base class method
             ds = self.load_dataset(data_path)
-            
-            # Get the variable name from SOURCES
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            # Select first time slice if time dimension exists
-            data = self.select_time_slice(data)
+            # Force 2D by selecting first index of time and depth if they exist
+            if 'time' in data.dims:
+                data = data.isel(time=0)
+            if 'depth' in data.dims:
+                data = data.isel(depth=0)
             
-            # Get region bounds
+            # Get coordinates and mask to region
+            lon_name, lat_name = self.get_coordinate_names(data)
             bounds = REGIONS[region]['bounds']
             
-            # Get coordinate names
-            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
-            
-            # Mask to region
+            # Mask to region and convert to Fahrenheit
             lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
             lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
-            regional_data = data.where(lon_mask & lat_mask, drop=True)
+            data = data.where(lon_mask & lat_mask, drop=True) * 1.8 + 32
             
-            # Create GeoJSON features with reduced resolution
-            stride = 5  # Adjust based on needs
+            # Create GeoJSON features
             features = []
+            lats = data[lat_name].values
+            lons = data[lon_name].values
+            values = data.values
             
-            for i in range(0, regional_data.shape[0], stride):
-                for j in range(0, regional_data.shape[1], stride):
-                    try:
-                        lon = float(regional_data[lon_name][j])
-                        lat = float(regional_data[lat_name][i])
-                        value = float(regional_data[i, j])
-                        
-                        if not np.isnan(value):
-                            # Convert Celsius to Fahrenheit
-                            value_f = (value * 9/5) + 32
-                            feature = self.create_feature(
-                                lon, lat,
-                                {
-                                    "value": value_f,
-                                }
-                            )
-                            features.append(feature)
-                    except Exception as e:
-                        logger.warning(f"Error processing SST point ({i},{j}): {e}")
-                        continue
-
-            # Get asset paths from PathManager
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            for i in range(len(lats)):
+                for j in range(len(lons)):
+                    if not np.isnan(values[i, j]):
+                        features.append({
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [float(lons[j]), float(lats[i])]
+                            },
+                            "properties": {
+                                "value": float(values[i, j]),
+                                "unit": "fahrenheit"
+                            }
+                        })
             
-            # Create GeoJSON structure
-            geojson = {
+            return self.save_geojson({
                 "type": "FeatureCollection",
                 "features": features,
                 "properties": {
-                    "date": date.strftime('%Y-%m-%d'),  # Format datetime
-                    "bounds": {
-                        "min_lon": float(regional_data[lon_name].min()),
-                        "max_lon": float(regional_data[lon_name].max()),
-                        "min_lat": float(regional_data[lat_name].min()),
-                        "max_lat": float(regional_data[lat_name].max())
-                    },
-                    "value_range": {
-                        "min": float(regional_data.min()),
-                        "max": float(regional_data.max())
-                    }
+                    "date": date.strftime('%Y-%m-%d'),
+                    "source": dataset
                 }
-            }
-            
-            # Save using base class method
-            self.save_geojson(geojson, asset_paths.data)
-            return asset_paths.data
+            }, self.path_manager.get_asset_paths(date, dataset, region).data)
             
         except Exception as e:
             logger.error(f"Error converting SST data to GeoJSON: {str(e)}")
