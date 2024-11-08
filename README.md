@@ -75,3 +75,44 @@ Link: https://eastcoast.coastwatch.noaa.gov/cw_avhrr-viirs_sst.php
 |                    |
 
 ---
+# Sea Surface Currents - CMEMS MOD GLO PHY (Cape Cod Area, Daily)
+
+| **Component**      | **Description**                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dimensions**     | `time: 1`, `depth: 1`, `latitude: 49`, `longitude: 73`                                                                                                              |
+| **Grid Density**   | Resolution of roughly 1 x 1 x 49 x 73 points                                                                                                                         |
+| **Grid Spacing**   | - **Latitude Spacing**: ~0.0833°                                                                                                                                     |
+|                    | - **Longitude Spacing**: ~0.0833°                                                                                                                                    |
+| **Coordinates**    | - `time`                                                                                                                                                             |
+|                    | - `depth`                                                                                                                                                            |
+|                    | - `latitude`                                                                                                                                                         |
+|                    | - `longitude`                                                                                                                                                        |
+| **Data Variables** | - `uo`: Eastward sea water velocity (float32), units: m s⁻¹                                                                                                          |
+|                    | - `vo`: Northward sea water velocity (float32), units: m s⁻¹                                                                                                         |
+| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                  |
+| **Attributes**     | - `Conventions`: CF-1.8                                                                                                                                              |
+|                    | - `credit`: E.U. Copernicus Marine Service Information (CMEMS)                                                                                                       |
+|                    | - `title`: Daily mean fields from Global Ocean Physics Analysis and Forecast                                                                                         |
+|                    | - `source`: MOI GLO12
+|                    | - `summary`: Sea surface currents data for eastward and northward velocity, updated daily, produced by Mercator Ocean International for the Cape Cod region analysis. 
+
+# Sea Water Temperature - CMEMS MOD GLO PHY (Cape Cod Area, Daily)
+
+| **Component**      | **Description**                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dimensions**     | `time: 1`, `depth: 1`, `latitude: 49`, `longitude: 73`                                                                                                              |
+| **Grid Density**   | Resolution of roughly 1 x 1 x 49 x 73 points                                                                                                                         |
+| **Grid Spacing**   | - **Latitude Spacing**: ~0.0833°                                                                                                                                     |
+|                    | - **Longitude Spacing**: ~0.0833°                                                                                                                                    |
+| **Coordinates**    | - `time`                                                                                                                                                             |
+|                    | - `depth`                                                                                                                                                            |
+|                    | - `latitude`                                                                                                                                                         |
+|                    | - `longitude`                                                                                                                                                        |
+| **Data Variables** | - `thetao`: Sea water potential temperature (float32), units: °C                                                                                                     |
+| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                  |
+| **Attributes**     | - `Conventions`: CF-1.8                                                                                                                                              |
+|                    | - `credit`: E.U. Copernicus Marine Service Information (CMEMS)                                                                                                       |
+|                    | - `title`: Daily mean fields from Global Ocean Physics Analysis and Forecast                                                                                         |
+|                    | - `source`: MOI GLO12                                                                                                                                                |
+|                    | - `summary`: Sea water temperature data for potential temperature, updated daily, produced by Mercator Ocean International for the Cape Cod region analysis.         |
+
