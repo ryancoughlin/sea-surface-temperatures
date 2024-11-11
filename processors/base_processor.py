@@ -50,7 +50,9 @@ class BaseImageProcessor(ABC):
                           alpha=0,
                           zorder=100)  # Ensure land is always on top
             
-            # Save with zero padding and transparency
+            # Explicitly turn off all grids
+            ax.grid(False, which='both')  # Turn off both major and minor grids
+            
             fig.savefig(
                 path.image,
                 dpi=self.settings['dpi'],
@@ -79,8 +81,7 @@ class BaseImageProcessor(ABC):
         width = height * aspect
         
         # Create figure with tight layout and transparent background
-        fig = plt.figure(figsize=(width, height))
-        fig.patch.set_alpha(0.0)
+        fig = plt.figure(figsize=(width, height), frameon=False)
         
         # Create axes with zero padding
         ax = plt.axes([0, 0, 1, 1], 
@@ -89,7 +90,23 @@ class BaseImageProcessor(ABC):
                         false_easting=0.0,
                         false_northing=0.0
                      ))
-        ax.patch.set_alpha(0.0)
+        # Comprehensive grid and axis removal
+        ax.set_axis_off()  # Turn off all axis elements
+        ax.patch.set_alpha(0.0)  # Make axis background transparent
+        
+        # Remove all spines
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        
+        # Remove all gridlines
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.grid(False)
+        
+        # Remove Cartopy's gridlines
+        gl = ax.gridlines()
+        gl.remove()
+        
         
         # Set exact extent from bounds
         ax.set_extent([
@@ -99,5 +116,4 @@ class BaseImageProcessor(ABC):
             bounds[1][1]   # north
         ], crs=ccrs.PlateCarree())
         
-        ax.set_axis_off()
         return fig, ax
