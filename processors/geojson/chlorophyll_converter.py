@@ -3,6 +3,8 @@ import xarray as xr
 from pathlib import Path
 import logging
 from .base_converter import BaseGeoJSONConverter
+from config.settings import SOURCES
+from config.regions import REGIONS
 import datetime
 logger = logging.getLogger(__name__)
 

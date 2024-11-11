@@ -69,7 +69,16 @@ class ChlorophyllProcessor(BaseImageProcessor):
                     levels=20,
                     cmap=SOURCES[dataset]['color_scale'],
                     extend='both',
-                    transform=ccrs.PlateCarree()
+                    transform=ccrs.PlateCarree(),
+                    zorder=1
+                )
+                
+                # Add land mask with high zorder to ensure it's on top
+                ax.add_feature(
+                    self.land_feature,
+                    facecolor='none',
+                    edgecolor='none',
+                    zorder=100
                 )
             
             return self.save_image(fig, region, dataset, date), None
