@@ -16,10 +16,9 @@ class GeoJSONConverterFactory:
         try:
             dataset_config = SOURCES[dataset]
             dataset_type = dataset_config['type']
-            
-            # Special handling for SST contours (only for specific datasets)
+
             if dataset_type == 'sst':
-                if converter_type == 'contour' and dataset in ['LEOACSPOSSTL3SnrtCDaily', 'BLENDEDsstDNDaily']:
+                if converter_type == 'contour':
                     return ContourConverter(self.path_manager)
                 return SSTGeoJSONConverter(self.path_manager)
             

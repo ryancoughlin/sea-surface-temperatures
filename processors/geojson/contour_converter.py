@@ -83,9 +83,13 @@ class ContourConverter(BaseGeoJSONConverter):
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            # Handle time dimension first
+            # Force 2D data by selecting first index of time and depth (or z) if they exist
             if 'time' in data.dims:
                 data = data.isel(time=0)
+            if 'depth' in data.dims:
+                data = data.isel(depth=0)
+            elif 'z' in data.dims:
+                data = data.isel(z=0)
             
             # Convert to Fahrenheit
             data = data * 1.8 + 32
@@ -155,7 +159,7 @@ class ContourConverter(BaseGeoJSONConverter):
                     break_strength = 'none'
                     
                     # Calculate gradient properties only for LEOACSPOSSTL3SnrtCDaily
-                    if dataset == 'LEOACSPOSSTL3SnrtCDaily' and has_gradient:
+                    if has_gradient:
                         x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
                         y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
                         x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
@@ -169,21 +173,11 @@ class ContourConverter(BaseGeoJSONConverter):
                             max_gradient = float(np.max(valid_gradients))
                             break_strength = self._get_break_strength(avg_gradient, strong_break, moderate_break)
                     
-                    # Removed temperature filtering - show all contours
                     coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
                              if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
                     
                     if len(coords) < 5:
                         continue
-                    
-                    # # Skip weak breaks and short segments
-                    # if dataset == 'LEOACSPOSSTL3SnrtCDaily':
-                    #     if break_strength == 'none' and level_value not in self.KEY_TEMPERATURES:
-                    #         continue
-                        
-                    #     # Only include significant gradient features
-                    #     if avg_gradient is not None and avg_gradient < moderate_break:
-                    #         continue
                     
                     feature = {
                         "type": "Feature",

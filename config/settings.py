@@ -44,7 +44,7 @@ SOURCES = {
         "color_scale": "RdYlBu_r",
         "type": "sst",
         "lag_days": 0,
-        "supportedLayers": ["image", "data",]
+        "supportedLayers": ["image", "data", "contours"]
     },
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
