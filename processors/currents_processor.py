@@ -42,8 +42,9 @@ class CurrentsProcessor(BaseImageProcessor):
             # Create figure and axes
             fig, ax = self.create_masked_axes(region)
         
+            # Convert hex #D8DEE1 to RGB (216,222,225) then to 0-1 range
             colors = [
-                (0, 0, 0, 0),          # Transparent for zero
+                (216/255, 222/255, 225/255, 1),  # #D8DEE1 with 0 alpha
                 (0.1, 0.1, 0.5, 1),    # Deep blue for slow currents
                 (0, 0.5, 1, 1),        # Medium blue
                 (0, 1, 1, 1),          # Cyan
