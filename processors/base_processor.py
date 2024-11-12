@@ -52,17 +52,20 @@ class BaseImageProcessor(ABC):
             raise
 
     def create_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with proper dimensions."""
+        """Create figure and axes with proper dimensions and buffer."""
         bounds = REGIONS[region]['bounds']
-        lon_span = bounds[1][0] - bounds[0][0]
-        lat_span = bounds[1][1] - bounds[0][1]
+        
+        # Add a small buffer to the bounds (0.1 degrees)
+        buffer = 0.1
+        lon_span = (bounds[1][0] - bounds[0][0]) + (2 * buffer)
+        lat_span = (bounds[1][1] - bounds[0][1]) + (2 * buffer)
         aspect = lon_span / lat_span
         
-        # Use smaller dimensions to prevent artifacts
-        height = 8
+        # Increase base figure size for better resolution
+        height = 12  # Increased from 8
         width = height * aspect
         
-        fig = plt.figure(figsize=(width, height), frameon=False)
+        fig = plt.figure(figsize=(width, height), frameon=False, dpi=300)
         ax = plt.axes([0, 0, 1, 1], 
                      projection=ccrs.Mercator(
                         central_longitude=bounds[0][0],
@@ -78,11 +81,12 @@ class BaseImageProcessor(ABC):
         gl = ax.gridlines()
         gl.remove()
         
+        # Set extent with buffer
         ax.set_extent([
-            bounds[0][0],
-            bounds[1][0],
-            bounds[0][1],
-            bounds[1][1]
+            bounds[0][0] - buffer,
+            bounds[1][0] + buffer,
+            bounds[0][1] - buffer,
+            bounds[1][1] + buffer
         ], crs=ccrs.PlateCarree())
         
         return fig, ax
