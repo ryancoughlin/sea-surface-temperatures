@@ -2,16 +2,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
-from scipy.ndimage import gaussian_filter
-from scipy.interpolate import RectBivariateSpline
+import xarray as xr
+import cartopy.crs as ccrs
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-import xarray as xr
-import cartopy.crs as ccrs
 from typing import Tuple, Optional, Dict
-from scipy.interpolate import griddata
-import cartopy.feature as cfeature
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -64,31 +60,27 @@ class CurrentsProcessor(BaseImageProcessor):
                 shading='gouraud',
                 vmin=0,
                 vmax=4.0,
-                zorder=1,
-                edgecolors='none'     # Remove cell edges
+                zorder=1
             )
             
-            # Add dense streamlines for current direction
-            # Increase density and reduce arrow size for better flow visualization
+            # Add streamlines for current direction
             ax.streamplot(
                 magnitude[lon_name],
                 magnitude[lat_name],
                 u_data,
                 v_data,
                 transform=ccrs.PlateCarree(),
-                color=('#000000', 0.5),           # White arrows for visibility
-                density=3,               # Increase density of streamlines
-                linewidth=2,          # Thinner lines
-                arrowsize=3,          # Smaller arrows
-                arrowstyle='->',        # Simple arrow style
-                minlength=0.1,          # Allow shorter streamlines
-                integration_direction='forward',  # Follow flow direction
-                zorder=2,
+                color=('#000000', 0.5),
+                density=3,
+                linewidth=2,
+                arrowsize=3,
+                arrowstyle='->',
+                minlength=0.1,
+                integration_direction='forward',
+                zorder=2
             )
-
-            # Explicitly turn off all grids
-            ax.grid(False, which='both')  # Turn off both major and minor grids
             
+            # Land mask is handled in save_image() in base processor
             return self.save_image(fig, region, dataset, date), None
             
         except Exception as e:

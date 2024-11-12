@@ -53,22 +53,14 @@ class SSTProcessor(BaseImageProcessor):
                 regional_data[lon_name],
                 regional_data[lat_name],
                 regional_data,
-                levels=50,
+                levels=80,
                 cmap=SOURCES[dataset]['color_scale'],
                 extend='both',
                 vmin=36,
-                vmax=82,
+                vmax=88,
                 transform=ccrs.PlateCarree(),
                 zorder=1,
                 antialiased=True
-            )
-            
-            # Add land mask with high zorder to ensure it's on top
-            ax.add_feature(
-                self.land_feature,
-                facecolor='none',
-                edgecolor='none',
-                zorder=100
             )
             
             return self.save_image(fig, region, dataset, date)
