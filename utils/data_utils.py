@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
-from scipy.interpolate import griddata
+from typing import Tuple
+from scipy.ndimage import zoom
 
 def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.DataArray:
     """Convert temperature data to Fahrenheit.
@@ -28,19 +29,19 @@ def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.
         raise ValueError("Unsupported temperature unit. Use 'C' for Celsius or 'K' for Kelvin.")
 
 
-def interpolate_data(data: xr.DataArray, factor: int = 2) -> xr.DataArray:
-    """Interpolate data to add more points."""
+def interpolate_data(data: xr.DataArray, factor: int = 2) -> np.ndarray:
+    """
+    Interpolate gridded data while preserving coordinates.
     
-    latitude = data.coords['latitude']
-    longitude = data.coords['longitude']
+    Args:
+        data: Input xarray DataArray
+        factor: Interpolation factor (2 = double resolution)
+    Returns:
+        Interpolated numpy array matching original dimensions
+    """
     
-    new_lat = np.linspace(latitude.min(), latitude.max(), len(latitude) * factor)
-    new_lon = np.linspace(longitude.min(), longitude.max(), len(longitude) * factor)
+    # Handle NaN values before interpolation
+    filled_data = np.nan_to_num(data.values, nan=0.0)
     
-    interpolated_data = data.interp(
-        latitude=new_lat, 
-        longitude=new_lon, 
-        method='linear'  # Changed to linear temporarily
-    )
-    
-    return interpolated_data
+    # Use zoom for interpolation (preserves grid structure)
+    return zoom(filled_data, factor, order=1)

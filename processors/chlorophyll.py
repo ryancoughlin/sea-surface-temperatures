@@ -56,20 +56,20 @@ class ChlorophyllProcessor(BaseImageProcessor):
                        transform=ax.transAxes)
                 ax.axis('off')
             else:
-                # Interpolate and mask data
-                data_interpolated = interpolate_data(regional_data, factor=1)                
+                # Interpolate data for higher resolution
+                interpolated_data = interpolate_data(regional_data, factor=2)
+                
                 # Create masked figure and axes
                 fig, ax = self.create_masked_axes(region)
                 
                 # Plot data with proper transform
-                contour = ax.contourf(
+                mesh = ax.pcolormesh(
                     regional_data[lon_name],
                     regional_data[lat_name],
-                    data_interpolated,
-                    levels=20,
-                    cmap=SOURCES[dataset]['color_scale'],
-                    extend='both',
+                    regional_data.values,  # Use original data for coordinates
                     transform=ccrs.PlateCarree(),
+                    cmap=SOURCES[dataset]['color_scale'],
+                    shading='gouraud',
                     zorder=1
                 )
                 

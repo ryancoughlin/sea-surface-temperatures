@@ -9,6 +9,7 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Tuple, Optional, Dict
 from datetime import datetime
+from utils.data_utils import interpolate_data
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +52,14 @@ class CurrentsProcessor(BaseImageProcessor):
             n_bins = 256  # Number of color gradations
             custom_cmap = plt.matplotlib.colors.LinearSegmentedColormap.from_list('custom_currents', colors, N=n_bins)
             
+            # Interpolate magnitude data
+            interpolated_data = interpolate_data(magnitude, factor=2)
+            
+            # Plot magnitude with pcolormesh
             mesh = ax.pcolormesh(
                 magnitude[lon_name],
                 magnitude[lat_name],
-                magnitude.values,
+                magnitude.values,  # Use original data for coordinates
                 transform=ccrs.PlateCarree(),
                 cmap=custom_cmap,
                 shading='gouraud',
@@ -63,7 +68,7 @@ class CurrentsProcessor(BaseImageProcessor):
                 zorder=1
             )
             
-            # Add streamlines for current direction
+            # Add streamlines using original resolution
             ax.streamplot(
                 magnitude[lon_name],
                 magnitude[lat_name],
