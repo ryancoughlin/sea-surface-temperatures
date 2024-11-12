@@ -17,11 +17,6 @@ class BaseImageProcessor(ABC):
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
-        self.land_feature =  cfeature.NaturalEarthFeature(
-            'physical',
-            'land',
-            '10m',
-        )
 
     @abstractmethod
     def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
@@ -38,18 +33,9 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure with proper land masking and zero padding."""
+        """Save figure with proper dimensions."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
-            ax = plt.gca()
-            
-            # Simplified land mask application
-            ax.add_feature(
-                self.land_feature, 
-                facecolor='none',
-                edgecolor='none',
-                zorder=100
-            )
             
             fig.savefig(
                 path.image,
@@ -65,8 +51,8 @@ class BaseImageProcessor(ABC):
             logger.error(f"Error saving image: {str(e)}")
             raise
 
-    def create_masked_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with proper land masking and zero padding."""
+    def create_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
+        """Create figure and axes with proper dimensions."""
         bounds = REGIONS[region]['bounds']
         lon_span = bounds[1][0] - bounds[0][0]
         lat_span = bounds[1][1] - bounds[0][1]

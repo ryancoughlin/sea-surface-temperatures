@@ -37,7 +37,7 @@ class CurrentsProcessor(BaseImageProcessor):
             bounds = REGIONS[region]['bounds']
             
             # Create figure and axes
-            fig, ax = self.create_masked_axes(region)
+            fig, ax = self.create_axes(region)
         
             # Convert hex #D8DEE1 to RGB (216,222,225) then to 0-1 range
             colors = [

@@ -50,7 +50,7 @@ class SSTProcessor(BaseImageProcessor):
             interpolated_data = interpolate_data(regional_data, factor=2)
             
             # Create figure and axes
-            fig, ax = self.create_masked_axes(region)
+            fig, ax = self.create_axes(region)
             
             # Plot with higher resolution
             mesh = ax.pcolormesh(

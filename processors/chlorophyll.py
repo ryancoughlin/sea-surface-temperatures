@@ -60,7 +60,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 interpolated_data = interpolate_data(regional_data, factor=2)
                 
                 # Create masked figure and axes
-                fig, ax = self.create_masked_axes(region)
+                fig, ax = self.create_axes(region)
                 
                 # Plot data with proper transform
                 mesh = ax.pcolormesh(
