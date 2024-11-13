@@ -88,14 +88,14 @@ class CurrentsProcessor(BaseImageProcessor):
                 transform=ccrs.PlateCarree(),
                 alpha=0.4,
                 color='black',
-                scale=50,          # Increased scale to make arrows shorter
+                scale=70,          # Increased scale further to make arrows even shorter
                 scale_units='width',
                 units='width',
                 width=0.001,
-                headwidth=4,       # Slightly reduced head width
-                headlength=3,      # Reduced head length
-                headaxislength=3,  # Reduced head axis length
-                minshaft=0.5,      # Reduced minimum shaft length
+                headwidth=4,
+                headlength=3,
+                headaxislength=3,
+                minshaft=0.3,      # Further reduced minimum shaft length
                 pivot='middle',
                 zorder=2
             )

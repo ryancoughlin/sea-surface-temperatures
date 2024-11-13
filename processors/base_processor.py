@@ -33,15 +33,15 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure with proper dimensions."""
+        """Save figure with no padding or margins."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
             
             fig.savefig(
                 path.image,
                 dpi=self.settings['dpi'],
-                bbox_inches='tight',
-                pad_inches=0,
+                bbox_inches=None,  # Remove bbox_inches to prevent auto-padding
+                pad_inches=0,      # Ensure no padding
                 transparent=True,
                 format='png'
             )
@@ -52,20 +52,22 @@ class BaseImageProcessor(ABC):
             raise
 
     def create_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with proper dimensions and buffer."""
+        """Create figure and axes with no padding or gaps."""
         bounds = REGIONS[region]['bounds']
         
-        # Add a small buffer to the bounds (0.1 degrees)
-        buffer = 0.1
-        lon_span = (bounds[1][0] - bounds[0][0]) + (2 * buffer)
-        lat_span = (bounds[1][1] - bounds[0][1]) + (2 * buffer)
+        # Calculate aspect ratio from bounds
+        lon_span = bounds[1][0] - bounds[0][0]
+        lat_span = bounds[1][1] - bounds[0][1]
         aspect = lon_span / lat_span
         
-        # Increase base figure size for better resolution
-        height = 12  # Increased from 8
+        # Create figure with exact size ratio
+        height = 24
         width = height * aspect
         
-        fig = plt.figure(figsize=(width, height), frameon=False, dpi=300)
+        # Create figure with no frame and exact size
+        fig = plt.figure(figsize=(width, height), frameon=False)
+        
+        # Create axes that fill the entire figure with no padding
         ax = plt.axes([0, 0, 1, 1], 
                      projection=ccrs.Mercator(
                         central_longitude=bounds[0][0],
@@ -73,20 +75,21 @@ class BaseImageProcessor(ABC):
                         false_northing=0.0
                      ))
         
-        # Simplified axis cleanup
+        # Remove all axes elements and make background transparent
         ax.set_axis_off()
         ax.patch.set_alpha(0.0)
+        fig.patch.set_alpha(0.0)
         
         # Remove Cartopy's gridlines
         gl = ax.gridlines()
         gl.remove()
         
-        # Set extent with buffer
+        # Set exact bounds with no buffer
         ax.set_extent([
-            bounds[0][0] - buffer,
-            bounds[1][0] + buffer,
-            bounds[0][1] - buffer,
-            bounds[1][1] + buffer
+            bounds[0][0],
+            bounds[1][0],
+            bounds[0][1],
+            bounds[1][1]
         ], crs=ccrs.PlateCarree())
         
         return fig, ax
