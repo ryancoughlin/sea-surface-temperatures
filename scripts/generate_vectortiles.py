@@ -12,8 +12,9 @@ from datetime import datetime
 supported_drivers['FileGDB'] = 'raw'
 
 # Consolidated paths
+# INPUT_GDB = "downloaded_data/BathymetricContour/BathymetryContours.gdb"
 INPUT_GDB = "/Users/ryan/Downloads/BathymetricContour/BathymetryContours.gdb"
-OUTPUT_DIR = "output/bathymetry"  # Changed to use output/bathymetry
+OUTPUT_DIR = "output/bathymetry"
 TILES_DIR = os.path.join(OUTPUT_DIR, "tiles")
 GEOJSON_FILE = os.path.join(TILES_DIR, "bathy.geojson")
 MBTILES_FILE = os.path.join(TILES_DIR, "bathy.mbtiles")
@@ -24,76 +25,73 @@ def generate_vector_tiles():
     # Create output directories
     Path(TILES_DIR).mkdir(parents=True, exist_ok=True)
     
-    # Step 1: List available layers
+    # Step 1: Convert to GeoJSON with reprojection
     try:
-        layers = fiona.listlayers(INPUT_GDB)
-        print("Available layers:", layers)
-    except Exception as e:
-        print(f"Error listing layers: {str(e)}")
-        raise
-
-    # Step 2: Convert to GeoJSON with reprojection
-    layer_name = layers[0]
-    gdf = gpd.read_file(INPUT_GDB, layer=layer_name)
-    gdf = gdf.to_crs(epsg=4326)
-    gdf.to_file(GEOJSON_FILE, driver="GeoJSON")
-    print(f"Exported {layer_name} to GeoJSON: {GEOJSON_FILE}")
-
-    # Step 3: Convert GeoJSON to MBTiles
-    subprocess.run([
-        "tippecanoe",
-        "-o", MBTILES_FILE,
-        "-zg",
-        "--drop-densest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "--force",
-        GEOJSON_FILE
-    ], check=True)
-    print(f"Generated MBTiles: {MBTILES_FILE}")
-
-def convert_to_static():
-    """Convert MBTiles to static PBF files."""
-    # Remove the static directory if it exists
-    if os.path.exists(STATIC_TILES_DIR):
-        shutil.rmtree(STATIC_TILES_DIR)
-    
-    try:
-        # Extract tiles
-        print(f"Converting {MBTILES_FILE} to static tiles...")
+        gdf = gpd.read_file(INPUT_GDB)
+        # Ensure we're working with LineString geometry
+        gdf = gdf[gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
+        # Reproject to WGS84
+        gdf = gdf.to_crs("EPSG:4326")
+        gdf.to_file(GEOJSON_FILE, driver="GeoJSON")
+        
+        # Step 2: Generate vector tiles using tippecanoe
         subprocess.run([
-            "mb-util",
-            MBTILES_FILE,
-            STATIC_TILES_DIR,
-            "--image_format=pbf"
+            "tippecanoe",
+            "-o", MBTILES_FILE,
+            "-l", "bathymetry",              # Layer name
+            "--minimum-zoom", "0",           # Min zoom level
+            "--maximum-zoom", "15",          # Max zoom level
+            "--no-line-simplification",      # Preserve line detail
+            "--no-tiny-polygon-reduction",
+            "--no-feature-limit",            # Don't limit features per tile
+            "--no-tile-size-limit",          # Don't limit tile sizes
+            "--no-tile-compression",         # Important: Don't compress tiles
+            "--force",                       # Overwrite existing files
+            "--drop-densest-as-needed",      # Drop features if tiles too large
+            "--extend-zooms-if-still-dropping", # Add zoom levels if needed
+            GEOJSON_FILE
         ], check=True)
         
-        print(f"Successfully extracted tiles to {STATIC_TILES_DIR}")
+        # Step 3: Extract tiles to static directory
+        Path(STATIC_TILES_DIR).mkdir(parents=True, exist_ok=True)
+        subprocess.run([
+            "mb-util",
+            "--image_format=pbf",
+            MBTILES_FILE,
+            STATIC_TILES_DIR
+        ], check=True)
         
-        # Create metadata.json in the bathymetry root directory
+        # Step 4: Generate metadata.json
         metadata_file = os.path.join(OUTPUT_DIR, "metadata.json")
-        if not os.path.exists(metadata_file):
-            print("Creating metadata.json...")
-            metadata = {
-                "type": "bathymetry",
-                "tilesets": {
-                    "vector": {
-                        "format": "pbf",
-                        "url": "tiles/static/{z}/{x}/{y}.pbf",
-                        "mimeType": "application/x-protobuf"
+        metadata = {
+            "version": "1.0.0",
+            "name": "Bathymetric Contours",
+            "format": "pbf",
+            "minzoom": 0,
+            "maxzoom": 15,
+            "bounds": gdf.total_bounds.tolist(),
+            "type": "line",
+            "generator": "tippecanoe",
+            "vector_layers": {
+                "bathymetry": {
+                    "description": "Bathymetric contour lines",
+                    "minzoom": 0,
+                    "maxzoom": 15,
+                    "fields": {
+                        "depth": "number",
+                        "contour_type": "string"
                     }
-                },
-                "attribution": "NOAA Bathymetric Contours",
-                "description": "Bathymetric contour lines showing ocean depth",
-                "lastUpdated": datetime.now().isoformat()
-            }
-            with open(metadata_file, 'w') as f:
-                json.dump(metadata, f, indent=2)
-            
-    except subprocess.CalledProcessError as e:
-        print(f"Error converting tiles: {str(e)}")
-        raise
+                }
+            },
+            "attribution": "NOAA Bathymetric Contours",
+            "description": "Bathymetric contour lines showing ocean depth",
+            "lastUpdated": datetime.now().isoformat()
+        }
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        print(f"Error: {str(e)}")
         raise
 
 def cleanup():
@@ -104,7 +102,6 @@ def cleanup():
 
 if __name__ == "__main__":
     generate_vector_tiles()
-    convert_to_static()
     cleanup()
     
     print("\nNext steps:")
@@ -112,5 +109,3 @@ if __name__ == "__main__":
     print("2. Make sure your hosting service is configured to serve PBF files with the correct MIME type:")
     print("   application/x-protobuf for .pbf files")
     print("3. Enable CORS if needed")
-    print("\nClient-side usage:")
-    print("URL pattern: ${SERVER_URL}/bathymetry/tiles/static/{z}/{x}/{y}.pbf")
