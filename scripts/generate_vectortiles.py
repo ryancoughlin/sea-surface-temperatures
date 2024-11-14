@@ -1,111 +1,76 @@
-import geopandas as gpd
 import os
 import subprocess
-import fiona
-from fiona.drvsupport import supported_drivers
-from pathlib import Path
 import shutil
-import json
-from datetime import datetime
+from pathlib import Path
+import time
 
-# Enable FileGDB driver
-supported_drivers['FileGDB'] = 'raw'
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Consolidated paths
-# INPUT_GDB = "downloaded_data/BathymetricContour/BathymetryContours.gdb"
-INPUT_GDB = "/Users/ryan/Downloads/BathymetricContour/BathymetryContours.gdb"
-OUTPUT_DIR = "output/bathymetry"
-TILES_DIR = os.path.join(OUTPUT_DIR, "tiles")
-GEOJSON_FILE = os.path.join(TILES_DIR, "bathy.geojson")
-MBTILES_FILE = os.path.join(TILES_DIR, "bathy.mbtiles")
-STATIC_TILES_DIR = os.path.join(TILES_DIR, "static")
+PATHS = {
+    'input_gdb': os.path.join(PROJECT_ROOT, "downloaded_data/BathymetricContour/BathymetryContours.gdb"),
+    'output_dir': os.path.join(PROJECT_ROOT, "output/bathymetry"),
+    'tiles_dir': os.path.join(PROJECT_ROOT, "output/bathymetry/tiles"),
+}
 
 def generate_vector_tiles():
     """Generate vector tiles from GDB file."""
     # Create output directories
-    Path(TILES_DIR).mkdir(parents=True, exist_ok=True)
+    Path(PATHS['output_dir']).mkdir(parents=True, exist_ok=True)
+    Path(PATHS['tiles_dir']).mkdir(parents=True, exist_ok=True)
     
-    # Step 1: Convert to GeoJSON with reprojection
+    geojson_file = os.path.join(PATHS['tiles_dir'], "bathy.geojson")
+    mbtiles_file = os.path.join(PATHS['tiles_dir'], "bathy.mbtiles")
+    static_tiles_dir = os.path.join(PATHS['tiles_dir'], "static")
+
     try:
-        gdf = gpd.read_file(INPUT_GDB)
-        # Ensure we're working with LineString geometry
-        gdf = gdf[gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
-        # Reproject to WGS84
-        gdf = gdf.to_crs("EPSG:4326")
-        gdf.to_file(GEOJSON_FILE, driver="GeoJSON")
-        
-        # Step 2: Generate vector tiles using tippecanoe
+        # First convert GDB to GeoJSON with explicit projection
+        subprocess.run([
+            "ogr2ogr",
+            "-f", "GeoJSON",
+            "-t_srs", "EPSG:4326",  # Explicitly set output projection to WGS84
+            geojson_file,
+            PATHS['input_gdb']
+        ], check=True)
+
+        # Remove existing mbtiles file if it exists
+        if os.path.exists(mbtiles_file):
+            os.remove(mbtiles_file)
+
+        # Generate vector tiles
         subprocess.run([
             "tippecanoe",
-            "-o", MBTILES_FILE,
-            "-l", "bathymetry",              # Layer name
-            "--minimum-zoom", "0",           # Min zoom level
-            "--maximum-zoom", "15",          # Max zoom level
-            "--no-line-simplification",      # Preserve line detail
-            "--no-tiny-polygon-reduction",
-            "--no-feature-limit",            # Don't limit features per tile
-            "--no-tile-size-limit",          # Don't limit tile sizes
-            "--no-tile-compression",         # Important: Don't compress tiles
-            "--force",                       # Overwrite existing files
-            "--drop-densest-as-needed",      # Drop features if tiles too large
-            "--extend-zooms-if-still-dropping", # Add zoom levels if needed
-            GEOJSON_FILE
+            "--output", mbtiles_file,
+            "--layer", "bathymetry",
+            "--minimum-zoom", "0",
+            "--maximum-zoom", "15",
+            "--drop-densest-as-needed",
+            "--extend-zooms-if-still-dropping",
+            "--force",
+            "--projection", "EPSG:4326",  # Explicitly set projection
+            geojson_file
         ], check=True)
+
+        # Remove and recreate static tiles directory
+        if os.path.exists(static_tiles_dir):
+            shutil.rmtree(static_tiles_dir)
         
-        # Step 3: Extract tiles to static directory
-        Path(STATIC_TILES_DIR).mkdir(parents=True, exist_ok=True)
+        # Create a new static tiles directory with a timestamp to ensure uniqueness
+        static_tiles_dir = os.path.join(PATHS['tiles_dir'], f"static_{int(time.time())}")
+        os.makedirs(static_tiles_dir)
+        
+        # Extract tiles
         subprocess.run([
             "mb-util",
             "--image_format=pbf",
-            MBTILES_FILE,
-            STATIC_TILES_DIR
+            mbtiles_file,
+            static_tiles_dir
         ], check=True)
         
-        # Step 4: Generate metadata.json
-        metadata_file = os.path.join(OUTPUT_DIR, "metadata.json")
-        metadata = {
-            "version": "1.0.0",
-            "name": "Bathymetric Contours",
-            "format": "pbf",
-            "minzoom": 0,
-            "maxzoom": 15,
-            "bounds": gdf.total_bounds.tolist(),
-            "type": "line",
-            "generator": "tippecanoe",
-            "vector_layers": {
-                "bathymetry": {
-                    "description": "Bathymetric contour lines",
-                    "minzoom": 0,
-                    "maxzoom": 15,
-                    "fields": {
-                        "depth": "number",
-                        "contour_type": "string"
-                    }
-                }
-            },
-            "attribution": "NOAA Bathymetric Contours",
-            "description": "Bathymetric contour lines showing ocean depth",
-            "lastUpdated": datetime.now().isoformat()
-        }
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2)
-
+        print(f"Successfully generated vector tiles in: {static_tiles_dir}")
+        
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error generating vector tiles: {str(e)}")
         raise
-
-def cleanup():
-    """Clean up intermediate files."""
-    if os.path.exists(GEOJSON_FILE):
-        os.remove(GEOJSON_FILE)
-        print("Cleaned up intermediate GeoJSON file.")
 
 if __name__ == "__main__":
     generate_vector_tiles()
-    cleanup()
-    
-    print("\nNext steps:")
-    print("1. Upload the 'output/bathymetry' directory to your hosting service")
-    print("2. Make sure your hosting service is configured to serve PBF files with the correct MIME type:")
-    print("   application/x-protobuf for .pbf files")
-    print("3. Enable CORS if needed")
