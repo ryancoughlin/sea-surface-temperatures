@@ -106,6 +106,7 @@ class VectorTileGenerator:
                 "--extend-zooms-if-still-dropping",
                 "--simplification=10",
                 "--minimum-detail=12",
+                "--no-tile-compression",
                 "--clip-bounding-box=-125.0,24.396308,-66.934570,49.384358",
                 "--layer=bathymetry",
                 "--name=US Bathymetry",
