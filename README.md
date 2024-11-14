@@ -1,118 +1,118 @@
-# sea-surface-temperatures
+# Sea Surface Data API
 
-API and tile generation for SST data from NOAA
+API and tile generation service for oceanographic data focusing on the Cape Cod region. This service processes and serves data from multiple sources including sea surface temperatures, currents, and chlorophyll concentrations.
+
+## Features
+
+- Real-time data processing from NOAA, CMEMS, and other oceanographic sources
+- Standardized API endpoints for accessing processed data
+- Map tile generation for visualization
+- Data interpolation and gap-filling where needed
 
 ## Data Sources
 
-### AVHRR and VIIRS Multi-Sensor Composite
+### Sea Surface Temperature (SST)
 
-Link: https://eastcoast.coastwatch.noaa.gov/cw_avhrr-viirs_sst.php
+#### NOAA Geo-Polar Blended SST Analysis
 
-| **Component**      | **Description**                                                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dimensions**     | `time: 1`, `latitude: 301`, `longitude: 601`                                                                                                               |
-| **Grid Density**   | Resolution of roughly 1 x 301 x 601 points                                                                                                                 |
-| **Grid Spacing**   | - **Latitude Spacing**: ~0.0200°                                                                                                                           |
-|                    | - **Longitude Spacing**: ~0.0200°                                                                                                                          |
-| **Coordinates**    | - `time`                                                                                                                                                   |
-|                    | - `latitude`                                                                                                                                               |
-|                    | - `longitude`                                                                                                                                              |
-|                    |
-| **Data Variables** | - `sea_surface_temperature`: float32                                                                                                                       |
-|                    |
-| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                        |
-| **Attributes**     | - `Conventions`: CF-1.7, ACDD-1.3, COARDS                                                                                                                  |
-|                    | - `summary`: Sea surface temperature retrievals produced by NOAA/NESDIS/STAR office                                                                        |
-|                    | - `title`: Sea-Surface Temperature, NOAA ACSPO Daily Global 0.02° Gridded Super-collated SST and Thermal Fronts, Near real-time, Daily (L3S-LEO degrees C) |
-|                    |
+High-resolution global sea surface temperature analysis combining multiple satellite sources.
 
----
+| **Component**        | **Description**                                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resolution**       | 0.05° (~5km)                                                                                                                            |
+| **Update Frequency** | Daily                                                                                                                                   |
+| **Coverage**         | Global                                                                                                                                  |
+| **Variables**        | `sea_surface_temperature` (°C)                                                                                                          |
+| **Source**           | [NOAA CoastWatch](https://coastwatch.noaa.gov/cwn/products/noaa-geo-polar-blended-global-sea-surface-temperature-analysis-level-4.html) |
 
-### Currents Blended Daily
+#### VIIRS NPP-STAR L3U
 
-| **Component**                     | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dimensions**                    | `time: 1`, `latitude: 25`, `longitude: 49`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Grid Density**                  | Resolution of roughly 1 x 25 x 49 points                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **Grid Spacing**                  | - **Latitude Spacing**: ~0.2500°                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                                   | - **Longitude Spacing**: ~0.2500°                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Coordinates**                   | - `time`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                                   | - `latitude`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                                   | - `longitude`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                                   |
-| **Data Variables**                | - `u_current`: float64                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                                   | - `v_current`: float64                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                                   |
-| **Array Storage**                 | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Attributes**                    | - `Conventions`: COARDS, CF-1.0, Unidata Dataset Discovery v1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                                   | - `source`: Altimetry measurements                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|                                   | - `summary`: The altimetry data are from RADS (http://rads.tudelft.nl/rads/rads.shtml), the Radar Altimetry Database System, first developed at Delft University of Technology, now also at the NOAA and the European Organisation for the Exploitation of Meteorological Satellites (EUMETSAT). The RADS data for each mission is updated with state of the art corrections for tides, atmospheric path delay, etc. Because they are all computed consistently between the various missions, this avoids the possibility of introducing biases and drifts because of the different implementation of the various corrections by different agencies. The goals of RADS are to provide a homogenous dataset of sea level anomalies, wave heights, and wind speeds, along with database selection and analysis tools. |
-|                                   | - `title`: Sea Surface Currents (Geostrophic), Altimetry (S-3A/B,CryoSat2,Jason-2/3,SARAL), Near Real-Time,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Global 0.25°, 2017-present, Daily |
-|                                   |
+High-resolution sea surface temperature data from NOAA's VIIRS satellite.
 
----
+| **Component**        | **Description**                                                                                                                                                                                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resolution**       | 0.02° (~2km)                                                                                                                                                                                                                                                                                                           |
+| **Update Frequency** | Hourly                                                                                                                                                                                                                                                                                                                 |
+| **Coverage**         | Global                                                                                                                                                                                                                                                                                                                 |
+| **Variables**        | - `sea_surface_temperature` (K)<br>- `sst_gradient_magnitude` (K/km)<br>- `quality_level` (unitless)<br>- `l2p_flags` (unitless)<br>- `sses_bias` (K)<br>- `sses_standard_deviation` (K)<br>- `dt_analysis` (K)<br>- `wind_speed` (m/s)<br>- `sea_ice_fraction` (unitless)<br>- `aerosol_dynamic_indicator` (unitless) |
+| **Source**           | [NOAA/NESDIS/STAR](https://podaac.jpl.nasa.gov/dataset/VIIRS_NPP-STAR-L3U-v2.80)                                                                                                                                                                                                                                       |
 
-### Chlorophyll OCI VIIRS Daily (Gap-filled)
+#### AVHRR and VIIRS Multi-Sensor Composite
 
-| **Component**      | **Description**                                                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dimensions**     | `time: 1`, `altitude: 1`, `latitude: 73`, `longitude: 145`                                                                                                                                  |
-| **Grid Density**   | Resolution of roughly 1 x 1 x 73 x 145 points                                                                                                                                               |
-| **Grid Spacing**   | - **Latitude Spacing**: ~0.0833°                                                                                                                                                            |
-|                    | - **Longitude Spacing**: ~0.0833°                                                                                                                                                           |
-| **Coordinates**    | - `time`                                                                                                                                                                                    |
-|                    | - `altitude`                                                                                                                                                                                |
-|                    | - `latitude`                                                                                                                                                                                |
-|                    | - `longitude`                                                                                                                                                                               |
-|                    |
-| **Data Variables** | - `chlor_a`: float32                                                                                                                                                                        |
-|                    |
-| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                                         |
-| **Attributes**     | - `Conventions`: CF-1.6, COARDS, ACDD-1.3                                                                                                                                                   |
-|                    | - `summary`: Visible and Infrared Imager/Radiometer Suite/Suomi-NPP NOAA-20 (VIIRS) Level-3 (WW00), Chlorophyll, DINEOF, Gap filled, MSL12, Global, Daily, processed by NOAA. EXPERIMENTAL. |
-|                    | - `title`: Chlorophyll (Gap-filled DINEOF), NOAA S-NPP NOAA-20, VIIRS, Near Real-Time, Global 9km, 2020-present, Daily                                                                      |
-|                    |
+High-resolution sea surface temperature data from NOAA satellites.
 
----
-# Sea Surface Currents - CMEMS MOD GLO PHY (Cape Cod Area, Daily)
+| **Component**        | **Description**                                                                 |
+| -------------------- | ------------------------------------------------------------------------------- |
+| **Resolution**       | 0.02° (~2km)                                                                    |
+| **Update Frequency** | Daily                                                                           |
+| **Coverage**         | Global                                                                          |
+| **Variables**        | `sea_surface_temperature` (°C)                                                  |
+| **Source**           | [NOAA CoastWatch](https://eastcoast.coastwatch.noaa.gov/cw_avhrr-viirs_sst.php) |
 
-| **Component**      | **Description**                                                                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dimensions**     | `time: 1`, `depth: 1`, `latitude: 49`, `longitude: 73`                                                                                                              |
-| **Grid Density**   | Resolution of roughly 1 x 1 x 49 x 73 points                                                                                                                         |
-| **Grid Spacing**   | - **Latitude Spacing**: ~0.0833°                                                                                                                                     |
-|                    | - **Longitude Spacing**: ~0.0833°                                                                                                                                    |
-| **Coordinates**    | - `time`                                                                                                                                                             |
-|                    | - `depth`                                                                                                                                                            |
-|                    | - `latitude`                                                                                                                                                         |
-|                    | - `longitude`                                                                                                                                                        |
-| **Data Variables** | - `uo`: Eastward sea water velocity (float32), units: m s⁻¹                                                                                                          |
-|                    | - `vo`: Northward sea water velocity (float32), units: m s⁻¹                                                                                                         |
-| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                  |
-| **Attributes**     | - `Conventions`: CF-1.8                                                                                                                                              |
-|                    | - `credit`: E.U. Copernicus Marine Service Information (CMEMS)                                                                                                       |
-|                    | - `title`: Daily mean fields from Global Ocean Physics Analysis and Forecast                                                                                         |
-|                    | - `source`: MOI GLO12
-|                    | - `summary`: Sea surface currents data for eastward and northward velocity, updated daily, produced by Mercator Ocean International for the Cape Cod region analysis. 
+#### CMEMS Sea Water Temperature
 
-### Sea Water Temperature - CMEMS MOD GLO PHY (Cape Cod Area, Daily)
+Regional temperature data with higher accuracy for the Cape Cod area.
 
-| **Component**      | **Description**                                                                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dimensions**     | `time: 1`, `depth: 1`, `latitude: 49`, `longitude: 73`                                                                                                              |
-| **Grid Density**   | Resolution of roughly 1 x 1 x 49 x 73 points                                                                                                                         |
-| **Grid Spacing**   | - **Latitude Spacing**: ~0.0833°                                                                                                                                     |
-|                    | - **Longitude Spacing**: ~0.0833°                                                                                                                                    |
-| **Coordinates**    | - `time`                                                                                                                                                             |
-|                    | - `depth`                                                                                                                                                            |
-|                    | - `latitude`                                                                                                                                                         |
-|                    | - `longitude`                                                                                                                                                        |
-| **Data Variables** | - `thetao`: Sea water potential temperature (float32), units: °C                                                                                                     |
-| **Array Storage**  | Arrays are stored in a row-major order (C-style) layout, optimized for efficient processing and visualization tasks                                                  |
-| **Attributes**     | - `Conventions`: CF-1.8                                                                                                                                              |
-|                    | - `credit`: E.U. Copernicus Marine Service Information (CMEMS)                                                                                                       |
-|                    | - `title`: Daily mean fields from Global Ocean Physics Analysis and Forecast                                                                                         |
-|                    | - `source`: MOI GLO12                                                                                                                                                |
-|                    | - `summary`: Sea water temperature data for potential temperature, updated daily, produced by Mercator Ocean International for the Cape Cod region analysis.         |
+| **Component**        | **Description**   |
+| -------------------- | ----------------- |
+| **Resolution**       | 0.0833° (~9km)    |
+| **Update Frequency** | Daily             |
+| **Coverage**         | Cape Cod Region   |
+| **Variables**        | `thetao` (°C)     |
+| **Source**           | CMEMS MOD GLO PHY |
 
+### Ocean Currents
+
+#### Blended Altimetry-Based Currents
+
+Global current data derived from satellite altimetry.
+
+| **Component**        | **Description**                |
+| -------------------- | ------------------------------ |
+| **Resolution**       | 0.25° (~25km)                  |
+| **Update Frequency** | Daily                          |
+| **Coverage**         | Global                         |
+| **Variables**        | `u_current`, `v_current` (m/s) |
+
+#### CMEMS Regional Currents
+
+High-resolution current data for the Cape Cod region.
+
+| **Component**        | **Description**   |
+| -------------------- | ----------------- |
+| **Resolution**       | 0.0833° (~9km)    |
+| **Update Frequency** | Daily             |
+| **Coverage**         | Cape Cod Region   |
+| **Variables**        | `uo`, `vo` (m/s)  |
+| **Source**           | CMEMS MOD GLO PHY |
+
+### Water Quality
+
+#### Chlorophyll OCI VIIRS
+
+Gap-filled chlorophyll concentration data.
+
+| **Component**        | **Description**          |
+| -------------------- | ------------------------ |
+| **Resolution**       | 0.0833° (~9km)           |
+| **Update Frequency** | Daily                    |
+| **Coverage**         | Global                   |
+| **Variables**        | `chlor_a` (mg/m³)        |
+| **Source**           | NOAA S-NPP NOAA-20 VIIRS |
+
+## Data Processing
+
+All data arrays are stored in row-major order (C-style) layout and follow CF conventions for metadata. Processing includes:
+
+- Standardization of coordinate systems
+- Quality control and validation
+- Gap-filling where applicable
+- Optimization for visualization tasks
+
+## Attribution
+
+Data provided by:
+
+- NOAA/NESDIS/STAR
+- E.U. Copernicus Marine Service Information (CMEMS)
+- Mercator Ocean International

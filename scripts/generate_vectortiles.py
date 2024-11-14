@@ -2,7 +2,6 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
-import geopandas as gpd
 
 def get_project_paths():
     """Get standardized project paths."""
@@ -10,61 +9,80 @@ def get_project_paths():
     return {
         'input_gdb': os.path.join(project_root, "downloaded_data/BathymetricContour/BathymetryContours.gdb"),
         'output_dir': os.path.join(project_root, "output/bathymetry"),
-        'tiles_dir': os.path.join(project_root, "output/bathymetry/tiles")
+        'tiles_dir': os.path.join(project_root, "output/bathymetry/tiles"),
+        'temp_geojson': os.path.join(project_root, "output/bathymetry/temp_bathy.geojson"),
+        'mbtiles': os.path.join(project_root, "output/bathymetry/tiles/bathymetry.mbtiles"),
+        'static_tiles': os.path.join(project_root, "output/bathymetry/tiles/static")
     }
 
-def ensure_clean_directory(directory):
-    """Ensure directory exists and is empty."""
-    if os.path.exists(directory):
-        shutil.rmtree(directory)
-    Path(directory).mkdir(parents=True, exist_ok=True)
-
-def generate_vector_tiles():
-    """Generate vector tiles from GDB file."""
+def remove_tiles_and_mbtiles():
+    """Remove existing tiles and mbtiles."""
     paths = get_project_paths()
     
-    # Setup file paths
-    geojson_file = os.path.join(paths['tiles_dir'], "bathy.geojson")
-    mbtiles_file = os.path.join(paths['tiles_dir'], "bathy.mbtiles")
-    static_tiles_dir = os.path.join(paths['tiles_dir'], "static")
+    # Clean up existing files
+    if os.path.exists(paths['static_tiles']):
+        shutil.rmtree(paths['static_tiles'])
+    if os.path.exists(paths['mbtiles']):
+        os.remove(paths['mbtiles'])
+    if os.path.exists(paths['temp_geojson']):
+        os.remove(paths['temp_geojson'])
+    
+    # Ensure output directory exists
+    Path(paths['output_dir']).mkdir(parents=True, exist_ok=True)
+    Path(paths['tiles_dir']).mkdir(parents=True, exist_ok=True)
+
+def generate_vector_tiles():
+    """Generate vector tiles optimized for bathymetric visualization."""
+    paths = get_project_paths()
 
     try:
-        # Create clean directories
-        ensure_clean_directory(paths['output_dir'])
-        ensure_clean_directory(paths['tiles_dir'])
-        
-        # Convert GDB to GeoJSON using geopandas
-        gdf = gpd.read_file(paths['input_gdb'])
-        gdf = gdf.to_crs("EPSG:4326")  # Reproject to WGS84
-        gdf.to_file(geojson_file, driver="GeoJSON")
+        remove_tiles_and_mbtiles()
 
-        # Generate vector tiles
+        # Convert GDB to GeoJSON with reprojection and field type mapping
+        subprocess.run([
+            "ogr2ogr",
+            "-f", "GeoJSON",
+            "-t_srs", "EPSG:4326",
+            "-mapFieldType", "Binary=String",  # Handle binary field conversion
+            paths['temp_geojson'],
+            paths['input_gdb']
+        ], check=True)
+
+        # Generate vector tiles with optimized parameters
         subprocess.run([
             "tippecanoe",
-            "--output", mbtiles_file,
-            "--layer", "bathymetry",
-            "--minimum-zoom", "6",
-            "--maximum-zoom", "22",
+            "-o", paths['mbtiles'],
+            "--minimum-zoom=6",      # Regional level
+            "--maximum-zoom=15",     # Local detail
+            "--layer=bathymetry",
+            "--name=bathymetry",
             "--drop-densest-as-needed",
             "--extend-zooms-if-still-dropping",
+            "--simplification=10",   # Smooth lines
             "--force",
-            geojson_file
+            "--no-tile-compression", # Faster tile serving
+            "--no-feature-limit",    # Preserve all features
+            "--no-tile-size-limit",  # Allow larger tiles for detail
+            paths['temp_geojson']
         ], check=True)
 
         # Extract tiles to static directory
-        ensure_clean_directory(static_tiles_dir)
         subprocess.run([
             "mb-util",
             "--image_format=pbf",
-            mbtiles_file,
-            static_tiles_dir
+            paths['mbtiles'],
+            paths['static_tiles']
         ], check=True)
 
-        print(f"Successfully generated vector tiles in: {static_tiles_dir}")
+        print(f"Successfully generated vector tiles in: {paths['static_tiles']}")
 
     except Exception as e:
         print(f"Error generating vector tiles: {str(e)}")
         raise
+    finally:
+        # Clean up temporary files
+        if os.path.exists(paths['temp_geojson']):
+            os.remove(paths['temp_geojson'])
 
 if __name__ == "__main__":
     generate_vector_tiles()
