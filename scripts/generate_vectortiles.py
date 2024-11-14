@@ -31,11 +31,32 @@ def remove_tiles_and_mbtiles():
     Path(paths['output_dir']).mkdir(parents=True, exist_ok=True)
     Path(paths['tiles_dir']).mkdir(parents=True, exist_ok=True)
 
+def check_dependencies():
+    """Check if required command line tools are installed."""
+    required_tools = ['ogr2ogr', 'tippecanoe', 'mb-util']
+    missing_tools = []
+    
+    for tool in required_tools:
+        if shutil.which(tool) is None:
+            missing_tools.append(tool)
+    
+    if missing_tools:
+        print("Missing required dependencies. Please install the following tools:")
+        print("\nFor Ubuntu/Debian systems, run:")
+        if 'ogr2ogr' in missing_tools:
+            print("sudo apt-get install gdal-bin")
+        if 'tippecanoe' in missing_tools:
+            print("sudo apt-get install tippecanoe")
+        if 'mb-util' in missing_tools:
+            print("sudo apt-get install mb-util")
+        raise SystemExit(1)
+
 def generate_vector_tiles():
     """Generate vector tiles optimized for bathymetric visualization."""
     paths = get_project_paths()
 
     try:
+        check_dependencies()
         remove_tiles_and_mbtiles()
 
         # Convert GDB to GeoJSON with reprojection and field type mapping
