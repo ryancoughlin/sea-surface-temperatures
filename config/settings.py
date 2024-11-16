@@ -6,7 +6,6 @@ SERVER_URL = "http://157.245.10.94"
 
 ROOT_DIR = Path(__file__).parent.parent
 
-# Load color scale relative to ROOT_DIR
 with open(ROOT_DIR / 'color_scale.json', 'r') as f:  # Update color scale path
     color_scale = json.load(f)
 
@@ -15,13 +14,6 @@ IMAGE_SETTINGS = {
     "colormap": "RdYlBu_r",
     "dpi": 300,
 }
-
-# Tile generation settings
-TILE_SETTINGS = {
-    "zoom_levels": [5, 8, 10],
-    "tile_size": 256,
-}
-
 
 SOURCES = {
     "CMEMS_Global_Currents_Daily": {
@@ -58,17 +50,6 @@ SOURCES = {
         "stride": None,
         "supportedLayers": ["image", "data", "contours"]
    },
-    "BLENDEDNRTcurrentsDaily": {
-        "source_type": "erddap",
-        "name": "NOAA Blended NRT Currents Daily",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-        "dataset_id": "noaacwBLENDEDNRTcurrentsDaily",
-        "variables": ["u_current", "v_current"],
-        "lag_days":3,
-        "color_scale": "viridis",
-        "type": "currents",
-        "supportedLayers": ["image", "data"]
-    },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
