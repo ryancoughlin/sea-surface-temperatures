@@ -9,6 +9,7 @@ node_modules
 # Geo data 
 downloaded_data/
 output/
+assets/*
 **/*.nc
 **/*.nc4
 # Misc

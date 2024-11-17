@@ -12,12 +12,12 @@ WORKDIR /
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
 
-# Copy application code
+# Copy application code and static assets
 COPY . .
 
 # Create necessary directories with correct permissions
-RUN mkdir -p /data /output && \
-    chmod -R 777 /data /output
+RUN mkdir -p /output /assets && \
+    chmod -R 777 /output /assets
 
 # Create a non-root user
 RUN useradd -m appuser
