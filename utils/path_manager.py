@@ -1,7 +1,12 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import NamedTuple, Optional
 from config.settings import SOURCES
+import re
+import shutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AssetPaths(NamedTuple):
     image: Path
@@ -39,3 +44,47 @@ class PathManager:
             contours=dataset_dir / "contours.json" if "contours" in SOURCES[dataset]["supportedLayers"] else None,
             metadata=dataset_dir / "metadata.json"
         )
+
+    def cleanup_old_data(self, keep_days: int = 5):
+        """Remove data older than specified number of days"""
+        try:
+            cutoff_date = datetime.now() - timedelta(days=keep_days)
+            
+            # Clean data directory
+            if self.data_dir.exists():
+                for file in self.data_dir.glob("*.nc"):
+                    # Extract date from filename (format: dataset_region_YYYYMMDD.nc)
+                    match = re.search(r'_(\d{8})\.nc$', file.name)
+                    if match:
+                        file_date = datetime.strptime(match.group(1), '%Y%m%d')
+                        if file_date < cutoff_date:
+                            file.unlink()
+                            logger.info(f"Removed old data file: {file}")
+
+            # Clean output directory
+            if self.output_dir.exists():
+                for region_dir in self.output_dir.iterdir():
+                    if not region_dir.is_dir():
+                        continue
+                        
+                    for dataset_dir in region_dir.iterdir():
+                        if not dataset_dir.is_dir():
+                            continue
+                            
+                        for date_dir in dataset_dir.iterdir():
+                            if not date_dir.is_dir():
+                                continue
+                                
+                            try:
+                                dir_date = datetime.strptime(date_dir.name, '%Y%m%d')
+                                if dir_date < cutoff_date:
+                                    shutil.rmtree(date_dir)
+                                    logger.info(f"Removed old output directory: {date_dir}")
+                            except ValueError:
+                                continue
+                                
+            logger.info(f"Successfully cleaned up data older than {keep_days} days")
+            
+        except Exception as e:
+            logger.error(f"Error during data cleanup: {str(e)}")
+            raise
