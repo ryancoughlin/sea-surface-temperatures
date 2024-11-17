@@ -25,7 +25,14 @@ SOURCES = {
         "color_scale": "viridis",
         "type": "currents",
         "lag_days": 0,
-        "supportedLayers": ["image", "data",]
+        "supportedLayers": ["image", "data"],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily",
+            "resolution": "5 miles",
+            "description": "Ocean surface currents calculated from model outputs.",
+            "Dataset URL": "https://nrt.cmems-du.eu"
+        }
     },
     "CMEMS_Global_Temperature_Daily": {
         "source_type": "cmems",
@@ -36,7 +43,14 @@ SOURCES = {
         "color_scale": "RdYlBu_r",
         "type": "sst",
         "lag_days": 0,
-        "supportedLayers": ["image", "data", "contours"]
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "5 miles",
+            "description": "Sea surface temperature from global model data.",
+            "Dataset URL": "https://nrt.cmems-du.eu"
+        }
     },
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
@@ -48,8 +62,15 @@ SOURCES = {
         "lag_days": 2,
         "color_scale": "RdYlBu_r",
         "stride": None,
-        "supportedLayers": ["image", "data", "contours"]
-   },
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "1 mile",
+            "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
+            "Dataset URL": "https://coastwatch.noaa.gov"
+        }
+    },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
@@ -60,7 +81,14 @@ SOURCES = {
         "color_scale": "YlGnBu",
         "altitude": "[0:1:0]",
         "type": "chlorophyll",
-        "supportedLayers": ["image", "data"]
+        "supportedLayers": ["image", "data"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "2.5 miles",
+            "description": "Chlorophyll-a concentration derived from VIIRS.",
+            "Dataset URL": "https://coastwatch.noaa.gov"
+        }
     },
     "BLENDEDsstDNDaily": {
         "source_type": "erddap",
@@ -72,6 +100,13 @@ SOURCES = {
         "lag_days": 2,
         "color_scale": "RdYlBu_r",
         "stride": None,
-        "supportedLayers": ["image", "data", "contours"]
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily",
+            "resolution": "~3.1 miles (0.05°)",
+            "description": "Blended sea surface temperature analysis from multiple satellites.",
+            "dataset url": "https://coastwatch.noaa.gov"
+        }
     }
 }
