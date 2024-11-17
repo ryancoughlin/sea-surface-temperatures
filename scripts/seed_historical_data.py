@@ -17,7 +17,11 @@ from config.regions import REGIONS
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def process_historical_data(start_date: datetime, days: int = 200):
+async def process_historical_data(
+    processing_manager: ProcessingManager,
+    start_date: datetime,
+    days: int = 200
+):
     """Process historical data with memory management"""
     total_tasks = days * len(REGIONS) * len(SOURCES)
     completed = 0
@@ -59,7 +63,7 @@ async def main():
         timeout=aiohttp.ClientTimeout(total=30)
     ) as session:
         await processing_manager.initialize(session)
-        await process_historical_data(datetime.now())
+        await process_historical_data(processing_manager, datetime.now())
 
 if __name__ == "__main__":
     # Configure logging
