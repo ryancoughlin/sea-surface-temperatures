@@ -30,5 +30,3 @@ docker-compose up --build -d
 echo "Verifying containers..."
 sleep 5
 docker-compose ps
-
-echo "Deployment complete. Check http://localhost/assets and http://localhost/output"
