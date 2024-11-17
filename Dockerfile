@@ -1,12 +1,10 @@
 FROM python:3.12-slim
 
-# Install system dependencies for NetCDF and other required packages
+# Install system dependencies for NetCDF
 RUN apt-get update && apt-get install -y \
     gcc \
     libhdf5-dev \
     libnetcdf-dev \
-    libgeos-dev \
-    libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
