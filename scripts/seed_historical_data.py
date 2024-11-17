@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def process_historical_data(
     processing_manager: ProcessingManager,
     start_date: datetime,
-    days: int = 5
+    days: int = 3
 ):
     """Process historical data with memory management"""
     total_tasks = days * len(REGIONS) * len(SOURCES)
