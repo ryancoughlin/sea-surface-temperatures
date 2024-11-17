@@ -43,6 +43,13 @@ class ProcessingManager:
             raise RuntimeError("ProcessingManager not initialized")
         
         try:
+            logger.info(
+                "Processing dataset\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Date:    {date.strftime('%Y-%m-%d')}"
+            )
+            
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
@@ -72,7 +79,12 @@ class ProcessingManager:
             )
 
         except Exception as e:
-            logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
+            logger.error(
+                "Processing error\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Error:   {str(e)}"
+            )
             return {
                 'status': 'error',
                 'error': str(e),
@@ -117,6 +129,13 @@ class ProcessingManager:
                 dataset=dataset,
                 date=date,
                 asset_paths=asset_paths
+            )
+
+            logger.info(
+                "Processing completed\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Output:  {data_path}"
             )
 
             return {

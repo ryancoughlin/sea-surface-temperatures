@@ -38,7 +38,12 @@ class CMEMSService:
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save CMEMS data using official toolbox"""
         try:
-            logger.info(f"Starting CMEMS data fetch for dataset: {dataset}, region: {region_id}")
+            logger.info(
+                "Starting CMEMS data fetch\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Date:    {date.strftime('%Y-%m-%d')}"
+            )
             
             source_config = SOURCES[dataset]
             bounds = REGIONS[region_id]['bounds']
@@ -63,11 +68,19 @@ class CMEMSService:
                 output_filename=str(output_path)
             )
             
-            logger.info(f"Successfully saved CMEMS data to {output_path}")
+            logger.info(
+                "Successfully saved CMEMS data\n"
+                f"Output:  {output_path}"
+            )
             return output_path
 
         except Exception as e:
-            logger.error(f"Error in CMEMS data fetch: {str(e)}")
+            logger.error(
+                "Error in CMEMS data fetch\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Error:   {str(e)}"
+            )
             raise
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:

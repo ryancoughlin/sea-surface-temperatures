@@ -9,7 +9,12 @@ from processors.processing_manager import ProcessingManager
 from utils.path_manager import PathManager
 import aiohttp
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging with better formatting
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
