@@ -1,12 +1,16 @@
-# Use prebuilt GDAL image with Python3.12
-FROM osgeo/gdal:alpine-small-latest
+FROM python:3.12-slim
 
-# Install additional Python dependencies
-COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install system dependencies for NetCDF
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip3 install -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -16,7 +20,7 @@ RUN mkdir -p /data /output && \
     chmod -R 777 /data /output
 
 # Create a non-root user
-RUN adduser -D appuser
+RUN useradd -m appuser
 USER appuser
 
 # Command to run the script
