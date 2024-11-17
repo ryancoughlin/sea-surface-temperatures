@@ -3,11 +3,9 @@ xarray==2024.3.0
 numpy==1.26.4
 scipy
 netCDF4
-dask[complete]  # For parallel processing with xarray
 
 # Visualization
 matplotlib
-pillow
 cartopy
 
 # Data formats
@@ -15,9 +13,3 @@ geojson
 
 # Async/Web
 aiohttp
-
-# Optional but recommended for performance
-bottleneck  # Speed optimizations for xarray operations
-
-# Logging
-python-json-logger  # For structured JSON logging

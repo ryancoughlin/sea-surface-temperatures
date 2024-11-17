@@ -3,7 +3,7 @@ services:
     build: .
     volumes:
       - ./output:/output
-      - ./config:/config
+      - ./assets:/assets:ro  # Read-only access to static data if needed by main.py
     networks:
       - app_network
     restart: "no"
