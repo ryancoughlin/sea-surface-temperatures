@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
+import aiohttp
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
 from processors.metadata_assembler import MetadataAssembler
@@ -11,6 +12,7 @@ from config.regions import REGIONS
 import logging
 from utils.file_checker import check_existing_data
 from utils.path_manager import PathManager
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -29,46 +31,58 @@ class ProcessingManager:
         self.processor_factory = ProcessorFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
 
-    async def initialize(self, session):
-        """Initialize async services"""
+    async def initialize(self, session: aiohttp.ClientSession):
+        """Initialize services with session"""
         self.session = session
         self.erddap_service = ERDDAPService(session, self.path_manager)
         self.cmems_service = CMEMSService(session, self.path_manager)
 
-    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict[str, Union[str, Path, dict]]:
-        """Process a single dataset for a region."""
-        if not self.erddap_service:
-            raise RuntimeError("ProcessingManager not initialized. Call initialize() first.")
+    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict:
+        """Process a single dataset"""
+        if not self.session:
+            raise RuntimeError("ProcessingManager not initialized")
         
         try:
-            region = REGIONS[region_id]
-            dataset_config = SOURCES[dataset]
-            source_type = dataset_config.get('source_type')
-
-            # Get paths using PathManager
+            # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
 
-            # Check if the file already exists
+            # Use cached data if available
             if data_path.exists():
-                logger.info(f"Using existing data file: {data_path}")
-                netcdf_path = data_path
-            else:
-                # If no data exists, download it using appropriate service
-                logger.info(f"Downloading new data for {dataset} {region_id}")
-                
-                # Select service based on source type
-                if source_type == 'cmems':
-                    service = self.cmems_service
-                else:
-                    service = self.erddap_service
-                    
-                netcdf_path = await service.save_data(
-                    date=date,
-                    dataset=dataset,
-                    region_id=region_id
+                logger.info(f"Using cached data: {data_path}")
+                return await self._process_netcdf_data(
+                    data_path, region_id, dataset, date, asset_paths
                 )
 
+            # Download new data
+            service = self.cmems_service if SOURCES[dataset].get('source_type') == 'cmems' else self.erddap_service
+            netcdf_path = await service.save_data(date, dataset, region_id)
+            
+            if not netcdf_path:
+                return {
+                    'status': 'error',
+                    'error': 'Failed to download data',
+                    'region': region_id,
+                    'dataset': dataset
+                }
+            
+            # Process the data
+            return await self._process_netcdf_data(
+                netcdf_path, region_id, dataset, date, asset_paths
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'region': region_id,
+                'dataset': dataset
+            }
+
+    async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, asset_paths: Path):
+        """Process the downloaded netCDF data."""
+        try:
             # Generate base GeoJSON data
             geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
             data_path = geojson_converter.convert(
@@ -111,9 +125,8 @@ class ProcessingManager:
                 'region': region_id,
                 'dataset': dataset
             }
-
         except Exception as e:
-            logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
+            logger.error(f"Error in _process_netcdf_data: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e),
