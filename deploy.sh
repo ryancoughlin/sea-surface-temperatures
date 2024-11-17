@@ -17,8 +17,13 @@ fi
 # Pull the latest code from the repository
 git pull origin main
 
-# Stop and restart Docker containers with the latest code
+# Stop containers and clean up
+echo "Stopping containers and cleaning up..."
 docker-compose down
+docker system prune -f  # Remove unused data
+
+# Rebuild and start containers
+echo "Building and starting containers..."
 docker-compose up --build -d
 
 # Verify containers are running
