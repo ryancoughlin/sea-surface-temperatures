@@ -14,7 +14,7 @@ services:
       - "0.0.0.0:80:80"
     volumes:
       - ./output:/output
-      - ./assets:/usr/share/nginx/html/assets:ro
+      - ./assets:/assets
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - app_network
