@@ -1,8 +1,13 @@
 FROM python:3.12-slim
 
-# Install system dependencies for NetCDF
+# Install system dependencies for NetCDF and Cartopy
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
+    proj-bin \
+    libproj-dev \
+    libgeos-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -12,12 +17,12 @@ WORKDIR /
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
 
-# Copy application code and static assets
+# Copy application code
 COPY . .
 
 # Create necessary directories with correct permissions
-RUN mkdir -p /output /assets && \
-    chmod -R 777 /output /assets
+RUN mkdir -p /output && \
+    chmod -R 777 /output
 
 # Create a non-root user
 RUN useradd -m appuser
