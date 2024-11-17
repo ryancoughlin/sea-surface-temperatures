@@ -13,6 +13,7 @@ from processors.metadata_assembler import MetadataAssembler
 from utils.path_manager import PathManager
 from config.settings import SOURCES
 from config.regions import REGIONS
+from utils.processing_scheduler import ProcessingScheduler, ProcessingTask
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -22,39 +23,22 @@ async def process_historical_data(
     start_date: datetime,
     days: int = 3
 ):
-    """Process historical data with memory management"""
-    total_tasks = days * len(REGIONS) * len(SOURCES)
-    completed = 0
+    scheduler = ProcessingScheduler(max_concurrent=3)  # Adjust based on resources
     
-    logger.info(f"Processing {days} days of data")
-    logger.info(f"Total tasks: {total_tasks} ({days} days * {len(REGIONS)} regions * {len(SOURCES)} sources)")
-    
-    # Process one day at a time
+    # Build all tasks first
     for day_offset in range(days):
         date = start_date - timedelta(days=day_offset)
-        logger.info(f"Processing data for {date.strftime('%Y-%m-%d')}")
-        
-        # Process one region at a time
         for region_id in REGIONS:
-            # Process one dataset at a time
             for dataset in SOURCES:
-                try:
-                    await processing_manager.process_dataset(
-                        date=date,
-                        region_id=region_id,
-                        dataset=dataset
-                    )
-                    completed += 1
-                    logger.info(f"Progress: {completed}/{total_tasks} ({(completed/total_tasks)*100:.1f}%)")
-                    logger.info(f"Successfully processed {dataset} for {region_id} on {date.strftime('%Y-%m-%d')}")
-                except Exception as e:
-                    logger.error(f"Failed to process {dataset} for {region_id} on {date}: {str(e)}")
-                
-                # Force garbage collection after each dataset
-                gc.collect()
-                
-                # Small delay to allow system to recover
-                await asyncio.sleep(1)
+                scheduler.add_task(ProcessingTask(
+                    region_id=region_id,
+                    dataset=dataset,
+                    date=date
+                ))
+    
+    # Process in parallel with controlled concurrency
+    stats = await scheduler.run(processing_manager)
+    logger.info(f"Processing completed: {stats['successful']} successful, {stats['failed']} failed")
 
 async def main():
     path_manager = PathManager()

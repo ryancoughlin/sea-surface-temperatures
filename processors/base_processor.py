@@ -52,7 +52,7 @@ class BaseImageProcessor(ABC):
             raise
 
     def create_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with no padding or gaps."""
+        """Create figure and axes with exact bounds."""
         bounds = REGIONS[region]['bounds']
         
         # Calculate aspect ratio from bounds
@@ -64,16 +64,12 @@ class BaseImageProcessor(ABC):
         height = 24
         width = height * aspect
         
-        # Create figure with no frame and exact size
+        # Create figure with no frame
         fig = plt.figure(figsize=(width, height), frameon=False)
         
-        # Create axes that fill the entire figure with no padding
+        # Use PlateCarree projection instead of Mercator to match web map exactly
         ax = plt.axes([0, 0, 1, 1], 
-                     projection=ccrs.Mercator(
-                        central_longitude=bounds[0][0],
-                        false_easting=0.0,
-                        false_northing=0.0
-                     ))
+                     projection=ccrs.PlateCarree())  # Simplified projection
         
         # Remove all axes elements and make background transparent
         ax.set_axis_off()
@@ -84,7 +80,7 @@ class BaseImageProcessor(ABC):
         gl = ax.gridlines()
         gl.remove()
         
-        # Set exact bounds with no buffer
+        # Set exact bounds
         ax.set_extent([
             bounds[0][0],
             bounds[1][0],
