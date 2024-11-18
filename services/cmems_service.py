@@ -29,26 +29,32 @@ class CMEMSService:
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save CMEMS data using official toolbox"""
         try:
-            # Convert to UTC if not already
+            # Get source configuration first to check lag days
+            source_config = SOURCES[dataset]
+            lag_days = source_config.get('lag_days', 0)
+            
+            # Convert to UTC and adjust for lag days
             if date.tzinfo is None:
                 date = date.replace(tzinfo=timezone.utc)
             utc_date = date.astimezone(timezone.utc)
+            query_date = utc_date - timedelta(days=lag_days)
             
             logger.info(
                 "Starting CMEMS data fetch\n"
                 f"Dataset: {dataset}\n"
                 f"Region:  {region_id}\n"
-                f"UTC Date: {utc_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                f"Request Date: {utc_date.strftime('%Y-%m-%d')}\n"
+                f"Query Date:   {query_date.strftime('%Y-%m-%d')}\n"
+                f"Lag Days:     {lag_days}"
             )
             
-            source_config = SOURCES[dataset]
             bounds = REGIONS[region_id]['bounds']
             output_path = self.path_manager.get_data_path(date, dataset, region_id)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Format dates according to CMEMS requirements
-            start_datetime = f"{utc_date.strftime('%Y-%m-%d')}T00:00:00Z"
-            end_datetime = f"{utc_date.strftime('%Y-%m-%d')}T23:59:59Z"
+            # Format dates according to CMEMS requirements using query_date
+            start_datetime = f"{query_date.strftime('%Y-%m-%d')}T00:00:00Z"
+            end_datetime = f"{query_date.strftime('%Y-%m-%d')}T23:59:59Z"
 
             # Use CMEMS toolbox with proper date formatting
             data = copernicusmarine.subset(
