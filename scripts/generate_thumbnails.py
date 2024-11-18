@@ -94,7 +94,7 @@ def update_regions_file(thumbnails_dict):
         if '"thumbnail":' not in region_content:
             content = (
                 content[:region_end] +
-                f',\n        "thumbnail": "/static/thumbnails/{thumb_path}"' +
+                f',\n        "thumbnail": "/assets/region_thumbnails/{thumb_path}"' +
                 content[region_end:]
             )
     
