@@ -18,11 +18,11 @@ def export_regions():
     """Export regions configuration to JSON file"""
     logger.info("Starting regions export")
     
-    # Generate thumbnails first
+    # Generate thumbnails first and get the mapping of region_id to thumbnail names
     logger.info("Generating thumbnails")
-    generate_all_thumbnails()
+    thumbnail_mapping = generate_all_thumbnails()
     
-    # Reload REGIONS to get updated thumbnail paths
+    # Reload REGIONS to get updated data
     from importlib import reload
     import config.regions
     reload(config.regions)
@@ -32,6 +32,7 @@ def export_regions():
     regions_list = [
         {
             "id": region_id,
+            "thumbnail": f"/assets/region_thumbnails/{thumbnail_mapping[region_id]}",
             **region_data
         }
         for region_id, region_data in REGIONS.items()

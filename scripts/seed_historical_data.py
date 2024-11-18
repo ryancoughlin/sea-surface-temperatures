@@ -14,6 +14,7 @@ from utils.path_manager import PathManager
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.processing_scheduler import ProcessingScheduler, ProcessingTask
+from utils.dates import DateFormatter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -42,15 +43,12 @@ async def process_historical_data(
 
 async def main():
     path_manager = PathManager()
-    metadata_assembler = MetadataAssembler(path_manager)
-    processing_manager = ProcessingManager(path_manager, metadata_assembler)
+    processing_manager = ProcessingManager(path_manager)
     
-    async with aiohttp.ClientSession(
-        connector=aiohttp.TCPConnector(limit=2, limit_per_host=1),  # Reduced connections
-        timeout=aiohttp.ClientTimeout(total=30)
-    ) as session:
+    async with aiohttp.ClientSession() as session:
         await processing_manager.initialize(session)
-        await process_historical_data(processing_manager, datetime.now())
+        current_date = DateFormatter.get_current_date()  # Get properly formatted UTC date
+        await process_historical_data(processing_manager, current_date)
 
 if __name__ == "__main__":
     # Configure logging

@@ -4,42 +4,28 @@ from typing import Dict, Tuple
 class DateFormatter:
     @staticmethod
     def get_current_date() -> datetime:
-        """
-        Get current date in UTC.
-        Returns the current date at UTC midnight.
-        """
+        """Get current date in UTC, ensuring we get today's date."""
         now = datetime.now(timezone.utc)
-        # Return the current day's date, not tomorrow
-        return datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+        # Ensure we're getting today's date in UTC
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     @staticmethod
     def get_query_date(date: datetime, lag_days: int = 0) -> datetime:
-        """
-        Get standardized query date accounting for timezone and lag days.
-        Returns date in UTC at start of day.
-        """
+        """Get standardized query date with lag days."""
         # Ensure date is in UTC
         if date.tzinfo is None:
             date = date.replace(tzinfo=timezone.utc)
         
-        # Adjust for lag days
-        query_date = date - timedelta(days=lag_days)
-        
-        # Return start of day in UTC
-        return datetime(
-            query_date.year,
-            query_date.month,
-            query_date.day,
-            tzinfo=timezone.utc
-        )
+        # Normalize to start of day and adjust for lag
+        normalized_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        return normalized_date - timedelta(days=lag_days)
 
     @staticmethod
-    def format_cmems_date(date: datetime) -> Tuple[str, str]:
-        """Format date range for CMEMS API."""
+    def format_api_date(date: datetime) -> Tuple[str, str]:
+        """Format date range for API requests."""
         if date.tzinfo is None:
             date = date.replace(tzinfo=timezone.utc)
         
-        # Format for CMEMS API requirements
         start = f"{date.strftime('%Y-%m-%d')}T00:00:00Z"
         end = f"{date.strftime('%Y-%m-%d')}T23:59:59Z"
         return start, end
