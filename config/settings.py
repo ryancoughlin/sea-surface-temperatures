@@ -67,6 +67,7 @@ SOURCES = {
             "cloud-free": "No",
             "frequency": "Daily",
             "resolution": "1 mile",
+            "capture": "blends day and night",
             "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
             "Dataset URL": "https://coastwatch.noaa.gov"
         }
@@ -106,7 +107,8 @@ SOURCES = {
             "frequency": "Daily",
             "resolution": "~3.1 miles (0.05°)",
             "description": "Blended sea surface temperature analysis from multiple satellites.",
-            "dataset url": "https://coastwatch.noaa.gov"
+            "dataset url": "https://coastwatch.noaa.gov",
+            "capture": "Blended day and night"
         }
     }
 }
