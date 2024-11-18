@@ -4,8 +4,12 @@ from typing import Dict, Tuple
 class DateFormatter:
     @staticmethod
     def get_current_date() -> datetime:
-        """Get current date in UTC, normalized to start of day"""
+        """
+        Get current date in UTC.
+        Returns the current date at UTC midnight.
+        """
         now = datetime.now(timezone.utc)
+        # Return the current day's date, not tomorrow
         return datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
 
     @staticmethod
@@ -30,11 +34,15 @@ class DateFormatter:
         )
 
     @staticmethod
-    def format_cmems_date(date: datetime) -> str:
-        """Format date for CMEMS API."""
+    def format_cmems_date(date: datetime) -> Tuple[str, str]:
+        """Format date range for CMEMS API."""
         if date.tzinfo is None:
             date = date.replace(tzinfo=timezone.utc)
-        return date.strftime('%Y-%m-%d')
+        
+        # Format for CMEMS API requirements
+        start = f"{date.strftime('%Y-%m-%d')}T00:00:00Z"
+        end = f"{date.strftime('%Y-%m-%d')}T23:59:59Z"
+        return start, end
 
     @staticmethod
     def format_erddap_date(date: datetime) -> str:
