@@ -8,6 +8,7 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from dataclasses import dataclass
 from utils.dates import DateFormatter
+from datetime import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +29,28 @@ class CMEMSService:
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save CMEMS data using official toolbox"""
         try:
+            # Convert to UTC if not already
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+            utc_date = date.astimezone(timezone.utc)
+            
             logger.info(
                 "Starting CMEMS data fetch\n"
                 f"Dataset: {dataset}\n"
                 f"Region:  {region_id}\n"
-                f"Date:    {date.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                f"UTC Date: {utc_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
             )
             
             source_config = SOURCES[dataset]
-            lag_days = source_config.get('lag_days', 0)
-            
-            # Get standardized query date
-            query_date = self.date_formatter.get_query_date(date, lag_days)
-            
             bounds = REGIONS[region_id]['bounds']
             output_path = self.path_manager.get_data_path(date, dataset, region_id)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use CMEMS toolbox with standardized date
+            # Format dates according to CMEMS requirements
+            start_datetime = f"{utc_date.strftime('%Y-%m-%d')}T00:00:00Z"
+            end_datetime = f"{utc_date.strftime('%Y-%m-%d')}T23:59:59Z"
+
+            # Use CMEMS toolbox with proper date formatting
             data = copernicusmarine.subset(
                 dataset_id=source_config['dataset_id'],
                 variables=source_config['variables'],
@@ -53,8 +58,8 @@ class CMEMSService:
                 maximum_longitude=bounds[1][0],
                 minimum_latitude=bounds[0][1],
                 maximum_latitude=bounds[1][1],
-                start_datetime=query_date.strftime('%Y-%m-%d'),
-                end_datetime=query_date.strftime('%Y-%m-%d'),
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
                 minimum_depth=0,
                 maximum_depth=1,
                 force_download=True,
