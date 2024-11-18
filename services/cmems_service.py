@@ -7,6 +7,7 @@ from typing import Optional, Dict
 from config.settings import SOURCES
 from config.regions import REGIONS
 from dataclasses import dataclass
+from utils.dates import DateFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +23,7 @@ class CMEMSService:
         self.path_manager = path_manager
         self.timeout = timeout
         self.semaphore = asyncio.Semaphore(2)
-
-    def _get_date_range(self, date: datetime, dataset: str) -> tuple[str, str]:
-        """Get start and end dates for CMEMS query"""
-        lag_days = SOURCES[dataset].get('lag_days', 0)
-        query_date = date - timedelta(days=lag_days)
-        
-        # Format for CMEMS API (they require specific format)
-        # API requires format: YYYY-MM-DDT00:00:00Z
-        start_date = query_date.strftime("%Y-%m-%d")
-        
-        # Return same day for both start and end as per API example
-        return f"{start_date}T00:00:00Z", f"{start_date}T23:59:59Z"
+        self.date_formatter = DateFormatter()
 
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save CMEMS data using official toolbox"""
@@ -42,17 +32,20 @@ class CMEMSService:
                 "Starting CMEMS data fetch\n"
                 f"Dataset: {dataset}\n"
                 f"Region:  {region_id}\n"
-                f"Date:    {date.strftime('%Y-%m-%d')}"
+                f"Date:    {date.strftime('%Y-%m-%d %H:%M:%S %Z')}"
             )
             
             source_config = SOURCES[dataset]
+            lag_days = source_config.get('lag_days', 0)
+            
+            # Get standardized query date
+            query_date = self.date_formatter.get_query_date(date, lag_days)
+            
             bounds = REGIONS[region_id]['bounds']
             output_path = self.path_manager.get_data_path(date, dataset, region_id)
-            
-            # Create parent directories
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use CMEMS toolbox to subset and download data
+            # Use CMEMS toolbox with standardized date
             data = copernicusmarine.subset(
                 dataset_id=source_config['dataset_id'],
                 variables=source_config['variables'],
@@ -60,27 +53,19 @@ class CMEMSService:
                 maximum_longitude=bounds[1][0],
                 minimum_latitude=bounds[0][1],
                 maximum_latitude=bounds[1][1],
-                start_datetime=date.strftime('%Y-%m-%d'),
-                end_datetime=date.strftime('%Y-%m-%d'),
+                start_datetime=query_date.strftime('%Y-%m-%d'),
+                end_datetime=query_date.strftime('%Y-%m-%d'),
                 minimum_depth=0,
                 maximum_depth=1,
                 force_download=True,
                 output_filename=str(output_path)
             )
             
-            logger.info(
-                "Successfully saved CMEMS data\n"
-                f"Output:  {output_path}"
-            )
+            logger.info(f"Successfully saved CMEMS data to {output_path}")
             return output_path
 
         except Exception as e:
-            logger.error(
-                "Error in CMEMS data fetch\n"
-                f"Dataset: {dataset}\n"
-                f"Region:  {region_id}\n"
-                f"Error:   {str(e)}"
-            )
+            logger.error(f"Error in CMEMS data fetch: {str(e)}")
             raise
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:

@@ -7,6 +7,7 @@ from typing import Dict, Optional, Union, Any
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.path_manager import PathManager
+from utils.dates import DateFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class ERDDAPService:
         self.session = session
         self.path_manager = path_manager
         self.timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
+        self.date_formatter = DateFormatter()
 
     def build_constraint(self, 
                         dim_name: str,
@@ -81,23 +83,18 @@ class ERDDAPService:
             if not source_config:
                 raise ValueError(f"No configuration found for dataset {dataset}")
 
-            # Calculate time range using lag_days
+            # Get standardized query date
             lag_days = source_config.get('lag_days', 1)
-            offset_date = date - timedelta(days=lag_days)
+            query_date = self.date_formatter.get_query_date(date, lag_days)
+            
             region = REGIONS[region_id]
+            output_path = self.path_manager.get_data_path(date, dataset, region_id)
             
-            # Get data path first to ensure date is valid
-            output_path = self.path_manager.get_data_path(
-                date=date,
-                dataset=dataset,
-                region=region_id
-            )
-            
-            # Build constraints using ISO format for ERDDAP
+            # Build constraints with standardized date format
             constraints = {
                 'time': {
-                    'start': offset_date.strftime('%Y-%m-%dT00:00:00Z'),
-                    'stop': offset_date.strftime('%Y-%m-%dT00:00:00Z')
+                    'start': self.date_formatter.format_erddap_date(query_date),
+                    'stop': self.date_formatter.format_erddap_date(query_date)
                 },
                 'latitude': {
                     'start': region['bounds'][0][1],
