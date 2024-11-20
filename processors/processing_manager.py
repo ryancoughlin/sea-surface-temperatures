@@ -32,6 +32,7 @@ class ProcessingManager:
         # Factories
         self.processor_factory = ProcessorFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
+        self.logger = logging.getLogger(__name__)
 
     async def initialize(self, session: aiohttp.ClientSession):
         """Initialize services with session"""
@@ -39,18 +40,23 @@ class ProcessingManager:
         self.erddap_service = ERDDAPService(session, self.path_manager)
         self.cmems_service = CMEMSService(session, self.path_manager)
 
+    def _log_processing_summary(self, dataset: str, region: str, output: str):
+        """Log processing summary with consistent formatting"""
+        self.logger.info("📊 Processing Summary")
+        self.logger.info(f"   ├── 📦 Dataset: {dataset}")
+        self.logger.info(f"   ├── 🌎 Region:  {region}")
+        self.logger.info(f"   └── 📄 Output:  {output or 'None'}")
+
     async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict:
         """Process a single dataset"""
         if not self.session:
             raise RuntimeError("ProcessingManager not initialized")
         
         try:
-            logger.info(
-                "Processing dataset\n"
-                f"Dataset: {dataset}\n"
-                f"Region:  {region_id}\n"
-                f"Date:    {date.strftime('%Y-%m-%d')}"
-            )
+            # Log start of processing with clear structure
+            self.logger.info(f"🔄 Processing {dataset}")
+            self.logger.info(f"   ├── 🌎 Region: {region_id}")
+            self.logger.info(f"   └── 📅 Date: {date.strftime('%Y-%m-%d')}")
             
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
@@ -58,14 +64,14 @@ class ProcessingManager:
 
             # Use cached data if available
             if data_path.exists():
-                logger.info(f"Using cached data: {data_path}")
+                self.logger.info(f"📂 Using cached data")
                 return await self._process_netcdf_data(
                     data_path, region_id, dataset, date, asset_paths
                 )
 
             # Determine service type and download data
             source_type = SOURCES[dataset].get('source_type')
-            logger.info(f"Using service type: {source_type} for dataset: {dataset}")
+            self.logger.info(f"Using service type: {source_type} for dataset: {dataset}")
             
             try:
                 if source_type == 'cmems':
@@ -78,7 +84,7 @@ class ProcessingManager:
                 if not netcdf_path or not netcdf_path.exists():
                     raise FileNotFoundError(f"Failed to download data for {dataset}")
                 
-                logger.info(f"Successfully downloaded data to: {netcdf_path}")
+                self.logger.info(f"Successfully downloaded data to: {netcdf_path}")
                 
                 # Process the downloaded data
                 return await self._process_netcdf_data(
@@ -86,10 +92,10 @@ class ProcessingManager:
                 )
                 
             except asyncio.CancelledError:
-                logger.warning(f"Task cancelled for dataset: {dataset}")
+                self.logger.warning(f"Task cancelled for dataset: {dataset}")
                 raise
             except Exception as e:
-                logger.error(f"Download error for {dataset}: {str(e)}")
+                self.logger.error(f"Download error for {dataset}: {str(e)}")
                 return {
                     'status': 'error',
                     'error': str(e),
@@ -98,7 +104,7 @@ class ProcessingManager:
                 }
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "Processing error\n"
                 f"Dataset: {dataset}\n"
                 f"Region:  {region_id}\n"
@@ -169,7 +175,7 @@ class ProcessingManager:
                 try:
                     dataset_type = SOURCES[dataset]['type']
                     processor = self.processor_factory.create(dataset_type)
-                    logger.info(f"Processing {dataset} data for {region_id}")
+                    self.logger.info(f"Processing {dataset} data for {region_id}")
                     image_path = processor.generate_image(
                         data_path=interpolated_path,
                         region=region_id,
@@ -177,10 +183,10 @@ class ProcessingManager:
                         date=date
                     )
                 except ValueError as e:
-                    logger.error(f"Processor error for type {dataset_type}: {str(e)}")
+                    self.logger.error(f"Processor error for type {dataset_type}: {str(e)}")
                     raise
                 except KeyError as e:
-                    logger.error(f"Missing type configuration for dataset {dataset}") 
+                    self.logger.error(f"Missing type configuration for dataset {dataset}") 
                 finally:
                     # Clean up interpolated file
                     if interpolated_path.exists():
@@ -193,12 +199,8 @@ class ProcessingManager:
                     asset_paths=asset_paths
                 )
 
-                logger.info(
-                    "Processing completed\n"
-                    f"Dataset: {dataset}\n"
-                    f"Region:  {region_id}\n"
-                    f"Output:  {data_path}"
-                )
+                self.logger.info("✅ Processing completed")
+                self._log_processing_summary(dataset, region_id, str(data_path))
 
                 return {
                     'status': 'success',
@@ -207,7 +209,7 @@ class ProcessingManager:
                     'dataset': dataset
                 }
         except Exception as e:
-            logger.error(f"Error in _process_netcdf_data: {str(e)}")
+            self.logger.error(f"Error in _process_netcdf_data: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e),

@@ -14,14 +14,17 @@ class BaseGeoJSONConverter(ABC):
     
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
+        self.logger = logging.getLogger(__name__)
     
     def load_dataset(self, data_path: Path) -> xr.Dataset:
         """Common dataset loading with error handling."""
         try:
-            logger.info(f"Loading dataset from: {data_path}")
+            self.logger.info(f"📂 Loading dataset")
+            self.logger.info(f"   └── 📄 {data_path.name}")
             return xr.open_dataset(data_path)
         except Exception as e:
-            logger.error(f"Error loading dataset: {str(e)}")
+            self.logger.error(f"❌ Error loading dataset")
+            self.logger.error(f"   └── 💥 {str(e)}")
             raise
     
     def normalize_dataset(self, ds: xr.Dataset, var_name: str) -> xr.DataArray:
@@ -56,4 +59,5 @@ class BaseGeoJSONConverter(ABC):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, 'w') as f:
             json.dump(geojson_data, f)
-        logger.info(f"Generated GeoJSON file: {output_path}")
+        self.logger.info(f"💾 Generated GeoJSON")
+        self.logger.info(f"   └── 📄 {output_path.name}")

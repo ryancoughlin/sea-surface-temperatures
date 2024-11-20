@@ -93,7 +93,7 @@ def calculate_wave_steepness(height: xr.DataArray, period: xr.DataArray) -> xr.D
     wavelength = (g * period**2) / (2 * np.pi)
     return height / wavelength
 
-def interpolate_dataset(ds: xr.Dataset, factor: int = 2, method: str = 'linear') -> xr.Dataset:
+def interpolate_dataset(ds: xr.Dataset, factor: int = 1.4, method: str = 'linear') -> xr.Dataset:
     """Interpolates dataset using efficient chunked operations"""
     # Get coordinate names
     lon_name = 'longitude' if 'longitude' in ds.coords else 'lon'
