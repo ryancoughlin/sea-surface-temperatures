@@ -112,50 +112,50 @@ SOURCES = {
     #     }
     # },
 
-    # "CMEMS_Global_Waves_Daily": {
-    #     "source_type": "cmems",
-    #     "name": "CMEMS Global Wave Analysis and Forecast",
-    #     "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
-    #     "dataset_id": "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
-    #     "variables": [
-    #         "VHM0",    # Significant wave height
-    #         "VMDR",    # Mean wave direction
-    #         "VTM10",   # Mean wave period
-    #         "VTPK",    # Peak wave period
-    #         "VPED"     # Wave energy period
-    #     ],
-    #     "color_scale": "plasma",
-    #     "type": "waves",
-    #     "lag_days": 1,
-    #     "supportedLayers": ["image", "data", "extrude", "vectors"],
-    #     "metadata": {
-    #         "cloud-free": "Yes",
-    #         "frequency": "3-hourly",
-    #         "resolution": "5 miles",
-    #         "description": "Global wave analysis including height, period, and direction.",
-    #         "Dataset URL": "https://nrt.cmems-du.eu",
-    #         "variables_info": {
-    #             "VHM0": {
-    #                 "name": "Significant wave height",
-    #                 "units": "feet"
-    #             },
-    #             "VMDR": {
-    #                 "name": "Mean wave direction",
-    #                 "units": "degrees"
-    #             },
-    #             "VTM10": {
-    #                 "name": "Mean wave period",
-    #                 "units": "seconds"
-    #             },
-    #             "VTPK": {
-    #                 "name": "Peak wave period",
-    #                 "units": "seconds"
-    #             },
-    #             "VPED": {
-    #                 "name": "Wave energy period",
-    #                 "units": "seconds"
-    #             }
-    #         }
-    #     }
-    # }
+    "CMEMS_Global_Waves_Daily": {
+        "source_type": "cmems",
+        "name": "CMEMS Global Wave Analysis and Forecast",
+        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
+        "dataset_id": "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
+        "variables": [
+            "VHM0",    # Significant wave height
+            "VMDR",    # Mean wave direction
+            "VTM10",   # Mean wave period
+            "VTPK",    # Peak wave period
+            "VPED"     # Wave energy period
+        ],
+        "color_scale": "plasma",
+        "type": "waves",
+        "lag_days": 1,
+        "supportedLayers": ["image", "data", "extrude", "vectors"],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "3-hourly",
+            "resolution": "5 miles",
+            "description": "Global wave analysis including height, period, and direction.",
+            "Dataset URL": "https://nrt.cmems-du.eu",
+            "variables_info": {
+                "VHM0": {
+                    "name": "Significant wave height",
+                    "units": "feet"
+                },
+                "VMDR": {
+                    "name": "Mean wave direction",
+                    "units": "degrees"
+                },
+                "VTM10": {
+                    "name": "Mean wave period",
+                    "units": "seconds"
+                },
+                "VTPK": {
+                    "name": "Peak wave period",
+                    "units": "seconds"
+                },
+                "VPED": {
+                    "name": "Wave energy period",
+                    "units": "seconds"
+                }
+            }
+        }
+    }
 }
