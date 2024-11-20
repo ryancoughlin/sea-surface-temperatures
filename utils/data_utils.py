@@ -93,79 +93,27 @@ def calculate_wave_steepness(height: xr.DataArray, period: xr.DataArray) -> xr.D
     wavelength = (g * period**2) / (2 * np.pi)
     return height / wavelength
 
-def interpolate_dataset(ds: xr.Dataset, factor: int = 1.4, method: str = 'linear') -> xr.Dataset:
-    """
-    Interpolates all variables in a dataset to a higher resolution grid using bilinear interpolation.
-    
-    Args:
-        ds (xr.Dataset): Input dataset containing multiple variables
-        factor (int): Factor by which to increase resolution
-        method (str): Interpolation method ('linear', 'cubic', 'nearest')
-        
-    Returns:
-        xr.Dataset: Interpolated dataset with all variables
-    """
+def interpolate_dataset(ds: xr.Dataset, factor: int = 2, method: str = 'linear') -> xr.Dataset:
+    """Interpolates dataset using efficient chunked operations"""
     # Get coordinate names
     lon_name = 'longitude' if 'longitude' in ds.coords else 'lon'
     lat_name = 'latitude' if 'latitude' in ds.coords else 'lat'
     
-    # Create higher resolution coordinate grids
-    lons = ds[lon_name].values
-    lats = ds[lat_name].values
-    
-    new_lons = np.linspace(lons.min(), lons.max(), len(lons) * factor)
-    new_lats = np.linspace(lats.min(), lats.max(), len(lats) * factor)
-    
-    # Create meshgrids for original and new coordinates
-    lon_mesh, lat_mesh = np.meshgrid(lons, lats)
-    new_lon_mesh, new_lat_mesh = np.meshgrid(new_lons, new_lats)
-    
-    # Initialize dictionary for interpolated data variables
-    interpolated_data = {}
-    
-    # Interpolate each variable
-    for var_name, var in ds.data_vars.items():
-        if len(var.dims) >= 2:  # Only interpolate 2D or higher arrays
-            # Handle time dimension if present
-            if 'time' in var.dims:
-                times = var.time
-                interpolated_time_series = []
-                
-                for t in range(len(times)):
-                    values = var.isel(time=t).values
-                    interpolated = griddata(
-                        (lon_mesh.ravel(), lat_mesh.ravel()),
-                        values.ravel(),
-                        (new_lon_mesh, new_lat_mesh),
-                        method=method
-                    )
-                    interpolated_time_series.append(interpolated)
-                
-                interpolated_data[var_name] = xr.DataArray(
-                    np.stack(interpolated_time_series),
-                    dims=['time', lat_name, lon_name],
-                    coords={
-                        'time': times,
-                        lon_name: new_lons,
-                        lat_name: new_lats
-                    }
-                )
-            else:
-                values = var.values
-                interpolated = griddata(
-                    (lon_mesh.ravel(), lat_mesh.ravel()),
-                    values.ravel(),
-                    (new_lon_mesh, new_lat_mesh),
-                    method=method
-                )
-                
-                interpolated_data[var_name] = xr.DataArray(
-                    interpolated,
-                    dims=[lat_name, lon_name],
-                    coords={
-                        lon_name: new_lons,
-                        lat_name: new_lats
-                    }
-                )
-    
-    return xr.Dataset(interpolated_data)
+    # Create new coordinate arrays with double the points
+    new_lats = np.linspace(
+        float(ds[lat_name].min()), 
+        float(ds[lat_name].max()), 
+        int(len(ds[lat_name]) * factor)
+    )
+    new_lons = np.linspace(
+        float(ds[lon_name].min()), 
+        float(ds[lon_name].max()), 
+        int(len(ds[lon_name]) * factor)
+    )
+
+    # Perform interpolation directly with xarray
+    return ds.interp(
+        {lat_name: new_lats, lon_name: new_lons},
+        method=method,
+        kwargs={'fill_value': None}
+    )

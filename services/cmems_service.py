@@ -11,6 +11,8 @@ from config.regions import REGIONS
 from dataclasses import dataclass
 import copernicusmarine
 from dateutil.parser import parse as parse_date
+import xarray as xr
+import gc
 
 logger = logging.getLogger(__name__)
 

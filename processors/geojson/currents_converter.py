@@ -47,8 +47,8 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             direction = np.degrees(np.arctan2(v, u)) % 360
             
             features = []
-            for i in range(0, len(u[lat_name]), decimation):
-                for j in range(0, len(u[lon_name]), decimation):
+            for i in range(0, len(u[lat_name])):
+                for j in range(0, len(u[lon_name])):
                     try:
                         spd = float(speed.values[i, j])
                         
@@ -60,8 +60,6 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                         if np.isnan(u_val) or np.isnan(v_val):
                             continue
                         
-                        u_norm = u_val / spd if spd > 0 else 0
-                        v_norm = v_val / spd if spd > 0 else 0
                         direction_val = float(direction.values[i, j])
                         
                         feature = {
@@ -69,19 +67,16 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                             "geometry": {
                                 "type": "Point",
                                 "coordinates": [
-                                    float(u[lon_name].values[j]), 
-                                    float(u[lat_name].values[i])
+                                    round(float(u[lon_name].values[j]), 4),
+                                    round(float(u[lat_name].values[i]), 4)
                                 ]
                             },
                             "properties": {
-                                "u": u_val * vector_scale,
-                                "v": v_val * vector_scale,
-                                "u_norm": u_norm,
-                                "v_norm": v_norm,
-                                "speed": spd,
-                                "direction": direction_val,
-                                "speed_normalized": min(1.0, spd / 2.0),
-                                "vector_magnitude": spd * vector_scale
+                                "u": round(u_val * vector_scale, 2),
+                                "v": round(v_val * vector_scale, 2),
+                                "spd": round(spd, 2),
+                                "dir": round(direction_val, 1),
+                                "n": round(spd / 2.0, 2)
                             }
                         }
                         features.append(feature)

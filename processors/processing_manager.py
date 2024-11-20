@@ -116,7 +116,13 @@ class ProcessingManager:
         try:
             # Only load required variables instead of entire dataset
             required_vars = SOURCES[dataset].get('variables', [])
-            with xr.open_dataset(netcdf_path, decode_times=False) as ds:
+                
+            # Then load with aligned chunks
+            with xr.open_dataset(
+                netcdf_path, 
+                chunks={'time': -1, 'latitude': 400, 'longitude': 400},  # -1 means load entire dimension
+                decode_times=False
+            ) as ds:
                 ds = ds[required_vars]
                 
                 # Interpolate with chunks
@@ -126,9 +132,18 @@ class ProcessingManager:
                     method='linear'
                 )
                 
-                # Save interpolated dataset
+                # Save interpolated dataset with compression
                 interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
-                interpolated_ds.to_netcdf(interpolated_path)
+                interpolated_ds.to_netcdf(
+                    interpolated_path,
+                    encoding={
+                        var: {
+                            'zlib': True,
+                            'complevel': 5,
+                            '_FillValue': -9999.0
+                        } for var in interpolated_ds.data_vars
+                    }
+                )
                 
                 # Generate base GeoJSON data using interpolated dataset
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
