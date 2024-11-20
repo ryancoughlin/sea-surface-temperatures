@@ -43,7 +43,6 @@ def test_cmems_download():
         
         copernicusmarine.subset(
             dataset_id=dataset_id,
-            variables=variables,
             minimum_longitude=bounds[0][0],
             maximum_longitude=bounds[1][0],
             minimum_latitude=bounds[0][1],
