@@ -115,8 +115,12 @@ class ProcessingManager:
             required_vars = SOURCES[dataset].get('variables', [])
             type = SOURCES[dataset]['type']
       
-            # Load dataset - files are small enough to load entirely
-            with xr.open_dataset(netcdf_path) as ds:
+            # Load dataset with optimized chunking
+            with xr.open_dataset(
+                netcdf_path,
+                chunks=None,  # Let xarray use the original file chunks
+                decode_times=True
+            ) as ds:
                 ds = ds[required_vars]
                 interpolated_ds = interpolate_dataset(ds)
                 

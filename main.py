@@ -25,66 +25,40 @@ class ProcessingTask:
     date: datetime
 
 class ProcessingScheduler:
-    def __init__(self, max_concurrent: int = 2):
-        self.semaphore = asyncio.Semaphore(max_concurrent)
+    def __init__(self):
+        # Simple concurrent limit based on CPU cores, capped at 5
+        self.max_concurrent = min(psutil.cpu_count() or 2, 5)
+        self.semaphore = asyncio.Semaphore(self.max_concurrent)
         self.tasks = []
-        self.total_tasks = 0
-        self.completed_tasks = 0
+        
+        logger.info(f"Scheduler using {self.max_concurrent} concurrent tasks")
     
-    def add_task(self, task: ProcessingTask):
-        self.tasks.append(task)
+    async def process_task(self, task: ProcessingTask, processing_manager: ProcessingManager) -> dict:
+        task_id = f"{task.dataset}:{task.region_id}"
+        
+        async with self.semaphore:
+            try:
+                logger.info(f"Processing {task_id}")
+                return await processing_manager.process_dataset(
+                    date=task.date,
+                    region_id=task.region_id,
+                    dataset=task.dataset
+                )
+            except Exception as e:
+                logger.error(f"Failed {task_id}: {str(e)}")
+                return {'status': 'error', 'error': str(e)}
     
     async def run(self, processing_manager: ProcessingManager) -> dict:
-        self.total_tasks = len(self.tasks)
-        
-        logger.info(f"""
-📋 Task Queue Summary:
-├── Total tasks: {self.total_tasks}
-└── Max concurrent: {self.semaphore._value}
-        """.strip())
-        
-        async def process_task(task: ProcessingTask) -> dict:
-            task_id = f"{task.dataset}:{task.region_id}"
-            
-            async with self.semaphore:
-                logger.info(f"🚀 Starting {task_id}")
-                
-                try:
-                    result = await processing_manager.process_dataset(
-                        date=task.date,
-                        region_id=task.region_id,
-                        dataset=task.dataset
-                    )
-                    
-                    self.completed_tasks += 1
-                    logger.info(f"✅ Completed {task_id} ({self.completed_tasks}/{self.total_tasks})")
-                    return result
-                    
-                except Exception as e:
-                    self.completed_tasks += 1
-                    logger.error(f"❌ Failed {task_id}: {str(e)}")
-                    raise
-        
         results = await asyncio.gather(
-            *[process_task(task) for task in self.tasks],
-            return_exceptions=True  # Changed to True to prevent one failure stopping everything
+            *[self.process_task(task, processing_manager) for task in self.tasks],
+            return_exceptions=True
         )
         
-        successful = sum(1 for r in results if isinstance(r, dict) and r.get('status') == 'success')
-        failed = sum(1 for r in results if isinstance(r, Exception) or (isinstance(r, dict) and r.get('status') != 'success'))
+        successful = sum(1 for r in results if isinstance(r, dict) and r.get('status') != 'error')
+        failed = len(results) - successful
         
-        logger.info(f"""
-📊 Final Summary:
-├── Successful: {successful}
-├── Failed: {failed}
-└── Total: {self.total_tasks}
-        """.strip())
-        
-        return {
-            'successful': successful,
-            'failed': failed,
-            'total': self.total_tasks
-        }
+        logger.info(f"Completed: {successful} successful, {failed} failed")
+        return {'successful': successful, 'failed': failed}
 
 async def main():
     # Get system info
@@ -126,12 +100,12 @@ System Resources:
             processing_manager = ProcessingManager(path_manager, metadata_assembler)
             
             await processing_manager.initialize(session)
-            scheduler = ProcessingScheduler(max_concurrent=safe_concurrent)
+            scheduler = ProcessingScheduler()
             
             # Add tasks
             for region_id in REGIONS:
                 for dataset in SOURCES:
-                    scheduler.add_task(ProcessingTask(
+                    scheduler.tasks.append(ProcessingTask(
                         region_id=region_id,
                         dataset=dataset,
                         date=datetime.now()
