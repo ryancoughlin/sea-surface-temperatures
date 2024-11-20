@@ -200,7 +200,6 @@ class ProcessingManager:
                 'region': region_id,
                 'dataset': dataset
             }
-
     def serialize_paths(self, result: dict) -> dict:
         """Convert Path objects to strings for JSON serialization."""
         if result.get('status') == 'success' and 'paths' in result:
