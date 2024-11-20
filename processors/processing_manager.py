@@ -115,25 +115,10 @@ class ProcessingManager:
             required_vars = SOURCES[dataset].get('variables', [])
             type = SOURCES[dataset]['type']
       
-            # Load and get dimensions dynamically
+            # Load dataset - files are small enough to load entirely
             with xr.open_dataset(netcdf_path) as ds:
-                # Use the actual sizes from the dataset
-                chunks = {
-                    'time': 1,
-                    'latitude': ds.sizes['latitude'],
-                    'longitude': ds.sizes['longitude']
-                }
-                
-                # Add depth chunk only if it exists
-                if 'depth' in ds.sizes:
-                    chunks['depth'] = 1
-                
-                ds = ds[required_vars].chunk(chunks)
-
-                if type == 'sst':
-                    interpolated_ds = ds
-                else:
-                    interpolated_ds = interpolate_dataset(ds, 1.5)
+                ds = ds[required_vars]
+                interpolated_ds = interpolate_dataset(ds)
                 
                 # Save interpolated dataset with compression
                 interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"

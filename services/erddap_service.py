@@ -9,6 +9,7 @@ from config.regions import REGIONS
 from utils.path_manager import PathManager
 from utils.dates import DateFormatter
 import ssl
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +29,17 @@ class ERDDAPService:
         self.path_manager = path_manager
         self.date_formatter = DateFormatter()
         
-        # Simplified configuration
-        self.timeout = aiohttp.ClientTimeout(total=120)  # 2 minutes
+        # Match curl's working configuration
+        self.timeout = aiohttp.ClientTimeout(
+            total=300,      # 5 minutes total
+            connect=60,     # 60s connect timeout
+            sock_read=60    # 60s read timeout
+        )
+        
+        # Match curl's minimal headers
         self.headers = {
-            'Accept': 'application/x-netcdf, */*',
-            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'curl/8.7.1',
+            'Accept': '*/*'
         }
 
     def build_constraint(self, 
@@ -51,136 +58,76 @@ class ERDDAPService:
         
         return "[]"
 
-    def build_url(self, 
-                  base_url: str,
-                  dataset_id: str,
-                  variables: list,
-                  constraints: Dict,
-                  file_type: str = '.nc') -> str:
-        """Build ERDDAP request URL matching NOAA's format"""
-        url = f"{base_url}/{dataset_id}{file_type}?"
+    def build_url(self, date: datetime, dataset: str, region_id: str) -> str:
+        """Build ERDDAP request URL with proper encoding"""
+        source_config = SOURCES[dataset]
+        region = REGIONS[region_id]
         
-        var_constraints = []
-        for var in variables:
-            var_url = var
+        # Get query date with lag
+        lag_days = source_config.get('lag_days', 1)
+        query_date = self.date_formatter.get_query_date(date, lag_days)
+        formatted_date = self.date_formatter.format_erddap_date(query_date)
+        
+        # Build base URL
+        base = f"{source_config['base_url']}/{source_config['dataset_id']}.nc?"
+        
+        # Build variable constraints
+        var_parts = []
+        for var in source_config.get('variables', []):
+            constraints = [
+                f"%5B({formatted_date}):1:({formatted_date})%5D",
+                f"%5B({region['bounds'][0][1]}):1:({region['bounds'][1][1]})%5D",
+                f"%5B({region['bounds'][0][0]}):1:({region['bounds'][1][0]})%5D"
+            ]
+            var_parts.append(f"{var}{''.join(constraints)}")
             
-            # Time constraint with NOAA's encoding format
-            time_values = constraints.get('time')
-            time_start = time_values.get('start')
-            time_stop = time_values.get('stop')
-            # Note the %5B and %5D for brackets, and keeping () unencoded
-            time_constraint = f"%5B({time_start}):1:({time_stop})%5D"
-            
-            # Lat/lon constraints with same encoding
-            lat_values = constraints.get('latitude')
-            lon_values = constraints.get('longitude')
-            lat_constraint = f"%5B({lat_values.get('start')}):1:({lat_values.get('stop')})%5D"
-            lon_constraint = f"%5B({lon_values.get('start')}):1:({lon_values.get('stop')})%5D"
-            
-            var_url += time_constraint + lat_constraint + lon_constraint
-            var_constraints.append(var_url)
-            
-        url += ','.join(var_constraints)
-        return url
+        return base + ','.join(var_parts)
 
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save data with built-in rate limiting"""
         output_path = self.path_manager.get_data_path(date, dataset, region_id)
         
         if output_path.exists():
-            logger.info(f"📂 Using cached data")
-            logger.info(f"   └── 📄 {output_path.name}")
+            logger.info(f"📂 Using cached data: {output_path.name}")
             return output_path
 
-        logger.info(f"⬇️  Downloading new ERDDAP data")
+        url = self.build_url(date, dataset, region_id)
+        logger.info(f"⬇️  Requesting ERDDAP data")
         logger.info(f"   ├── 📦 {dataset}")
-        logger.info(f"   ├── 🌎 {region_id}")
-        logger.info(f"   └── 📅 {date.strftime('%Y-%m-%d')}")
+        logger.info(f"   ├── 🌐 {region_id}")
+        logger.info(f"   └── 🔗 URL: {url}")
 
         try:
-            # Get source configuration using dataset name
-            source_config = SOURCES[dataset]
-            if not source_config:
-                raise ValueError(f"No configuration found for dataset {dataset}")
-
-            # Get standardized query date
-            lag_days = source_config.get('lag_days', 1)
-            query_date = self.date_formatter.get_query_date(date, lag_days)
-            
-            region = REGIONS[region_id]
-            output_path = self.path_manager.get_data_path(date, dataset, region_id)
-            
-            # Build constraints with standardized date format
-            constraints = {
-                'time': {
-                    'start': self.date_formatter.format_erddap_date(query_date),
-                    'stop': self.date_formatter.format_erddap_date(query_date)
-                },
-                'latitude': {
-                    'start': region['bounds'][0][1],
-                    'stop': region['bounds'][1][1]
-                },
-                'longitude': {
-                    'start': region['bounds'][0][0],
-                    'stop': region['bounds'][1][0]
-                }
-            }
-
-            # Add altitude if present in source config
-            if 'altitude' in source_config:
-                constraints['altitude'] = source_config['altitude']
-
-            # Build URL first so it's available for error logging
-            url = self.build_url(
-                base_url=source_config['base_url'],
-                dataset_id=source_config['dataset_id'],
-                variables=source_config.get('variables', []),
-                constraints=constraints,
-                file_type='.nc'
-            )
-
+            # Match curl's configuration
             async with self.session.get(
-                url, 
+                url,
                 headers=self.headers,
                 timeout=self.timeout,
-                ssl=False  # Simplified SSL handling
+                ssl=True,  # SSL verification worked in curl
+                raise_for_status=True
             ) as response:
-                if response.ok:
-                    data = await response.read()
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    output_path.write_bytes(data)
-                    
-                    size_mb = len(data)/1024/1024
-                    logger.info(f"✅ Download complete")
-                    logger.info(f"   ├── 📊 Size: {size_mb:.2f}MB")
-                    logger.info(f"   └── 💾 Saved to: {output_path.name}")
-                    return output_path
+                # Create output directory
+                output_path.parent.mkdir(parents=True, exist_ok=True)
                 
-                error_text = await response.text()
-                raise ERDDAPError(
-                    message=f"ERDDAP request failed: Status {response.status}",
-                    dataset=dataset,
-                    reason=error_text[:500],
-                    details={
-                        'status': response.status,
-                        'url': url,
-                        'region': region_id,
-                        'date': date.strftime('%Y-%m-%d')
-                    }
-                )
+                # Stream to file with same chunk size as curl
+                with open(output_path, 'wb') as f:
+                    async for chunk in response.content.iter_chunked(8192):
+                        f.write(chunk)
+                
+                size_mb = output_path.stat().st_size / 1024 / 1024
+                logger.info(f"✅ Downloaded {size_mb:.1f}MB to {output_path.name}")
+                return output_path
 
         except asyncio.TimeoutError as e:
-            raise ERDDAPError(
-                message=f"Download timed out after {self.timeout.total} seconds",
-                dataset=dataset,
-                reason="timeout",
-                details={'timeout': self.timeout.total, 'url': url}
-            ) from e
+            logger.error(f"❌ Download timed out for {dataset}")
+            logger.error(f"   ├── 🕒 Timeout after {self.timeout.total}s")
+            logger.error(f"   ├── 🌐 {region_id}")
+            logger.error(f"   └── 🔗 {url}")
+            raise
 
         except aiohttp.ClientError as e:
-            raise ERDDAPError(
-                message=str(e),
-                dataset=dataset,
-                reason="connection_error",
-                details={'url': url}
-            ) from e
+            logger.error(f"❌ Download failed for {dataset}")
+            logger.error(f"   ├── 💥 {str(e)}")
+            logger.error(f"   ├── 🌐 {region_id}")
+            logger.error(f"   └── 🔗 {url}")
+            raise

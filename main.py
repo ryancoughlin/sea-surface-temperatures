@@ -30,8 +30,6 @@ class ProcessingScheduler:
         self.tasks = []
         self.total_tasks = 0
         self.completed_tasks = 0
-        self.active_tasks = set()
-        self.max_concurrent = max_concurrent
     
     def add_task(self, task: ProcessingTask):
         self.tasks.append(task)
@@ -42,25 +40,15 @@ class ProcessingScheduler:
         logger.info(f"""
 📋 Task Queue Summary:
 ├── Total tasks: {self.total_tasks}
-└── Max concurrent: {self.max_concurrent}
+└── Max concurrent: {self.semaphore._value}
         """.strip())
         
         async def process_task(task: ProcessingTask) -> dict:
             task_id = f"{task.dataset}:{task.region_id}"
             
             async with self.semaphore:
-                if len(self.active_tasks) >= self.max_concurrent:
-                    logger.warning(f"Active tasks ({len(self.active_tasks)}) exceeded limit ({self.max_concurrent})")
+                logger.info(f"🚀 Starting {task_id}")
                 
-                self.active_tasks.add(task_id)
-                logger.info(f"""
-🚀 Processing task {self.completed_tasks + 1}/{self.total_tasks}
-   ├── Dataset: {task.dataset}
-   ├── Region: {task.region_id}
-   ├── Active tasks: {len(self.active_tasks)}
-   └── Max concurrent: {self.max_concurrent}
-                """.strip())
-
                 try:
                     result = await processing_manager.process_dataset(
                         date=task.date,
@@ -69,32 +57,32 @@ class ProcessingScheduler:
                     )
                     
                     self.completed_tasks += 1
-                    self.active_tasks.remove(task_id)
-                    logger.info(f"""
-✅ Completed {self.completed_tasks}/{self.total_tasks}
-   ├── Task: {task_id}
-   ├── Active tasks: {len(self.active_tasks)}
-   └── Remaining: {self.total_tasks - self.completed_tasks}
-                    """.strip())
+                    logger.info(f"✅ Completed {task_id} ({self.completed_tasks}/{self.total_tasks})")
                     return result
                     
                 except Exception as e:
                     self.completed_tasks += 1
-                    self.active_tasks.remove(task_id)
-                    logger.error(f"❌ Task failed ({task_id}): {str(e)}")
+                    logger.error(f"❌ Failed {task_id}: {str(e)}")
                     raise
-                finally:
-                    if task_id in self.active_tasks:
-                        self.active_tasks.remove(task_id)
         
         results = await asyncio.gather(
             *[process_task(task) for task in self.tasks],
-            return_exceptions=False
+            return_exceptions=True  # Changed to True to prevent one failure stopping everything
         )
         
+        successful = sum(1 for r in results if isinstance(r, dict) and r.get('status') == 'success')
+        failed = sum(1 for r in results if isinstance(r, Exception) or (isinstance(r, dict) and r.get('status') != 'success'))
+        
+        logger.info(f"""
+📊 Final Summary:
+├── Successful: {successful}
+├── Failed: {failed}
+└── Total: {self.total_tasks}
+        """.strip())
+        
         return {
-            'successful': sum(1 for r in results if r.get('status') == 'success'),
-            'failed': sum(1 for r in results if r.get('status') != 'success'),
+            'successful': successful,
+            'failed': failed,
             'total': self.total_tasks
         }
 
