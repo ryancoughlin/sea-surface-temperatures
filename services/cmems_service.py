@@ -70,7 +70,7 @@ class CMEMSService:
             logger.info("   └── ♻️  Using cached data")
             return output_path
             
-        logger.info("   └── 🔄 Downloading...")
+        logger.info("   └── 🔄 Starting download request...")
         config = SOURCES[dataset]
         bounds = REGIONS[region]['bounds']
         
@@ -79,7 +79,14 @@ class CMEMSService:
         adjusted_date = date - timedelta(days=lag_days)
         
         try:
-            # Simple synchronous call
+            # Log the exact request parameters
+            logger.info("   └── 📋 Request parameters:")
+            logger.info(f"      └── Dataset ID: {config['dataset_id']}")
+            logger.info(f"      └── Variables: {config['variables']}")
+            logger.info(f"      └── Time range: {adjusted_date.strftime('%Y-%m-%dT%H:%M:%S')}")
+            logger.info(f"      └── Output: {output_path}")
+            
+            # Make the request
             copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
                 variables=config['variables'],
@@ -93,11 +100,18 @@ class CMEMSService:
                 force_download=True
             )
             
+            # Check if download completed
+            if not output_path.exists():
+                raise ProcessingError("download", "Download failed - no output file created", 
+                                    {"path": str(output_path)})
+                                    
             logger.info("   └── ✅ Download complete")
+            logger.info(f"      └── File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
             return output_path
             
         except Exception as e:
             logger.error(f"   └── 💥 Download failed: {str(e)}")
+            logger.error(f"   └── Error type: {type(e).__name__}")
             if output_path.exists():
-                output_path.unlink()  # Clean up partial downloads
+                output_path.unlink()
             raise
