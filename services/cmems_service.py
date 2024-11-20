@@ -89,7 +89,7 @@ class CMEMSService:
             # Make the request
             copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
-                variables=config['variables'],
+                variable=config['variables'],
                 minimum_longitude=bounds[0][0],
                 maximum_longitude=bounds[1][0],
                 minimum_latitude=bounds[0][1],
