@@ -8,6 +8,7 @@ from processors.metadata_assembler import MetadataAssembler
 from processors.processing_manager import ProcessingManager
 from utils.path_manager import PathManager
 import aiohttp
+import psutil
 
 # Configure logging with cleaner formatting
 logging.basicConfig(
@@ -27,27 +28,39 @@ class ProcessingScheduler:
     def __init__(self, max_concurrent: int = 3):
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.tasks = []
+        self.total_tasks = 0
+        self.completed_tasks = 0
     
     def add_task(self, task: ProcessingTask):
         self.tasks.append(task)
     
     async def run(self, processing_manager: ProcessingManager) -> dict:
+        self.total_tasks = len(self.tasks)
+        
         async def process_task(task: ProcessingTask) -> dict:
+            task_id = f"{task.dataset}:{task.region_id}"
             try:
+                logger.info(f"🚀 Starting task {self.completed_tasks + 1}/{self.total_tasks}: {task_id}")
                 async with self.semaphore:
-                    return await processing_manager.process_dataset(
+                    result = await processing_manager.process_dataset(
                         date=task.date,
                         region_id=task.region_id,
                         dataset=task.dataset
                     )
+                    self.completed_tasks += 1
+                    logger.info(f"✅ Completed task {self.completed_tasks}/{self.total_tasks}: {task_id}")
+                    return result
             except Exception as e:
-                logger.error(f"Task failed: {str(e)}")
+                logger.error(f"❌ Task failed ({task_id}): {str(e)}")
+                self.completed_tasks += 1
                 return {
                     'status': 'error',
                     'error': str(e),
                     'region': task.region_id,
                     'dataset': task.dataset
                 }
+        
+        logger.info(f"Starting processing of {self.total_tasks} tasks with {self.semaphore._value} concurrent workers")
         
         results = await asyncio.gather(
             *[process_task(task) for task in self.tasks],
@@ -56,22 +69,36 @@ class ProcessingScheduler:
         
         return {
             'successful': sum(1 for r in results if r.get('status') == 'success'),
-            'failed': sum(1 for r in results if r.get('status') != 'success')
+            'failed': sum(1 for r in results if r.get('status') != 'success'),
+            'total': self.total_tasks
         }
 
 async def main():
-    timeout = aiohttp.ClientTimeout(
-        total=300,        # 5 minutes total timeout
-        connect=60,       # 60 seconds connection timeout
-        sock_read=60      # 60 seconds socket read timeout
-    )
+    # Get system info
+    mem = psutil.virtual_memory()
+    cpu_count = psutil.cpu_count()
+    
+    # Calculate safe concurrent limits
+    safe_concurrent = min(cpu_count, mem.available // (500 * 1024 * 1024))  # 500MB per task
+    
+    logger.info(f"""
+System Resources:
+├── Memory: {mem.total / (1024**3):.1f}GB total, {mem.available / (1024**3):.1f}GB available
+├── CPUs: {cpu_count}
+└── Safe concurrent tasks: {safe_concurrent}
+    """.strip())
     
     connector = aiohttp.TCPConnector(
-        limit=10,              # Increased from 3 to handle more concurrent connections
-        limit_per_host=5,      # Increased from 2 to allow more concurrent requests per host
-        enable_cleanup_closed=True,  # Ensure proper cleanup of closed connections
-        force_close=True,           # Prevent connection reuse issues
-        ttl_dns_cache=300,          # 5 minutes DNS cache
+        limit=safe_concurrent + 1,
+        limit_per_host=2,
+        enable_cleanup_closed=True,
+        force_close=True,
+    )
+    
+    timeout = aiohttp.ClientTimeout(
+        total=180,        # 3 minutes
+        connect=30,
+        sock_read=30
     )
     
     async with aiohttp.ClientSession(
@@ -86,7 +113,7 @@ async def main():
             processing_manager = ProcessingManager(path_manager, metadata_assembler)
             
             await processing_manager.initialize(session)
-            scheduler = ProcessingScheduler(max_concurrent=5)
+            scheduler = ProcessingScheduler(max_concurrent=safe_concurrent)
             
             # Add tasks
             for region_id in REGIONS:
