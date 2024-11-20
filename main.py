@@ -13,7 +13,7 @@ from utils.path_manager import PathManager
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
+    format='%(asctime)s | %(levelname)s | 🔄 %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class DataProcessor:
     async def process_dataset(self, session: aiohttp.ClientSession, 
                             date: datetime, region_id: str, dataset: str) -> Dict:
         """Process single dataset for a region"""
-        logger.info(f"Processing dataset={dataset} region={region_id}")
+        logger.info(f"🚀 Starting {dataset} for region {region_id}")
         
         try:
             result = await self.processing_manager.process_dataset(
@@ -41,14 +41,11 @@ class DataProcessor:
                 region_id=region_id,
                 dataset=dataset
             )
-            return {
-                'status': 'success',
-                'dataset': dataset,
-                'region': region_id,
-                'result': result
-            }
+            if result['status'] == 'success':
+                logger.info(f"✅ Completed {dataset}/{region_id}")
+            return result
         except Exception as e:
-            logger.error(f"Failed {dataset}/{region_id}: {str(e)}")
+            logger.error(f"💥 Failed {dataset}/{region_id}: {str(e)}")
             return {
                 'status': 'error',
                 'dataset': dataset,
@@ -76,6 +73,11 @@ class DataProcessor:
 
         successful = sum(1 for r in results if r['status'] == 'success')
         failed = len(results) - successful
+        
+        logger.info("\n📊 Processing Summary:")
+        logger.info(f"   ✅ Successful: {successful}")
+        logger.info(f"   ❌ Failed: {failed}")
+        logger.info(f"   📝 Total: {len(results)}")
         
         return {
             'successful': successful,

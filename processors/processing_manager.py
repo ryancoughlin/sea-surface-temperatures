@@ -75,22 +75,32 @@ class ProcessingManager:
             raise ProcessingError("initialization", "ProcessingManager not initialized", 
                                 {"dataset": dataset, "region": region_id})
         
+        logger.info(f"📦 Processing dataset:")
+        logger.info(f"   └── Dataset: {dataset}")
+        logger.info(f"   └── Region: {region_id}")
+        logger.info(f"   └── Date: {date}")
+
         try:
-            logger.info(f"Processing {dataset} for {region_id}")
-            
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
 
             # Use cached or download new data
+            logger.info("   └── 🔄 Fetching data...")
             netcdf_path = await self._get_data(date, dataset, region_id, data_path)
             
             # Process the data
-            return await self._process_netcdf_data(
+            logger.info("   └── 🔧 Processing data...")
+            result = await self._process_netcdf_data(
                 netcdf_path, region_id, dataset, date, asset_paths
             )
+            
+            if result['status'] == 'success':
+                logger.info("   └── ✅ Processing complete")
+            return result
 
         except Exception as e:
+            logger.error("   └── 💥 Processing failed")
             return self._handle_error(e, dataset, region_id)
 
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Path:
