@@ -31,6 +31,7 @@ class ProcessingScheduler:
         self.total_tasks = 0
         self.completed_tasks = 0
         self.active_tasks = set()
+        self.max_concurrent = max_concurrent
     
     def add_task(self, task: ProcessingTask):
         self.tasks.append(task)
@@ -41,19 +42,23 @@ class ProcessingScheduler:
         logger.info(f"""
 📋 Task Queue Summary:
 ├── Total tasks: {self.total_tasks}
-└── Concurrent workers: {self.semaphore._value}
+└── Max concurrent: {self.max_concurrent}
         """.strip())
         
         async def process_task(task: ProcessingTask) -> dict:
             task_id = f"{task.dataset}:{task.region_id}"
             
             async with self.semaphore:
+                if len(self.active_tasks) >= self.max_concurrent:
+                    logger.warning(f"Active tasks ({len(self.active_tasks)}) exceeded limit ({self.max_concurrent})")
+                
                 self.active_tasks.add(task_id)
                 logger.info(f"""
 🚀 Processing task {self.completed_tasks + 1}/{self.total_tasks}
    ├── Dataset: {task.dataset}
    ├── Region: {task.region_id}
-   └── Active tasks: {len(self.active_tasks)}/{self.semaphore._value}
+   ├── Active tasks: {len(self.active_tasks)}
+   └── Max concurrent: {self.max_concurrent}
                 """.strip())
 
                 try:
@@ -68,6 +73,7 @@ class ProcessingScheduler:
                     logger.info(f"""
 ✅ Completed {self.completed_tasks}/{self.total_tasks}
    ├── Task: {task_id}
+   ├── Active tasks: {len(self.active_tasks)}
    └── Remaining: {self.total_tasks - self.completed_tasks}
                     """.strip())
                     return result
@@ -77,6 +83,9 @@ class ProcessingScheduler:
                     self.active_tasks.remove(task_id)
                     logger.error(f"❌ Task failed ({task_id}): {str(e)}")
                     raise
+                finally:
+                    if task_id in self.active_tasks:
+                        self.active_tasks.remove(task_id)
         
         results = await asyncio.gather(
             *[process_task(task) for task in self.tasks],
