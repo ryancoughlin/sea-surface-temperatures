@@ -116,21 +116,22 @@ class ProcessingManager:
         try:
             # Only load required variables instead of entire dataset
             required_vars = SOURCES[dataset].get('variables', [])
+      
+            # Load and get dimensions dynamically
+            with xr.open_dataset(netcdf_path) as ds:
+                # Use the actual sizes from the dataset
+                chunks = {
+                    'time': 1,
+                    'latitude': ds.sizes['latitude'],
+                    'longitude': ds.sizes['longitude']
+                }
                 
-            # Then load with aligned chunks
-            with xr.open_dataset(
-                netcdf_path, 
-                chunks={'time': -1, 'latitude': 400, 'longitude': 400},  # -1 means load entire dimension
-                decode_times=False
-            ) as ds:
-                ds = ds[required_vars]
+                # Add depth chunk only if it exists
+                if 'depth' in ds.sizes:
+                    chunks['depth'] = 1
                 
-                # Interpolate with chunks
-                interpolated_ds = interpolate_dataset(
-                    ds,
-                    factor=2,
-                    method='linear'
-                )
+                ds = ds[required_vars].chunk(chunks)
+                interpolated_ds = interpolate_dataset(ds)
                 
                 # Save interpolated dataset with compression
                 interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
