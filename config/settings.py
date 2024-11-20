@@ -33,7 +33,6 @@ SOURCES = {
             "resolution": "1 mile",
             "capture": "blends day and night",
             "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
-            "dataset_url": "https://coastwatch.noaa.gov"
         }
     },
     # "CMEMS_Global_Currents_Daily": {
@@ -51,7 +50,6 @@ SOURCES = {
     #         "frequency": "Daily",
     #         "resolution": "5 miles",
     #         "description": "Ocean surface currents calculated from model outputs.",
-    #         "dataset_url": "https://nrt.cmems-du.eu"
     #     }
     # },
         "BLENDEDsstDNDaily": {
@@ -70,7 +68,6 @@ SOURCES = {
             "frequency": "Daily",
             "resolution": "~3.1 miles (0.05°)",
             "description": "Blended sea surface temperature analysis from multiple satellites.",
-            "dataset_url": "https://coastwatch.noaa.gov",
             "capture": "Blended day and night"
         }
     },
@@ -89,7 +86,6 @@ SOURCES = {
     #         "frequency": "Daily",
     #         "resolution": "5 miles",
     #         "description": "Sea surface temperature from global model data.",
-    #         "dataset_url": "https://nrt.cmems-du.eu"
     #     }
     # },
     # "chlorophyll_oci": {
@@ -108,7 +104,6 @@ SOURCES = {
     #         "frequency": "Daily",
     #         "resolution": "2.5 miles",
     #         "description": "Chlorophyll-a concentration derived from VIIRS.",
-    #         "dataset_url": "https://coastwatch.noaa.gov"
     #     }
     # },
 
@@ -133,29 +128,6 @@ SOURCES = {
             "frequency": "3-hourly",
             "resolution": "5 miles",
             "description": "Global wave analysis including height, period, and direction.",
-            "Dataset URL": "https://nrt.cmems-du.eu",
-            "variables_info": {
-                "VHM0": {
-                    "name": "Significant wave height",
-                    "units": "feet"
-                },
-                "VMDR": {
-                    "name": "Mean wave direction",
-                    "units": "degrees"
-                },
-                "VTM10": {
-                    "name": "Mean wave period",
-                    "units": "seconds"
-                },
-                "VTPK": {
-                    "name": "Peak wave period",
-                    "units": "seconds"
-                },
-                "VPED": {
-                    "name": "Wave energy period",
-                    "units": "seconds"
-                }
-            }
         }
     }
 }
