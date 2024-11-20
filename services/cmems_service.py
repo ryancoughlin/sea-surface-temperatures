@@ -61,7 +61,7 @@ class CMEMSService:
         self, 
         session, 
         path_manager: PathManagerProtocol,
-        timeout: int = 300
+        timeout: int = 1800  # Increased timeout to 30 minutes
     ):
         self.session = session
         self.path_manager = path_manager
@@ -82,42 +82,50 @@ class CMEMSService:
     async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Fetch and save CMEMS data using official toolbox"""
         try:
-            logger.info(
-                "Starting CMEMS data fetch\n"
-                f"Dataset: {dataset}\n"
-                f"Region:  {region_id}\n"
-                f"Date:    {date.strftime('%Y-%m-%d')}"
-            )
-            
-            source_config = SOURCES[dataset]
-            bounds = REGIONS[region_id]['bounds']
-            output_path = self.path_manager.get_data_path(date, dataset, region_id)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Add timeout handling
+            async with asyncio.timeout(self.timeout):
+                logger.info(
+                    "Starting CMEMS data fetch\n"
+                    f"Dataset: {dataset}\n"
+                    f"Region:  {region_id}\n"
+                    f"Date:    {date.strftime('%Y-%m-%d')}"
+                )
+                
+                source_config = SOURCES[dataset]
+                bounds = REGIONS[region_id]['bounds']
+                output_path = self.path_manager.get_data_path(date, dataset, region_id)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Get formatted date range
-            start_datetime, end_datetime = self._get_date_range(date, dataset)
+                # Get formatted date range
+                start_datetime, end_datetime = self._get_date_range(date, dataset)
 
-            # Use direct subset function with auto_accept=True to skip prompts
-            data = copernicusmarine.subset(
-                dataset_id=source_config['dataset_id'],
-                variables=source_config['variables'],
-                minimum_longitude=bounds[0][0],
-                maximum_longitude=bounds[1][0],
-                minimum_latitude=bounds[0][1],
-                maximum_latitude=bounds[1][1],
-                start_datetime=start_datetime,
-                end_datetime=end_datetime,
-                minimum_depth=0,
-                maximum_depth=1,
-                force_download=True,
-                output_filename=str(output_path),
-            )
+                # Add progress logging
+                logger.info(f"Initiating download for {dataset} in region {region_id}")
+                data = copernicusmarine.subset(
+                    dataset_id=source_config['dataset_id'],
+                    variables=source_config['variables'],
+                    minimum_longitude=bounds[0][0],
+                    maximum_longitude=bounds[1][0],
+                    minimum_latitude=bounds[0][1],
+                    maximum_latitude=bounds[1][1],
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    minimum_depth=0,
+                    maximum_depth=1,
+                    force_download=True,
+                    output_filename=str(output_path),
+                )
 
-            logger.info(f"CMEMS data downloaded successfully")
-            return output_path
+                logger.info(data)
 
+                logger.info(f"CMEMS data downloaded successfully")
+                return output_path
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout exceeded ({self.timeout}s) while downloading CMEMS data")
+            raise CMEMSDownloadError(f"Download timeout after {self.timeout} seconds")
         except Exception as e:
-            logger.error(f"Error in CMEMS data fetch: {str(e)}")
+            logger.error(f"Error in CMEMS data fetch: {str(e)}\n{traceback.format_exc()}")
             raise
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:
