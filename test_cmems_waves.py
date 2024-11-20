@@ -31,12 +31,7 @@ def test_cmems_download():
     output_path = output_dir / f"cmems_waves_{date.strftime('%Y%m%d')}.nc"
     
     try:
-        # 1. Check dataset info
-        logger.info("📊 Checking dataset info...")
-        info = copernicusmarine.get_dataset_info(dataset_id)
-        logger.info(f"   └── Status: {info.get('status', 'unknown')}")
-        logger.info(f"   └── Variables available: {', '.join(info.get('variables', []))}")
-        logger.info(f"   └── Time coverage: {info.get('time_coverage', 'unknown')}")
+    
         
         # 2. Download data
         logger.info("\n📥 Starting download...")
