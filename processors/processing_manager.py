@@ -140,7 +140,7 @@ class ProcessingManager:
                 ds = ds[required_vars].chunk(chunks)
 
                 if type == 'sst':
-                    interpolated_ds = interpolate_dataset(ds, 1)
+                    interpolated_ds = ds
                 else:
                     interpolated_ds = interpolate_dataset(ds, 1.5)
                 

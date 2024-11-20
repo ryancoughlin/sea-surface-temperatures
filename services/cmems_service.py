@@ -113,8 +113,6 @@ class CMEMSService:
         # Get formatted date range
         start_datetime, end_datetime = self._get_date_range(date, dataset)
 
-        # Add progress logging
-        logger.info(f"Initiating download for {dataset} in region {region_id}")
         data = copernicusmarine.subset(
             dataset_id=source_config['dataset_id'],
             variables=source_config['variables'],
@@ -131,7 +129,6 @@ class CMEMSService:
         )
 
         logger.info(data)
-        logger.info(f"CMEMS data downloaded successfully")
         return output_path
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:
