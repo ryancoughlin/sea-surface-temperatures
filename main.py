@@ -25,11 +25,12 @@ class ProcessingTask:
     date: datetime
 
 class ProcessingScheduler:
-    def __init__(self, max_concurrent: int = 3):
+    def __init__(self, max_concurrent: int = 2):
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.tasks = []
         self.total_tasks = 0
         self.completed_tasks = 0
+        self.active_tasks = set()
     
     def add_task(self, task: ProcessingTask):
         self.tasks.append(task)
@@ -37,30 +38,45 @@ class ProcessingScheduler:
     async def run(self, processing_manager: ProcessingManager) -> dict:
         self.total_tasks = len(self.tasks)
         
+        logger.info(f"""
+📋 Task Queue Summary:
+├── Total tasks: {self.total_tasks}
+└── Concurrent workers: {self.semaphore._value}
+        """.strip())
+        
         async def process_task(task: ProcessingTask) -> dict:
             task_id = f"{task.dataset}:{task.region_id}"
-            try:
-                logger.info(f"🚀 Starting task {self.completed_tasks + 1}/{self.total_tasks}: {task_id}")
-                async with self.semaphore:
+            
+            async with self.semaphore:
+                self.active_tasks.add(task_id)
+                logger.info(f"""
+🚀 Processing task {self.completed_tasks + 1}/{self.total_tasks}
+   ├── Dataset: {task.dataset}
+   ├── Region: {task.region_id}
+   └── Active tasks: {len(self.active_tasks)}/{self.semaphore._value}
+                """.strip())
+
+                try:
                     result = await processing_manager.process_dataset(
                         date=task.date,
                         region_id=task.region_id,
                         dataset=task.dataset
                     )
+                    
                     self.completed_tasks += 1
-                    logger.info(f"✅ Completed task {self.completed_tasks}/{self.total_tasks}: {task_id}")
+                    self.active_tasks.remove(task_id)
+                    logger.info(f"""
+✅ Completed {self.completed_tasks}/{self.total_tasks}
+   ├── Task: {task_id}
+   └── Remaining: {self.total_tasks - self.completed_tasks}
+                    """.strip())
                     return result
-            except Exception as e:
-                logger.error(f"❌ Task failed ({task_id}): {str(e)}")
-                self.completed_tasks += 1
-                return {
-                    'status': 'error',
-                    'error': str(e),
-                    'region': task.region_id,
-                    'dataset': task.dataset
-                }
-        
-        logger.info(f"Starting processing of {self.total_tasks} tasks with {self.semaphore._value} concurrent workers")
+                    
+                except Exception as e:
+                    self.completed_tasks += 1
+                    self.active_tasks.remove(task_id)
+                    logger.error(f"❌ Task failed ({task_id}): {str(e)}")
+                    raise
         
         results = await asyncio.gather(
             *[process_task(task) for task in self.tasks],
