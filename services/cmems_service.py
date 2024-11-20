@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 import asyncio
 import copernicusmarine
+import os
 from config.settings import SOURCES
 from config.regions import REGIONS
 
@@ -13,10 +14,56 @@ class CMEMSService:
         self.session = session
         self.path_manager = path_manager
         
+    def _setup_auth(self):
+        """Setup CMEMS authentication"""
+        try:
+            # First try: Check if already logged in
+            logger.info("🔑 Checking CMEMS authentication...")
+            
+            # Try to login with existing credentials file
+            copernicusmarine.login(
+                skip_if_user_logged_in=True  # Skip if already authenticated
+            )
+            logger.info("   └── ✅ Using existing credentials")
+            return True
+            
+        except Exception as auth_error:
+            logger.warning("   └── ⚠️  No existing credentials found")
+            
+            # Second try: Check environment variables
+            username = os.getenv('COPERNICUS_MARINE_SERVICE_USERNAME')
+            password = os.getenv('COPERNICUS_MARINE_SERVICE_PASSWORD')
+            
+            if username and password:
+                try:
+                    logger.info("   └── 🔄 Logging in with environment credentials")
+                    copernicusmarine.login(
+                        username=username,
+                        password=password,
+                        overwrite_configuration_file=True
+                    )
+                    logger.info("   └── ✅ Login successful")
+                    return True
+                except Exception as e:
+                    logger.error("   └── ❌ Login failed with environment credentials")
+                    logger.error(f"   └── Error: {str(e)}")
+            else:
+                logger.error("   └── ❌ No credentials found")
+                logger.error("   └── Please set environment variables:")
+                logger.error("   └── COPERNICUS_MARINE_SERVICE_USERNAME")
+                logger.error("   └── COPERNICUS_MARINE_SERVICE_PASSWORD")
+            
+            return False
+            
     async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
         logger.info(f"📥 CMEMS Download:")
         logger.info(f"   └── Dataset: {dataset}")
         logger.info(f"   └── Region: {region}")
+        
+        # Verify authentication first
+        if not self._setup_auth():
+            raise ProcessingError("auth", "CMEMS authentication failed", 
+                                {"dataset": dataset, "region": region})
         
         output_path = self.path_manager.get_data_path(date, dataset, region)
         if output_path.exists():
