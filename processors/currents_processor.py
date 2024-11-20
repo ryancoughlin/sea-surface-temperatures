@@ -9,7 +9,6 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Tuple, Optional, Dict
 from datetime import datetime
-from utils.data_utils import interpolate_currents
 
 logger = logging.getLogger(__name__)
 
@@ -35,40 +34,14 @@ class CurrentsProcessor(BaseImageProcessor):
             # Create figure and axes
             fig, ax = self.create_axes(region)
         
-            # Convert hex #D8DEE1 to RGB (216,222,225) then to 0-1 range
+            # Create custom colormap
             colors = [
-                '#ffffff',  # 0.0 m/s - Pure white for no current
-                '#cce6ff',  # 0.5 m/s - Very light blue
-                '#66b3ff',  # 1.0 m/s - Light blue
-                '#0080ff',  # 1.5 m/s - Medium blue
-                '#0059b3',  # 2.0 m/s - Darker blue
-                '#003366',  # 2.5 m/s - Deep blue
-                '#001a33',  # 3.0 m/s - Very deep blue
-                '#000d1a'   # 3.5-4.0 m/s - Almost black blue
+                '#ffffff', '#cce6ff', '#66b3ff', '#0080ff',
+                '#0059b3', '#003366', '#001a33', '#000d1a'
             ]
-            n_bins = 256  # Number of color gradations
+            n_bins = 256
             custom_cmap = plt.matplotlib.colors.LinearSegmentedColormap.from_list('custom_currents', colors, N=n_bins)
             
-            # Calculate the maximum magnitude for scaling
-            max_magnitude = np.sqrt(u_data**2 + v_data**2).max()
-
-            # Create a grid of points for the arrows
-            x_points, y_points = np.meshgrid(
-                np.linspace(magnitude[lon_name].min(), magnitude[lon_name].max(), 60),
-                np.linspace(magnitude[lat_name].min(), magnitude[lat_name].max(), 60)
-            )
-
-            # Interpolate u and v data to the new grid points
-            u_interp, v_interp = interpolate_currents(u_data, v_data, (x_points, y_points))
-
-            # Calculate local magnitudes for normalization
-            local_magnitudes = np.sqrt(u_interp**2 + v_interp**2)
-            local_magnitudes = np.where(local_magnitudes == 0, np.nan, local_magnitudes)
-            
-            # Normalize vectors to unit length
-            u_norm = np.where(np.isnan(local_magnitudes), 0, u_interp/local_magnitudes)
-            v_norm = np.where(np.isnan(local_magnitudes), 0, v_interp/local_magnitudes)
-
             # Plot magnitude with pcolormesh using custom colormap
             mesh = ax.pcolormesh(
                 magnitude[lon_name],
@@ -82,20 +55,31 @@ class CurrentsProcessor(BaseImageProcessor):
                 zorder=1
             )
 
-            # Adjust quiver parameters for better visibility
+            # Calculate normalized vectors for quiver plot
+            stride = 3  # Adjust based on data density
+            u_norm = u_data[::stride, ::stride] / magnitude[::stride, ::stride]
+            v_norm = v_data[::stride, ::stride] / magnitude[::stride, ::stride]
+            
+            # Replace NaNs with zeros
+            u_norm = np.nan_to_num(u_norm, nan=0.0)
+            v_norm = np.nan_to_num(v_norm, nan=0.0)
+
+            # Plot arrows
             ax.quiver(
-                x_points, y_points, u_norm, v_norm,
+                magnitude[lon_name][::stride],
+                magnitude[lat_name][::stride],
+                u_norm, v_norm,
                 transform=ccrs.PlateCarree(),
                 alpha=0.4,
                 color='black',
-                scale=70,          # Increased scale further to make arrows even shorter
+                scale=70,
                 scale_units='width',
                 units='width',
                 width=0.001,
                 headwidth=4,
                 headlength=3,
                 headaxislength=3,
-                minshaft=0.3,      # Further reduced minimum shaft length
+                minshaft=0.3,
                 pivot='middle',
                 zorder=2
             )

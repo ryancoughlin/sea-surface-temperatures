@@ -7,7 +7,7 @@ from typing import Dict, Optional, Union, Any
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.path_manager import PathManager
-
+from utils.dates import DateFormatter
 logger = logging.getLogger(__name__)
 
 class ERDDAPService:
@@ -18,6 +18,7 @@ class ERDDAPService:
         self.session = session
         self.path_manager = path_manager
         self.timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
+        self.date_formatter = DateFormatter()
 
     def build_constraint(self, 
                         dim_name: str,

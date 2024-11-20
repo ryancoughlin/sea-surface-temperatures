@@ -72,7 +72,7 @@ def generate_thumbnail(region_id: str, bounds: list, output_dir: Path):
     ax.set_facecolor('none')  # Replaces background_patch.set_visible(False)
     ax.set_xticks([])
     ax.set_yticks([])
-    
+
     # Save with consistent settings
     output_path = output_dir / f"{region_id}.png"
     plt.savefig(output_path,

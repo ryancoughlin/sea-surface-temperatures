@@ -7,7 +7,7 @@ import numpy as np
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f, interpolate_data
+from utils.data_utils import convert_temperature_to_f
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +45,6 @@ class SSTProcessor(BaseImageProcessor):
             
             # Convert temperature
             regional_data = convert_temperature_to_f(regional_data)
-            
-            # Interpolate data for higher resolution
-            interpolated_data = interpolate_data(regional_data, factor=2)
             
             # Create figure and axes
             fig, ax = self.create_axes(region)
