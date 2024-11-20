@@ -92,7 +92,7 @@ class ProcessingManager:
             # Process the data
             logger.info("   └── 🔧 Processing data...")
             result = await self._process_netcdf_data(
-                netcdf_path, region_id, dataset, date, asset_paths
+                netcdf_path, region_id, dataset, date
             )
             
             if result['status'] == 'success':
@@ -126,103 +126,77 @@ class ProcessingManager:
             raise ProcessingError("download", str(e), 
                                 {"dataset": dataset, "region": region_id}) from e
 
-    async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, asset_paths):
+    async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime):
         """Process the downloaded netCDF data."""
         try:
-            required_vars = SOURCES[dataset].get('variables', [])
+            # Get asset paths first
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
+            
+            # Create interpolated path
+            interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
+            
             dataset_type = SOURCES[dataset]['type']
             
-            # Original working pattern
-            with xr.open_dataset(
-                netcdf_path,
-                chunks=None,  # Let xarray use the original file chunks
-                decode_times=True
-            ) as ds:
-                ds = ds[required_vars]
-                interpolated_ds = interpolate_dataset(ds)
-                
-                interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
-                interpolated_ds.to_netcdf(
-                    interpolated_path,
-                    encoding={
-                        var: {
-                            'zlib': True,
-                            'complevel': 5,
-                            '_FillValue': -9999.0
-                        } for var in interpolated_ds.data_vars
-                    }
+            try:
+                # Generate base GeoJSON
+                geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
+                data_path = geojson_converter.convert(
+                    data_path=netcdf_path,
+                    region=region_id,
+                    dataset=dataset,
+                    date=date
                 )
 
-                try:
-                    # Generate base GeoJSON
-                    geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
-                    data_path = geojson_converter.convert(
-                        data_path=interpolated_path,  # Use interpolated NetCDF
+                # Generate contours for SST
+                if dataset_type == 'sst':
+                    contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+                    contour_path = contour_converter.convert(
+                        data_path=netcdf_path,
                         region=region_id,
                         dataset=dataset,
                         date=date
                     )
 
-                    # Generate contours for SST
-                    if dataset_type == 'sst':
-                        contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
-                        contour_path = contour_converter.convert(
-                            data_path=interpolated_path,  # Use interpolated NetCDF
-                            region=region_id,
-                            dataset=dataset,
-                            date=date
-                        )
+                # Generate image
+                processor = self.processor_factory.create(dataset_type)
+                self.logger.info(f"Processing {dataset} data for {region_id}")
+                image_path = processor.generate_image(
+                    data_path=netcdf_path,
+                    region=region_id,
+                    dataset=dataset,
+                    date=date
+                )
 
-                    # Generate image using dataset type
-                    try:
-                        processor = self.processor_factory.create(dataset_type)
-                        self.logger.info(f"Processing {dataset} data for {region_id}")
-                        image_path = processor.generate_image(
-                            data_path=interpolated_path,
-                            region=region_id,
-                            dataset=dataset,
-                            date=date
-                        )
-                    except ValueError as e:
-                        self.logger.error(f"Processor error for type {dataset_type}: {str(e)}")
-                        raise
-                    except KeyError as e:
-                        self.logger.error(f"Missing type configuration for dataset {dataset}") 
-                    finally:
-                        # Clean up interpolated file
-                        if interpolated_path.exists():
-                            interpolated_path.unlink()
+                # Update metadata after all assets are generated
+                self.metadata_assembler.assemble_metadata(
+                    date=date,
+                    dataset=dataset,
+                    region=region_id,
+                    asset_paths=asset_paths
+                )
 
-                    # Update metadata here, after all assets are generated
-                    metadata_path: Path = self.metadata_assembler.assemble_metadata(
-                        region=region_id,
-                        dataset=dataset,
-                        date=date,
-                        asset_paths=asset_paths
-                    )
+                self.logger.info("✅ Processing completed")
 
-                    self.logger.info("✅ Processing completed")
-                    self._log_processing_summary(dataset, region_id, str(data_path))
+                return {
+                    'status': 'success',
+                    'paths': asset_paths._asdict(),
+                    'region': region_id,
+                    'dataset': dataset
+                }
 
-                    return {
-                        'status': 'success',
-                        'paths': asset_paths._asdict(),
-                        'region': region_id,
-                        'dataset': dataset
-                    }
-                finally:
-                    if interpolated_path.exists():
-                        interpolated_path.unlink()
+            except Exception as e:
+                self.logger.error(f"Error during processing: {str(e)}")
+                raise
+
+            finally:
+                # Clean up interpolated file if it exists
+                if interpolated_path.exists():
+                    interpolated_path.unlink()
 
         except Exception as e:
-            logger.error(f"Error processing {dataset} for {region_id}")
-            logger.error(f"Error: {str(e)}")
-            return {
-                'status': 'error',
-                'error': str(e),
-                'region': region_id,
-                'dataset': dataset
-            }
+            self.logger.error(f"Error processing {dataset} for {region_id}")
+            self.logger.error(f"Error: {str(e)}")
+            raise
 
     def _handle_error(self, e: Exception, dataset: str, region_id: str) -> Dict:
         """Unified error handler"""
