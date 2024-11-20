@@ -15,13 +15,7 @@ logger = logging.getLogger(__name__)
 class WavesProcessor(BaseImageProcessor):
     def __init__(self, path_manager=None):
         super().__init__(path_manager)
-        self.wave_height_ranges = {
-            'safe': (0, 2),      # 0-2m: Safe conditions
-            'moderate': (2, 4),   # 2-4m: Moderate conditions
-            'rough': (4, 6),      # 4-6m: Rough conditions
-            'dangerous': (6, float('inf'))  # >6m: Dangerous conditions
-        }
-        
+
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
         """Generate wave visualization showing height and direction."""
         try:
@@ -112,8 +106,8 @@ class WavesProcessor(BaseImageProcessor):
             )
                         
             # Plot direction arrows on top
-            u = -np.sin(np.deg2rad(direction[::stride, ::stride]))
-            v = -np.cos(np.deg2rad(direction[::stride, ::stride]))
+            # u = -np.sin(np.deg2rad(direction[::stride, ::stride]))
+            # v = -np.cos(np.deg2rad(direction[::stride, ::stride]))
             
             # ax.quiver(
             #     height[lon_name][::stride],
@@ -136,11 +130,11 @@ class WavesProcessor(BaseImageProcessor):
             logger.error(f"Error processing wave data: {str(e)}")
             raise
 
-    def _calculate_optimal_stride(self, data_size: int) -> int:
-        """Calculate a simple stride value to avoid overcrowding arrows.
-        Returns larger stride for larger datasets."""
-        if data_size > 500:
-            return 8
-        elif data_size > 200:
-            return 4
-        return 2
+    # def _calculate_optimal_stride(self, data_size: int) -> int:
+    #     """Calculate a simple stride value to avoid overcrowding arrows.
+    #     Returns larger stride for larger datasets."""
+    #     if data_size > 500:
+    #         return 8
+    #     elif data_size > 200:
+    #         return 4
+    #     return 2
