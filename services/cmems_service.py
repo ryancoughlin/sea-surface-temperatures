@@ -31,9 +31,10 @@ class CMEMSService:
         lag_days = config.get('lag_days', 0)
         adjusted_date = date - timedelta(days=lag_days)
         
-        await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: copernicusmarine.subset(
+        try:
+            # Run the blocking operation in a thread pool
+            await asyncio.to_thread(
+                copernicusmarine.subset,
                 dataset_id=config['dataset_id'],
                 variables=config['variables'],
                 minimum_longitude=bounds[0][0],
@@ -45,6 +46,16 @@ class CMEMSService:
                 output_filename=str(output_path),
                 force_download=True
             )
-        )
-        logger.info("   └── ✅ Download complete")
-        return output_path
+            
+            # Verify the file was created
+            if not output_path.exists():
+                raise FileNotFoundError(f"Download completed but file not found: {output_path}")
+                
+            logger.info("   └── ✅ Download complete")
+            return output_path
+            
+        except Exception as e:
+            logger.error(f"   └── 💥 Download failed: {str(e)}")
+            if output_path.exists():
+                output_path.unlink()  # Clean up partial downloads
+            raise
