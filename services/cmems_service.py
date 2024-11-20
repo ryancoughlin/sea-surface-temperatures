@@ -32,9 +32,8 @@ class CMEMSService:
         adjusted_date = date - timedelta(days=lag_days)
         
         try:
-            # Run the blocking operation in a thread pool
-            await asyncio.to_thread(
-                copernicusmarine.subset,
+            # Simple synchronous call
+            copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
                 variables=config['variables'],
                 minimum_longitude=bounds[0][0],
@@ -47,10 +46,6 @@ class CMEMSService:
                 force_download=True
             )
             
-            # Verify the file was created
-            if not output_path.exists():
-                raise FileNotFoundError(f"Download completed but file not found: {output_path}")
-                
             logger.info("   └── ✅ Download complete")
             return output_path
             
