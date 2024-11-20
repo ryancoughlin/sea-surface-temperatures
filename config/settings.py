@@ -136,7 +136,7 @@ SOURCES = {
             "variables_info": {
                 "VHM0": {
                     "name": "Significant wave height",
-                    "units": "meters"
+                    "units": "feet"
                 },
                 "VMDR": {
                     "name": "Mean wave direction",

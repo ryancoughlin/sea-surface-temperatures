@@ -93,13 +93,6 @@ class WavesProcessor(BaseImageProcessor):
                 extend='both'
             )
             
-            # Add colorbar with foot markers
-            whole_feet = np.arange(0, 31, 2)
-            cbar = plt.colorbar(contourf, extend='both', pad=0.02, ticks=whole_feet)
-            cbar.set_label('Wave Height (ft)', fontsize=10)
-            cbar.ax.tick_params(labelsize=8)
-            cbar.ax.set_yticklabels([f'{ft:.0f}′' for ft in whole_feet])
-            
             return self.save_image(fig, region, dataset, date)
             
         except Exception as e:
