@@ -29,64 +29,143 @@ def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.
     else:
         raise ValueError("Unsupported temperature unit. Use 'C' for Celsius or 'K' for Kelvin.")
 
-
-def interpolate_data(data: xr.DataArray, factor: int = 2) -> np.ndarray:
+def calculate_wave_energy(height: xr.DataArray, period: xr.DataArray) -> xr.DataArray:
     """
-    Interpolate gridded data while preserving coordinates.
+    Calculate wave energy density.
     
     Args:
-        data: Input xarray DataArray
-        factor: Interpolation factor (2 = double resolution)
+        height: Significant wave height (m)
+        period: Wave period (s)
+    
     Returns:
-        Interpolated numpy array matching original dimensions
+        Wave energy density in kJ/m²
     """
+    rho = 1025  # Seawater density (kg/m³)
+    g = 9.81    # Gravitational acceleration (m/s²)
     
-    # Handle NaN values before interpolation
-    filled_data = np.nan_to_num(data.values, nan=0.0)
+    # Wave energy density formula: E = (1/16) * ρ * g * H² * T
+    energy = (1/16) * rho * g * height**2 * period
     
-    # Use zoom for interpolation (preserves grid structure)
-    return zoom(filled_data, factor, order=1)
+    # Convert to kJ/m²
+    return energy / 1000
 
-
-def interpolate_currents(u_data: xr.DataArray, v_data: xr.DataArray, 
-                        target_points: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def calculate_optimal_fishing_zones(
+    height: xr.DataArray,
+    period: xr.DataArray,
+    direction: xr.DataArray
+) -> xr.DataArray:
     """
-    Interpolate current vector components (u,v) to new grid points.
+    Calculate fishing condition scores based on wave parameters.
     
     Args:
-        u_data: U component of current velocity
-        v_data: V component of current velocity
-        target_points: Tuple of (x_points, y_points) meshgrid arrays for target locations
+        height: Significant wave height (m)
+        period: Wave period (s)
+        direction: Wave direction (degrees)
     
     Returns:
-        Tuple of interpolated (u, v) arrays
+        Fishing condition score (0-1)
+    """
+    # Define ideal conditions
+    ideal_height = 1.0  # meters
+    ideal_period = 8.0  # seconds
+    
+    # Calculate scores for each parameter
+    height_score = np.exp(-(height - ideal_height)**2 / 2)
+    period_score = np.exp(-(period - ideal_period)**2 / 4)
+    
+    # Combine scores (weighted average)
+    total_score = (0.6 * height_score + 0.4 * period_score)
+    
+    return total_score
+
+def calculate_wave_steepness(height: xr.DataArray, period: xr.DataArray) -> xr.DataArray:
+    """
+    Calculate wave steepness (height/wavelength ratio).
+    
+    Args:
+        height: Significant wave height (m)
+        period: Wave period (s)
+    
+    Returns:
+        Wave steepness (dimensionless ratio)
+    """
+    g = 9.81  # gravitational acceleration (m/s²)
+    wavelength = (g * period**2) / (2 * np.pi)
+    return height / wavelength
+
+def interpolate_dataset(ds: xr.Dataset, factor: int = 1.4, method: str = 'linear') -> xr.Dataset:
+    """
+    Interpolates all variables in a dataset to a higher resolution grid using bilinear interpolation.
+    
+    Args:
+        ds (xr.Dataset): Input dataset containing multiple variables
+        factor (int): Factor by which to increase resolution
+        method (str): Interpolation method ('linear', 'cubic', 'nearest')
+        
+    Returns:
+        xr.Dataset: Interpolated dataset with all variables
     """
     # Get coordinate names
-    lon_name = 'longitude' if 'longitude' in u_data.coords else 'lon'
-    lat_name = 'latitude' if 'latitude' in u_data.coords else 'lat'
+    lon_name = 'longitude' if 'longitude' in ds.coords else 'lon'
+    lat_name = 'latitude' if 'latitude' in ds.coords else 'lat'
     
-    # Create source coordinate meshgrid
-    x_src, y_src = np.meshgrid(u_data[lon_name], u_data[lat_name])
+    # Create higher resolution coordinate grids
+    lons = ds[lon_name].values
+    lats = ds[lat_name].values
     
-    # Handle NaN values in source data
-    u_valid = ~np.isnan(u_data.values)
-    v_valid = ~np.isnan(v_data.values)
-    valid_mask = u_valid & v_valid
+    new_lons = np.linspace(lons.min(), lons.max(), len(lons) * factor)
+    new_lats = np.linspace(lats.min(), lats.max(), len(lats) * factor)
     
-    # Flatten arrays for interpolation
-    points = np.column_stack((x_src[valid_mask].ravel(), y_src[valid_mask].ravel()))
-    u_values = u_data.values[valid_mask].ravel()
-    v_values = v_data.values[valid_mask].ravel()
+    # Create meshgrids for original and new coordinates
+    lon_mesh, lat_mesh = np.meshgrid(lons, lats)
+    new_lon_mesh, new_lat_mesh = np.meshgrid(new_lons, new_lats)
     
-    # Interpolate each component
-    x_target, y_target = target_points
-    xi = np.column_stack((x_target.ravel(), y_target.ravel()))
+    # Initialize dictionary for interpolated data variables
+    interpolated_data = {}
     
-    u_interp = griddata(points, u_values, xi, method='linear')
-    v_interp = griddata(points, v_values, xi, method='linear')
+    # Interpolate each variable
+    for var_name, var in ds.data_vars.items():
+        if len(var.dims) >= 2:  # Only interpolate 2D or higher arrays
+            # Handle time dimension if present
+            if 'time' in var.dims:
+                times = var.time
+                interpolated_time_series = []
+                
+                for t in range(len(times)):
+                    values = var.isel(time=t).values
+                    interpolated = griddata(
+                        (lon_mesh.ravel(), lat_mesh.ravel()),
+                        values.ravel(),
+                        (new_lon_mesh, new_lat_mesh),
+                        method=method
+                    )
+                    interpolated_time_series.append(interpolated)
+                
+                interpolated_data[var_name] = xr.DataArray(
+                    np.stack(interpolated_time_series),
+                    dims=['time', lat_name, lon_name],
+                    coords={
+                        'time': times,
+                        lon_name: new_lons,
+                        lat_name: new_lats
+                    }
+                )
+            else:
+                values = var.values
+                interpolated = griddata(
+                    (lon_mesh.ravel(), lat_mesh.ravel()),
+                    values.ravel(),
+                    (new_lon_mesh, new_lat_mesh),
+                    method=method
+                )
+                
+                interpolated_data[var_name] = xr.DataArray(
+                    interpolated,
+                    dims=[lat_name, lon_name],
+                    coords={
+                        lon_name: new_lons,
+                        lat_name: new_lats
+                    }
+                )
     
-    # Reshape back to grid
-    u_interp = u_interp.reshape(x_target.shape)
-    v_interp = v_interp.reshape(y_target.shape)
-    
-    return u_interp, v_interp
+    return xr.Dataset(interpolated_data)

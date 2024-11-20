@@ -2,12 +2,15 @@ from __future__ import annotations  # Better type hints support
 import asyncio
 from pathlib import Path
 import logging
+import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Tuple, Protocol
 from functools import wraps
 from config.settings import SOURCES
 from config.regions import REGIONS
 from dataclasses import dataclass
+import copernicusmarine
+from dateutil.parser import parse as parse_date
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,7 @@ class CMEMSTask:
 class CMEMSError(Exception):
     """Base exception for CMEMS-related errors"""
     pass
-
+ 
 class CMEMSConfigError(CMEMSError):
     """Configuration-related errors"""
     pass
@@ -58,129 +61,64 @@ class CMEMSService:
         self, 
         session, 
         path_manager: PathManagerProtocol,
-        max_concurrent: int = 2,
         timeout: int = 300
     ):
         self.session = session
         self.path_manager = path_manager
         self.timeout = timeout
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self.semaphore = asyncio.Semaphore(2)
 
-    @staticmethod
-    def _standardize_date(date: datetime) -> datetime:
-        """Standardize date to UTC timezone"""
-        if date.tzinfo is None:
-            date = date.replace(tzinfo=timezone.utc)
-        return date.astimezone(timezone.utc)
+    def _get_date_range(self, date: datetime, dataset: str) -> tuple[str, str]:
+        """Get start and end dates for CMEMS query"""
+        lag_days = SOURCES[dataset].get('lag_days', 0)
+        query_date = date - timedelta(days=lag_days)
+        
+        # Format for CMEMS API (they require specific format)
+        start_date = query_date.strftime("%Y-%m-%d")
+        
+        # Return same day for both start and end
+        return f"{start_date}T00:00:00", f"{start_date}T23:59:59"
 
-    @staticmethod
-    def _format_cmems_date(date: datetime) -> Tuple[str, str]:
-        """Format date range for CMEMS API"""
-        date_str = date.strftime('%Y-%m-%d')
-        return f"{date_str}T00:00:00Z", f"{date_str}T23:59:59Z"
-
-    def _get_config(self, dataset: str, region_id: str) -> Tuple[dict, tuple]:
-        """Get and validate configuration"""
+    async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
+        """Fetch and save CMEMS data using official toolbox"""
         try:
+            logger.info(
+                "Starting CMEMS data fetch\n"
+                f"Dataset: {dataset}\n"
+                f"Region:  {region_id}\n"
+                f"Date:    {date.strftime('%Y-%m-%d')}"
+            )
+            
             source_config = SOURCES[dataset]
             bounds = REGIONS[region_id]['bounds']
-            return source_config, bounds
-        except KeyError as e:
-            raise CMEMSConfigError(f"Missing configuration for {e}")
+            output_path = self.path_manager.get_data_path(date, dataset, region_id)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    @log_execution_time
-    async def save_data(self, date: datetime, dataset: str, region_id: str) -> Path:
-        """
-        Fetch and save CMEMS data using official toolbox.
-        
-        Args:
-            date: Target date for data
-            dataset: Dataset identifier
-            region_id: Region identifier
-            
-        Returns:
-            Path to saved data file
-            
-        Raises:
-            CMEMSConfigError: If configuration is invalid
-            CMEMSDownloadError: If download fails
-        """
-        async with self._semaphore:
-            try:
-                # Get and validate configuration
-                source_config, bounds = self._get_config(dataset, region_id)
-                
-                # Process dates
-                lag_days = source_config.get('lag_days', 0)
-                utc_date = self._standardize_date(date)
-                query_date = utc_date - timedelta(days=lag_days)
-                
-                logger.info(
-                    "Starting CMEMS data fetch\n"
-                    f"Dataset: {dataset}\n"
-                    f"Region:  {region_id}\n"
-                    f"Request Date: {utc_date:%Y-%m-%d}\n"
-                    f"Query Date:   {query_date:%Y-%m-%d}\n"
-                    f"Lag Days:     {lag_days}"
-                )
-                
-                # Prepare output path
-                output_path = self.path_manager.get_data_path(date, dataset, region_id)
-                output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Get formatted date range
+            start_datetime, end_datetime = self._get_date_range(date, dataset)
 
-                # Get formatted dates for CMEMS
-                start_datetime, end_datetime = self._format_cmems_date(query_date)
+            # Use direct subset function with auto_accept=True to skip prompts
+            data = copernicusmarine.subset(
+                dataset_id=source_config['dataset_id'],
+                variables=source_config['variables'],
+                minimum_longitude=bounds[0][0],
+                maximum_longitude=bounds[1][0],
+                minimum_latitude=bounds[0][1],
+                maximum_latitude=bounds[1][1],
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                minimum_depth=0,
+                maximum_depth=1,
+                force_download=True,
+                output_filename=str(output_path),
+            )
 
-                try:
-                    await asyncio.wait_for(
-                        self._download_data(
-                            source_config=source_config,
-                            bounds=bounds,
-                            start_datetime=start_datetime,
-                            end_datetime=end_datetime,
-                            output_path=output_path
-                        ),
-                        timeout=self.timeout
-                    )
-                except asyncio.TimeoutError:
-                    raise CMEMSDownloadError(
-                        f"Download timeout after {self.timeout} seconds"
-                    )
-                except Exception as e:
-                    raise CMEMSDownloadError(f"Download failed: {str(e)}")
-                
-                logger.info(f"Successfully saved CMEMS data to {output_path}")
-                return output_path
+            logger.info(f"CMEMS data downloaded successfully")
+            return output_path
 
-            except CMEMSError:
-                raise
-            except Exception as e:
-                logger.error(f"Unexpected error in CMEMS data fetch: {str(e)}")
-                raise CMEMSError(f"Unexpected error: {str(e)}")
-
-    async def _download_data(
-        self, 
-        source_config: dict,
-        bounds: tuple,
-        start_datetime: str,
-        end_datetime: str,
-        output_path: Path
-    ) -> None:
-        """Handle the actual data download"""
-        return await copernicusmarine.subset(
-            dataset_id=source_config['dataset_id'],
-            variables=source_config['variables'],
-            minimum_longitude=bounds[0][0],
-            maximum_longitude=bounds[1][0],
-            minimum_latitude=bounds[0][1],
-            maximum_latitude=bounds[1][1],
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-            minimum_depth=0,
-            maximum_depth=1,
-            force_download=True,
-            output_filename=str(output_path)
-        )
+        except Exception as e:
+            logger.error(f"Error in CMEMS data fetch: {str(e)}")
+            raise
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:
         """

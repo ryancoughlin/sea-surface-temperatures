@@ -1,8 +1,9 @@
-from typing import Dict
+from typing import Dict, Type
 from .base_processor import BaseImageProcessor
 from .sst_processor import SSTProcessor
 from .currents_processor import CurrentsProcessor
 from .chlorophyll import ChlorophyllProcessor
+from .waves_processor import WavesProcessor
 from utils.path_manager import PathManager
 from config.settings import SOURCES
 
@@ -11,25 +12,15 @@ class ProcessorFactory:
     
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
+        self.processors = {
+            'sst': SSTProcessor(path_manager),
+            'currents': CurrentsProcessor(path_manager),
+            'waves': WavesProcessor(path_manager),
+            'chlorophyll': ChlorophyllProcessor(path_manager)
+        }
     
-    def create(self, dataset: str) -> BaseImageProcessor:
-        """
-        Create appropriate processor based on dataset type.
-        Both CMEMS and ERDDAP data use the same processors based on type.
-        """
-        try:
-            dataset_config = SOURCES[dataset]
-            dataset_type = dataset_config['type']
-            
-            # Use same processor for each data type regardless of source
-            if dataset_type == 'sst':
-                return SSTProcessor(self.path_manager)
-            elif dataset_type == 'currents':
-                return CurrentsProcessor(self.path_manager)
-            elif dataset_type == 'chlorophyll':
-                return ChlorophyllProcessor(self.path_manager)
-            else:
-                raise ValueError(f"Unknown dataset type: {dataset_type}")
-                
-        except KeyError:
-            raise ValueError(f"Dataset {dataset} not found in SOURCES configuration")
+    def create(self, dataset_type: str) -> BaseImageProcessor:
+        """Create a processor instance for the given dataset type."""
+        if dataset_type not in self.processors:
+            raise ValueError(f"Processor type {dataset_type} not supported")
+        return self.processors[dataset_type]

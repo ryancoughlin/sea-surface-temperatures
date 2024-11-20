@@ -6,7 +6,6 @@ from pathlib import Path
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-from utils.data_utils import interpolate_data
 import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 from typing import Tuple
@@ -56,9 +55,6 @@ class ChlorophyllProcessor(BaseImageProcessor):
                        transform=ax.transAxes)
                 ax.axis('off')
             else:
-                # Interpolate data for higher resolution
-                interpolated_data = interpolate_data(regional_data, factor=2)
-                
                 # Create masked figure and axes
                 fig, ax = self.create_axes(region)
                 
@@ -66,7 +62,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 mesh = ax.pcolormesh(
                     regional_data[lon_name],
                     regional_data[lat_name],
-                    regional_data.values,  # Use original data for coordinates
+                    regional_data.values,
                     transform=ccrs.PlateCarree(),
                     cmap=SOURCES[dataset]['color_scale'],
                     shading='gouraud',
