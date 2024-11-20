@@ -60,32 +60,60 @@ class ProcessingScheduler:
         }
 
 async def main():
-    path_manager = PathManager()
-    metadata_assembler = MetadataAssembler(path_manager)
-    processing_manager = ProcessingManager(path_manager, metadata_assembler)
+    timeout = aiohttp.ClientTimeout(
+        total=300,        # 5 minutes total timeout
+        connect=60,       # 60 seconds connection timeout
+        sock_read=60      # 60 seconds socket read timeout
+    )
     
-    connector = aiohttp.TCPConnector(limit=3, limit_per_host=2)
-    timeout = aiohttp.ClientTimeout(total=30)
+    connector = aiohttp.TCPConnector(
+        limit=10,              # Increased from 3 to handle more concurrent connections
+        limit_per_host=5,      # Increased from 2 to allow more concurrent requests per host
+        enable_cleanup_closed=True,  # Ensure proper cleanup of closed connections
+        force_close=True,           # Prevent connection reuse issues
+        ttl_dns_cache=300,          # 5 minutes DNS cache
+    )
     
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        await processing_manager.initialize(session)
-        scheduler = ProcessingScheduler()
-        
-        # Add tasks
-        for region_id in REGIONS:
-            for dataset in SOURCES:
-                scheduler.add_task(ProcessingTask(
-                    region_id=region_id,
-                    dataset=dataset,
-                    date=datetime.now()
-                ))
-        
+    async with aiohttp.ClientSession(
+        connector=connector,
+        timeout=timeout,
+        raise_for_status=True,  # Automatically raise for bad HTTP status codes
+        trust_env=True          # Respect HTTP_PROXY and HTTPS_PROXY env variables
+    ) as session:
         try:
+            path_manager = PathManager()
+            metadata_assembler = MetadataAssembler(path_manager)
+            processing_manager = ProcessingManager(path_manager, metadata_assembler)
+            
+            await processing_manager.initialize(session)
+            scheduler = ProcessingScheduler(max_concurrent=5)
+            
+            # Add tasks
+            for region_id in REGIONS:
+                for dataset in SOURCES:
+                    scheduler.add_task(ProcessingTask(
+                        region_id=region_id,
+                        dataset=dataset,
+                        date=datetime.now()
+                    ))
+            
             stats = await scheduler.run(processing_manager)
             logger.info(f"Processing completed: {stats['successful']} successful, {stats['failed']} failed")
+            
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error occurred: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Processing error: {str(e)}")
             raise
+        finally:
+            await connector.close()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Process interrupted by user")
+    except Exception as e:
+        logger.error(f"Fatal error: {str(e)}")
+        raise

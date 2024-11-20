@@ -43,9 +43,9 @@ class ProcessingManager:
     def _log_processing_summary(self, dataset: str, region: str, output: str):
         """Log processing summary with consistent formatting"""
         self.logger.info("📊 Processing Summary")
-        self.logger.info(f"   ├── 📦 Dataset: {dataset}")
-        self.logger.info(f"   ├── 🌎 Region:  {region}")
-        self.logger.info(f"   └── 📄 Output:  {output or 'None'}")
+        self.logger.info(f"   ├── 📦 {dataset}")
+        self.logger.info(f"   ├── 🌎 {region}")
+        self.logger.info(f"   └── 📄 {output or 'None'}")
 
     async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict:
         """Process a single dataset"""
@@ -55,8 +55,8 @@ class ProcessingManager:
         try:
             # Log start of processing with clear structure
             self.logger.info(f"🔄 Processing {dataset}")
-            self.logger.info(f"   ├── 🌎 Region: {region_id}")
-            self.logger.info(f"   └── 📅 Date: {date.strftime('%Y-%m-%d')}")
+            self.logger.info(f"   ├── 🌎 {region_id}")
+            self.logger.info(f"   └── 📅 {date.strftime('%Y-%m-%d')}")
             
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
@@ -71,7 +71,6 @@ class ProcessingManager:
 
             # Determine service type and download data
             source_type = SOURCES[dataset].get('source_type')
-            self.logger.info(f"Using service type: {source_type} for dataset: {dataset}")
             
             try:
                 if source_type == 'cmems':
@@ -84,8 +83,6 @@ class ProcessingManager:
                 if not netcdf_path or not netcdf_path.exists():
                     raise FileNotFoundError(f"Failed to download data for {dataset}")
                 
-                self.logger.info(f"Successfully downloaded data to: {netcdf_path}")
-                
                 # Process the downloaded data
                 return await self._process_netcdf_data(
                     netcdf_path, region_id, dataset, date, asset_paths
@@ -95,13 +92,7 @@ class ProcessingManager:
                 self.logger.warning(f"Task cancelled for dataset: {dataset}")
                 raise
             except Exception as e:
-                self.logger.error(f"Download error for {dataset}: {str(e)}")
-                return {
-                    'status': 'error',
-                    'error': str(e),
-                    'region': region_id,
-                    'dataset': dataset
-                }
+                return self._handle_download_error(e, dataset, region_id, date)
 
         except Exception as e:
             self.logger.error(
@@ -180,7 +171,6 @@ class ProcessingManager:
                 try:
                     dataset_type = SOURCES[dataset]['type']
                     processor = self.processor_factory.create(dataset_type)
-                    self.logger.info(f"Processing {dataset} data for {region_id}")
                     image_path = processor.generate_image(
                         data_path=interpolated_path,
                         region=region_id,
@@ -227,3 +217,27 @@ class ProcessingManager:
         if result.get('status') == 'success' and 'paths' in result:
             result['paths'] = {k: str(v) for k, v in result['paths'].items()}
         return result
+
+    def _handle_download_error(self, e: Exception, dataset: str, region_id: str, date: datetime) -> dict:
+        """Centralized error handling"""
+        error_type = e.__class__.__name__
+        error_msg = str(e)
+        
+        if isinstance(e, asyncio.TimeoutError):
+            self.logger.error(f"❌ Download timed out for {dataset}")
+            self.logger.error(f"   ├── 🌐 Region: {region_id}")
+            self.logger.error(f"   ├── 📅 Date: {date.strftime('%Y-%m-%d')}")
+            self.logger.error(f"   └── 💥 Request timed out (default 30s timeout)")
+        else:
+            self.logger.error(f"❌ Download error for {dataset}")
+            self.logger.error(f"   ├── ⚠️  Type: {error_type}")
+            self.logger.error(f"   ├── 🌐 Region: {region_id}")
+            self.logger.error(f"   └── 💥 {error_msg if error_msg else 'No error message provided'}")
+
+        return {
+            'status': 'error',
+            'error': error_msg or f"Download timed out for {dataset}",
+            'error_type': error_type,
+            'region': region_id,
+            'dataset': dataset
+        }

@@ -20,7 +20,6 @@ class BaseGeoJSONConverter(ABC):
         """Common dataset loading with error handling."""
         try:
             self.logger.info(f"📂 Loading dataset")
-            self.logger.info(f"   └── 📄 {data_path.name}")
             return xr.open_dataset(data_path)
         except Exception as e:
             self.logger.error(f"❌ Error loading dataset")
@@ -60,4 +59,3 @@ class BaseGeoJSONConverter(ABC):
         with open(output_path, 'w') as f:
             json.dump(geojson_data, f)
         self.logger.info(f"💾 Generated GeoJSON")
-        self.logger.info(f"   └── 📄 {output_path.name}")

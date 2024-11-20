@@ -98,16 +98,20 @@ class CMEMSService:
 
     async def _download_data(self, date: datetime, dataset: str, region_id: str) -> Path:
         """Internal method to handle the actual download"""
-        logger.info(
-            "Starting CMEMS data fetch\n"
-            f"Dataset: {dataset}\n"
-            f"Region:  {region_id}\n"
-            f"Date:    {date.strftime('%Y-%m-%d')}"
-        )
+        output_path = self.path_manager.get_data_path(date, dataset, region_id)
         
+        if output_path.exists():
+            logger.info(f"📂 Using cached data")
+            logger.info(f"   └── 📄 {output_path.name}")
+            return output_path
+
+        logger.info(f"⬇️  Downloading new CMEMS data")
+        logger.info(f"   ├── 📦 Dataset: {dataset}")
+        logger.info(f"   ├── 🌎 Region: {region_id}")
+        logger.info(f"   └── 📅 Date: {date.strftime('%Y-%m-%d')}")
+
         source_config = SOURCES[dataset]
         bounds = REGIONS[region_id]['bounds']
-        output_path = self.path_manager.get_data_path(date, dataset, region_id)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Get formatted date range
@@ -128,7 +132,8 @@ class CMEMSService:
             output_filename=str(output_path),
         )
 
-        logger.info(data)
+        logger.info(f"✅ Download complete")
+        logger.info(f"   └── 💾 {output_path.name}")
         return output_path
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:
