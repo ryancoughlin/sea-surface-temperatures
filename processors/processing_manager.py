@@ -122,6 +122,7 @@ class ProcessingManager:
         try:
             # Only load required variables instead of entire dataset
             required_vars = SOURCES[dataset].get('variables', [])
+            type = SOURCES[dataset]['type']
       
             # Load and get dimensions dynamically
             with xr.open_dataset(netcdf_path) as ds:
@@ -137,7 +138,11 @@ class ProcessingManager:
                     chunks['depth'] = 1
                 
                 ds = ds[required_vars].chunk(chunks)
-                interpolated_ds = interpolate_dataset(ds)
+
+                if type == 'sst':
+                    interpolated_ds = interpolate_dataset(ds, 1)
+                else:
+                    interpolated_ds = interpolate_dataset(ds, 1.5)
                 
                 # Save interpolated dataset with compression
                 interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
