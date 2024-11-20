@@ -13,6 +13,7 @@ import copernicusmarine
 from dateutil.parser import parse as parse_date
 import xarray as xr
 import gc
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,11 @@ class CMEMSService:
         self.path_manager = path_manager
         self.timeout = timeout
         self.semaphore = asyncio.Semaphore(2)
+        self.logger = logger
+        
+        # Configure compression settings
+        self.compression_enabled = True
+        self.compression_level = 5  # Balanced between size and speed
 
     def _get_date_range(self, date: datetime, dataset: str) -> tuple[str, str]:
         """Get start and end dates for CMEMS query"""
@@ -97,44 +103,101 @@ class CMEMSService:
             raise
 
     async def _download_data(self, date: datetime, dataset: str, region_id: str) -> Path:
-        """Internal method to handle the actual download"""
-        output_path = self.path_manager.get_data_path(date, dataset, region_id)
+        """Enhanced CMEMS data download with detailed logging and error handling"""
+        start_time = time.time()
         
-        if output_path.exists():
-            logger.info(f"📂 Using cached data")
-            logger.info(f"   └── 📄 {output_path.name}")
-            return output_path
+        self.logger.info("🔍 CMEMS Download Configuration:")
+        self.logger.info(f"   ├── Process ID: {id(self)}")
+        self.logger.info(f"   ├── Timeout: {self.timeout}s")
+        self.logger.info(f"   └── Compression: Level {self.compression_level}")
 
-        logger.info(f"⬇️  Downloading new CMEMS data")
-        logger.info(f"   ├── 📦 Dataset: {dataset}")
-        logger.info(f"   ├── 🌎 Region: {region_id}")
-        logger.info(f"   └── 📅 Date: {date.strftime('%Y-%m-%d')}")
-
+        output_path = self.path_manager.get_data_path(date, dataset, region_id)
         source_config = SOURCES[dataset]
         bounds = REGIONS[region_id]['bounds']
-        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Get formatted date range
+        # Detailed parameter logging
+        self.logger.info("📋 Request Parameters:")
+        self.logger.info(f"   ├── Dataset ID: {source_config['dataset_id']}")
+        self.logger.info(f"   ├── Variables: {source_config['variables']}")
+        self.logger.info(f"   ├── Bounds: {bounds}")
+        
         start_datetime, end_datetime = self._get_date_range(date, dataset)
+        self.logger.info(f"   └── Time Range: {start_datetime} → {end_datetime}")
 
-        data = copernicusmarine.subset(
-            dataset_id=source_config['dataset_id'],
-            variables=source_config['variables'],
-            minimum_longitude=bounds[0][0],
-            maximum_longitude=bounds[1][0],
-            minimum_latitude=bounds[0][1],
-            maximum_latitude=bounds[1][1],
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-            minimum_depth=0,
-            maximum_depth=1,
-            force_download=True,
-            output_filename=str(output_path),
-        )
+        try:
+            self.logger.info("🚀 Initiating CMEMS API request...")
+            
+            # Track memory usage
+            initial_memory = self._get_memory_usage()
+            self.logger.info(f"   └── Initial Memory: {initial_memory:.2f} MB")
 
-        logger.info(f"✅ Download complete")
-        logger.info(f"   └── 💾 {output_path.name}")
-        return output_path
+            data = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: copernicusmarine.subset(
+                    dataset_id=source_config['dataset_id'],
+                    variables=source_config['variables'],
+                    minimum_longitude=bounds[0][0],
+                    maximum_longitude=bounds[1][0],
+                    minimum_latitude=bounds[0][1],
+                    maximum_latitude=bounds[1][1],
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    minimum_depth=0,
+                    maximum_depth=1,
+                    force_download=True,
+                    output_filename=str(output_path),
+                    netcdf_compression_enabled=self.compression_enabled,
+                    netcdf_compression_level=self.compression_level,
+                    disable_progress_bar=False,  # Enable progress tracking
+                )
+            )
+
+            # Verify download success
+            if not output_path.exists():
+                raise CMEMSDownloadError("Download completed but file not found")
+
+            file_size = output_path.stat().st_size
+            final_memory = self._get_memory_usage()
+            elapsed_time = time.time() - start_time
+
+            # Detailed success logging
+            self.logger.info("✅ Download Statistics:")
+            self.logger.info(f"   ├── Time: {elapsed_time:.2f}s")
+            self.logger.info(f"   ├── File Size: {file_size/1024/1024:.2f} MB")
+            self.logger.info(f"   ├── Memory Delta: {final_memory - initial_memory:.2f} MB")
+            self.logger.info(f"   └── Path: {output_path}")
+
+            # Validate file content
+            self._validate_netcdf(output_path)
+            
+            return output_path
+
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            self.logger.error("❌ Download Failed:")
+            self.logger.error(f"   ├── Time: {elapsed_time:.2f}s")
+            self.logger.error(f"   ├── Error: {type(e).__name__}")
+            self.logger.error(f"   ├── Message: {str(e)}")
+            self.logger.error(f"   └── Traceback:\n{traceback.format_exc()}")
+            raise
+
+    def _validate_netcdf(self, file_path: Path) -> None:
+        """Validate NetCDF file content"""
+        try:
+            with xr.open_dataset(file_path) as ds:
+                self.logger.info("📊 File Validation:")
+                self.logger.info(f"   ├── Variables: {list(ds.data_vars)}")
+                self.logger.info(f"   ├── Dimensions: {dict(ds.dims)}")
+                self.logger.info(f"   └── Time Range: {ds.time.values[0]} → {ds.time.values[-1]}")
+        except Exception as e:
+            self.logger.error(f"❌ Validation Failed: {str(e)}")
+            raise CMEMSDownloadError(f"Invalid NetCDF file: {str(e)}")
+
+    def _get_memory_usage(self) -> float:
+        """Get current memory usage in MB"""
+        import psutil
+        process = psutil.Process()
+        return process.memory_info().rss / 1024 / 1024
 
     async def process_dataset(self, task: CMEMSTask) -> Dict:
         """
