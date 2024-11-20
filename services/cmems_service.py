@@ -79,14 +79,6 @@ class CMEMSService:
         adjusted_date = date - timedelta(days=lag_days)
         
         try:
-            # Log the exact request parameters
-            logger.info("   └── 📋 Request parameters:")
-            logger.info(f"      └── Dataset ID: {config['dataset_id']}")
-            logger.info(f"      └── Variables: {config['variables']}")
-            logger.info(f"      └── Time range: {adjusted_date.strftime('%Y-%m-%dT%H:%M:%S')}")
-            logger.info(f"      └── Output: {output_path}")
-            
-            # Make the request
             copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
                 variables=config['variables'],

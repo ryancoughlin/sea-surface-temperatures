@@ -127,7 +127,7 @@ class ProcessingManager:
                                 {"dataset": dataset, "region": region_id}) from e
 
     async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, asset_paths):
-        """Process NetCDF data and generate outputs"""
+        """Process the downloaded netCDF data."""
         try:
             required_vars = SOURCES[dataset].get('variables', [])
             dataset_type = SOURCES[dataset]['type']
@@ -173,14 +173,36 @@ class ProcessingManager:
                             date=date
                         )
 
-                    # Generate image
-                    processor = self.processor_factory.create(dataset_type)
-                    image_path = processor.generate_image(
-                        data_path=interpolated_path,  # Use interpolated NetCDF
+                    # Generate image using dataset type
+                    try:
+                        processor = self.processor_factory.create(dataset_type)
+                        self.logger.info(f"Processing {dataset} data for {region_id}")
+                        image_path = processor.generate_image(
+                            data_path=interpolated_path,
+                            region=region_id,
+                            dataset=dataset,
+                            date=date
+                        )
+                    except ValueError as e:
+                        self.logger.error(f"Processor error for type {dataset_type}: {str(e)}")
+                        raise
+                    except KeyError as e:
+                        self.logger.error(f"Missing type configuration for dataset {dataset}") 
+                    finally:
+                        # Clean up interpolated file
+                        if interpolated_path.exists():
+                            interpolated_path.unlink()
+
+                    # Update metadata here, after all assets are generated
+                    metadata_path: Path = self.metadata_assembler.assemble_metadata(
                         region=region_id,
                         dataset=dataset,
-                        date=date
+                        date=date,
+                        asset_paths=asset_paths
                     )
+
+                    self.logger.info("✅ Processing completed")
+                    self._log_processing_summary(dataset, region_id, str(data_path))
 
                     return {
                         'status': 'success',
