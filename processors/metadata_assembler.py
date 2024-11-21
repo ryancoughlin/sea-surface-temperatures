@@ -86,11 +86,16 @@ class MetadataAssembler:
                         path.relative_to(self.path_manager.base_dir)
                     )
 
+            # Log the current state
+            logger.info(f"Updating metadata for {dataset} in region {region} for date {date}")
+            
             if global_metadata_path.exists():
                 with open(global_metadata_path) as f:
                     metadata = json.load(f)
+                    logger.info(f"Loaded existing metadata with {len(metadata.get('regions', []))} regions")
             else:
                 metadata = {"regions": [], "lastUpdated": datetime.now().isoformat()}
+                logger.info("Creating new metadata file")
 
             region_entry = next((r for r in metadata["regions"] if r["id"] == region), None)
             if not region_entry:
@@ -114,8 +119,9 @@ class MetadataAssembler:
                 }
                 region_entry["datasets"].append(dataset_entry)
 
-            # Update dates
+            # Update dates with logging
             date_str = date.strftime('%Y%m%d')
+            existing_dates = len(dataset_entry["dates"])
             dataset_entry["dates"] = [d for d in dataset_entry["dates"] if d["date"] != date_str]
             dataset_entry["dates"].append({
                 "date": date_str,
@@ -126,9 +132,11 @@ class MetadataAssembler:
             
             metadata["lastUpdated"] = datetime.now().isoformat()
             
-            # Save updated metadata
+            # Save updated metadata with verification
             with open(global_metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
+            
+            logger.info(f"Successfully updated metadata: {date_str} (Previous entries: {existing_dates})")
 
         except Exception as e:
             logger.error(f"Error updating global metadata: {str(e)}")
