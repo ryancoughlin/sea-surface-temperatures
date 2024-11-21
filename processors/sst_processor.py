@@ -63,7 +63,6 @@ class SSTProcessor(BaseImageProcessor):
                 '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
                 '#f74d17'
             ]
-            
             # Create high-resolution colormap
             cmap = LinearSegmentedColormap.from_list('sst_detailed', colors, N=1024)
             

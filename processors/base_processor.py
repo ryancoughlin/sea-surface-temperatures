@@ -39,69 +39,19 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure with optimized PNG compression."""
+        """Save figure directly to path."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
+            path.image.parent.mkdir(parents=True, exist_ok=True)
             
-            # First save to BytesIO to avoid writing to disk twice
-            buf = BytesIO()
             fig.savefig(
-                buf,
+                path.image,
                 dpi=self.settings['dpi'],
-                bbox_inches=None,
-                pad_inches=0,
-                transparent=True,
+                bbox_inches='tight',
                 format='png'
             )
             plt.close(fig)
             
-            # Get original size
-            original_size = len(buf.getvalue())
-            logger.info(f"Original size: {original_size/1024:.1f}KB")
-            
-            # Open with Pillow
-            img = Image.open(buf)
-            
-            # Test each optimization method
-            
-            # 1. PIL's built-in optimization
-            pil_buf = BytesIO()
-            img.save(
-                pil_buf,
-                'PNG',
-                optimize=True,
-                quality=85
-            )
-            pil_size = len(pil_buf.getvalue())
-            logger.info(f"PIL optimized size: {pil_size/1024:.1f}KB ({(pil_size/original_size)*100:.1f}%)")
-            
-            # Save the PIL-optimized version as our default
-            img.save(
-                path.image,
-                'PNG',
-                optimize=True,
-                quality=85
-            )
-            
-            # 2. OptiPNG (if installed)
-            try:
-                subprocess.run(['optipng', '-o2', str(path.image)], check=True)
-                optipng_size = path.image.stat().st_size
-                logger.info(f"OptiPNG size: {optipng_size/1024:.1f}KB ({(optipng_size/original_size)*100:.1f}%)")
-            except (subprocess.SubprocessError, FileNotFoundError):
-                logger.warning("OptiPNG not available")
-                
-            # 3. pngquant (if installed)
-            try:
-                temp_path = path.image.with_suffix('.temp.png')
-                path.image.rename(temp_path)
-                subprocess.run(['pngquant', '--force', '--output', str(path.image), str(temp_path)], check=True)
-                temp_path.unlink()  # Clean up temp file
-                pngquant_size = path.image.stat().st_size
-                logger.info(f"pngquant size: {pngquant_size/1024:.1f}KB ({(pngquant_size/original_size)*100:.1f}%)")
-            except (subprocess.SubprocessError, FileNotFoundError):
-                logger.warning("pngquant not available")
-                
             return path.image
             
         except Exception as e:
@@ -169,23 +119,6 @@ class BaseImageProcessor(ABC):
         ax.set_extent([bounds[0][0], bounds[1][0], bounds[0][1], bounds[1][1]], crs=ccrs.PlateCarree())
         ax.coastlines(resolution='10m')
         ax.gridlines(draw_labels=True)
-
-    def save_image(self, fig, region: str, dataset: str, date: str) -> Path:
-        """Save the figure to the appropriate path."""
-        if not self.path_manager:
-            raise ValueError("PathManager not initialized")
-            
-        # Get the image path 
-        image_path = self.path_manager.get_asset_paths(date, dataset, region).image
-        
-        # Ensure directory exists
-        image_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Save the figure
-        fig.savefig(image_path, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        
-        return image_path
 
     def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
         """
