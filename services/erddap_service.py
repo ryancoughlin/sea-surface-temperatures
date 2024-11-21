@@ -40,10 +40,19 @@ class ERDDAPService:
         
         for var in config.get('variables', []):
             constraints = [
-                f"%5B({formatted_date}):1:({formatted_date})%5D",
+                f"%5B({formatted_date}):1:({formatted_date})%5D"
+            ]
+            
+            # Add altitude constraint only for datasets that require it
+            if dataset == "chlorophyll_oci":
+                constraints.append(f"%5B(0.0):1:(0.0)%5D")
+                
+            # Add lat/lon constraints
+            constraints.extend([
                 f"%5B({bounds[0][1]}):1:({bounds[1][1]})%5D",
                 f"%5B({bounds[0][0]}):1:({bounds[1][0]})%5D"
-            ]
+            ])
+            
             var_parts.append(f"{var}{''.join(constraints)}")
             
         return base + ','.join(var_parts)
