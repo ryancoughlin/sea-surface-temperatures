@@ -13,6 +13,8 @@ from PIL import Image
 import subprocess
 from io import BytesIO
 import numpy as np
+import xarray as xr
+import scipy.ndimage
 
 logger = logging.getLogger(__name__)
 
@@ -184,3 +186,44 @@ class BaseImageProcessor(ABC):
         plt.close(fig)
         
         return image_path
+
+    def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
+        """
+        Expands data near coastlines to prevent gaps while preserving original values.
+        
+        Args:
+            data: Input DataArray
+            buffer_size: Number of cells to expand (default 3)
+        """
+        # Create a mask of valid (non-NaN) data
+        valid_mask = ~np.isnan(data)
+        
+        # Create a copy of the data for manipulation
+        expanded_data = data.copy()
+        
+        # Iterate buffer_size times to progressively fill gaps
+        for _ in range(buffer_size):
+            # Create a mask of cells to fill (NaN cells adjacent to valid data)
+            kernel = np.array([[0,1,0], [1,1,1], [0,1,0]])
+            adjacent_valid = scipy.ndimage.binary_dilation(valid_mask, kernel) & ~valid_mask
+            
+            if not np.any(adjacent_valid):
+                break
+            
+            # For each cell to fill, use the mean of valid adjacent cells
+            y_indices, x_indices = np.where(adjacent_valid)
+            for y, x in zip(y_indices, x_indices):
+                # Get values of adjacent cells
+                neighbors = []
+                for dy, dx in [(-1,0), (1,0), (0,-1), (0,1)]:
+                    ny, nx = y + dy, x + dx
+                    if (0 <= ny < data.shape[0] and 
+                        0 <= nx < data.shape[1] and 
+                        not np.isnan(expanded_data[ny, nx])):
+                        neighbors.append(expanded_data[ny, nx])
+                
+                if neighbors:
+                    expanded_data[y, x] = np.mean(neighbors)
+                    valid_mask[y, x] = True
+        
+        return expanded_data

@@ -8,6 +8,8 @@ from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
+from matplotlib.colors import LinearSegmentedColormap
+from scipy.ndimage import gaussian_filter
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ class SSTProcessor(BaseImageProcessor):
             ds = xr.open_dataset(data_path)
             data = ds[SOURCES[dataset]['variables'][0]]
             
-            # Force 2D data by selecting first index of time and depth if they exist
+            # Force 2D data
             if 'time' in data.dims:
                 data = data.isel(time=0)
             if 'depth' in data.dims:
@@ -43,22 +45,43 @@ class SSTProcessor(BaseImageProcessor):
                 drop=True
             )
             
-            # Convert temperature
+            # Convert temperature and expand coastal data
             regional_data = convert_temperature_to_f(regional_data)
+            expanded_data = self.expand_coastal_data(regional_data, buffer_size=3)
             
             # Create figure and axes
             fig, ax = self.create_axes(region)
             
-            # Plot with higher resolution
+            # Create custom colormap for SST
+            colors = [
+                '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
+                '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
+                '#3a7bea', '#4185f8', '#41b6c4', '#46c0cd', '#4bcad6',
+                '#50d4df', '#55dde8', '#5ae7f1', '#7fcdbb', '#8ed7c4',
+                '#9de1cd', '#acebd6', '#bbf5df', '#c7e9b4', '#d6edb8',
+                '#e5f1bc', '#f4f5c0', '#fef396', '#fec44f', '#fdb347',
+                '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
+                '#f74d17'
+            ]
+            
+            # Create high-resolution colormap
+            cmap = LinearSegmentedColormap.from_list('sst_detailed', colors, N=1024)
+            
+            # Calculate dynamic range
+            vmin = max(40, float(expanded_data.min()))
+            vmax = min(88, float(expanded_data.max()))
+            
+            # Plot with enhanced detail (removed gaussian_filter)
             mesh = ax.pcolormesh(
-                regional_data[lon_name],
-                regional_data[lat_name],
-                regional_data.values,  # Use original data for coordinates
+                expanded_data[lon_name],
+                expanded_data[lat_name],
+                expanded_data.values,
                 transform=ccrs.PlateCarree(),
-                cmap=SOURCES[dataset]['color_scale'],
+                cmap=cmap,
                 shading='gouraud',
-                vmin=36,
-                vmax=88,
+                vmin=vmin,
+                vmax=vmax,
+                rasterized=True,
                 zorder=1
             )
             
