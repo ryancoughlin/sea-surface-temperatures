@@ -48,8 +48,7 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
                                 "coordinates": [float(lons[j]), float(lats[i])]
                             },
                             "properties": {
-                                "value": float(values[i, j]),
-                                "unit": "fahrenheit"
+                                "value": round(float(values[i, j]), 2),
                             }
                         })
             
