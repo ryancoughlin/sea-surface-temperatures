@@ -191,7 +191,7 @@ class ContourConverter(BaseGeoJSONConverter):
                             "gradient": clean_value(avg_gradient),
                             "max_gradient": clean_value(max_gradient),
                             "break_strength": break_strength,
-                            "length_nm": clean_value(path_length * 60),
+                            "length_nm": clean_value(round(path_length * 60, 1)),
                             "is_key_temp": level_value in [60, 65, 70, 72]
                         }
                     }
