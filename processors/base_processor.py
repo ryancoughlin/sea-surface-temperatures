@@ -15,6 +15,7 @@ from io import BytesIO
 import numpy as np
 import xarray as xr
 import scipy.ndimage
+from utils.image_optimizer import ImageOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class BaseImageProcessor(ABC):
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
+        self.image_optimizer = ImageOptimizer()
 
     @abstractmethod
     def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
@@ -39,11 +41,12 @@ class BaseImageProcessor(ABC):
         return path.image
 
     def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
-        """Save figure directly to path."""
+        """Save figure with optimization."""
         try:
             path = self.path_manager.get_asset_paths(date, dataset, region)
             path.image.parent.mkdir(parents=True, exist_ok=True)
             
+            # Save initial high-quality image
             fig.savefig(
                 path.image,
                 dpi=self.settings['dpi'],
@@ -51,6 +54,9 @@ class BaseImageProcessor(ABC):
                 format='png'
             )
             plt.close(fig)
+            
+            # Optimize the saved image
+            self.image_optimizer.optimize_png(path.image)
             
             return path.image
             
