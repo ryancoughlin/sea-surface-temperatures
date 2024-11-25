@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 import aiohttp
 
@@ -72,13 +72,11 @@ class HistoricalDataProcessor:
 
 async def process_historical_data(days: int = 5):
     """Process historical data for specified number of days"""
-    # Clean up existing metadata first
     cleanup_metadata()
     
     processor = HistoricalDataProcessor()
     
-    # Calculate dates to process
-    end_date = datetime.utcnow()
+    end_date = datetime.now(UTC)
     dates = [end_date - timedelta(days=i) for i in range(days)]
     
     total_results = []
@@ -88,13 +86,11 @@ async def process_historical_data(days: int = 5):
             result = await processor.process_date(session, date)
             total_results.append(result)
             
-            # Log daily summary
             logger.info(f"Daily Summary for {result['date']}:")
             logger.info(f"✅ Successful: {result['successful']}")
             logger.info(f"❌ Failed: {result['failed']}")
             logger.info(f"📊 Total: {result['total']}")
     
-    # Log overall summary
     total_successful = sum(r['successful'] for r in total_results)
     total_failed = sum(r['failed'] for r in total_results)
     total_processed = sum(r['total'] for r in total_results)

@@ -16,25 +16,25 @@ IMAGE_SETTINGS = {
 }
 
 SOURCES = {
-    # "LEOACSPOSSTL3SnrtCDaily": {
-    #     "source_type": "erddap",
-    #     "type": "sst",
-    #     "name": "LEO ACSPO SST L3S NRT C Daily",
-    #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-    #     "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
-    #     "variables": ["sea_surface_temperature", "sst_gradient_magnitude"],
-    #     "lag_days": 2,
-    #     "color_scale": "RdYlBu_r",
-    #     "stride": None,
-    #     "supportedLayers": ["image", "data", "contours"],
-    #     "metadata": {
-    #         "cloud-free": "No",
-    #         "frequency": "Daily",
-    #         "resolution": "1 mile",
-    #         "capture": "blends day and night",
-    #         "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
-    #     }
-    # },
+    "LEOACSPOSSTL3SnrtCDaily": {
+        "source_type": "erddap",
+        "type": "sst",
+        "name": "LEO ACSPO SST L3S NRT C Daily",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
+        "variables": ["sea_surface_temperature", "sst_gradient_magnitude"],
+        "lag_days": 2,
+        "color_scale": "RdYlBu_r",
+        "stride": None,
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "1 mile",
+            "capture": "blends day and night",
+            "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
+        }
+    },
     "CMEMS_Global_Currents_Daily": {
         "source_type": "cmems",
         "name": "CMEMS Global Daily Mean Ocean Currents",
@@ -71,41 +71,41 @@ SOURCES = {
             "capture": "Blends day and night"
         }
     },
-    # "CMEMS_Global_Temperature_Daily": {
-    #     "source_type": "cmems",
-    #     "name": "CMEMS Global Daily Mean Sea Water Temperature",
-    #     "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
-    #     "dataset_id": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
-    #     "variables": ["thetao"],
-    #     "color_scale": "RdYlBu_r",
-    #     "type": "sst",
-    #     "lag_days": 1,
-    #     "supportedLayers": ["image", "data", "contours"],
-    #     "metadata": {
-    #         "cloud-free": "No",
-    #         "frequency": "Daily",
-    #         "resolution": "5 miles",
-    #         "description": "Sea surface temperature from global model data.",
-    #     }
-    # },
-    # "chlorophyll_oci": {
-    #     "source_type": "erddap",
-    #     "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
-    #     "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
-    #     "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
-    #     "variables": ["chlor_a"],
-    #     "lag_days": 2,
-    #     "color_scale": "YlGnBu",
-    #     "altitude": "[0:1:0]",
-    #     "type": "chlorophyll",
-    #     "supportedLayers": ["image", "data", "contours"],
-    #     "metadata": {
-    #         "cloud-free": "No",
-    #         "frequency": "Daily",
-    #         "resolution": "2.5 miles",
-    #         "description": "Chlorophyll-a concentration derived from VIIRS.",
-    #     }
-    # },
+    "CMEMS_Global_Temperature_Daily": {
+        "source_type": "cmems",
+        "name": "CMEMS Global Daily Mean Sea Water Temperature",
+        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+        "dataset_id": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+        "variables": ["thetao"],
+        "color_scale": "RdYlBu_r",
+        "type": "sst",
+        "lag_days": 1,
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "5 miles",
+            "description": "Sea surface temperature from global model data.",
+        }
+    },
+    "chlorophyll_oci": {
+        "source_type": "erddap",
+        "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
+        "variables": ["chlor_a"],
+        "lag_days": 2,
+        "color_scale": "YlGnBu",
+        "altitude": "[0:1:0]",
+        "type": "chlorophyll",
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "2.5 miles",
+            "description": "Chlorophyll-a concentration derived from VIIRS.",
+        }
+    },
     "CMEMS_Global_Waves_Daily": {
         "source_type": "cmems",
         "name": "CMEMS Global Wave Analysis and Forecast",
