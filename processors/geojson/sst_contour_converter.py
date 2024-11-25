@@ -16,7 +16,7 @@ def clean_value(value):
         return None
     return float(value)
 
-class ContourConverter(BaseGeoJSONConverter):
+class SSTContourConverter(BaseGeoJSONConverter):
     # Temperature ranges and their significance
     TEMP_RANGES = {
         'very_cold': {'min': 0, 'max': 44, 'interval': 2},

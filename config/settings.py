@@ -98,7 +98,7 @@ SOURCES = {
         "color_scale": "YlGnBu",
         "altitude": "[0:1:0]",
         "type": "chlorophyll",
-        "supportedLayers": ["image", "data"],
+        "supportedLayers": ["image", "data", "contours"],
         "metadata": {
             "cloud-free": "No",
             "frequency": "Daily",

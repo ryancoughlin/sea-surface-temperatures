@@ -70,7 +70,7 @@ class ProcessingManager:
                 path.unlink()
 
     async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict:
-        """Process a single dataset"""
+        """Process a single dataset with proper async handling"""
         if not self.session:
             raise ProcessingError("initialization", "ProcessingManager not initialized", 
                                 {"dataset": dataset, "region": region_id})
@@ -99,6 +99,29 @@ class ProcessingManager:
                 logger.info("   └── ✅ Processing complete")
             return result
 
+            async with asyncio.timeout(600):  # 10 minute timeout
+                netcdf_path = await service.fetch_data(date, dataset, region_id)
+                
+                if not netcdf_path or not netcdf_path.exists():
+                    return {
+                        'status': 'error',
+                        'error': 'Failed to download data',
+                        'region': region_id,
+                        'dataset': dataset
+                    }
+                
+                return await self._process_netcdf_data(
+                    netcdf_path, region_id, dataset, date, asset_paths
+                )
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout while downloading data for {dataset}")
+            return {
+                'status': 'error',
+                'error': 'Download timeout',
+                'region': region_id,
+                'dataset': dataset
+            }
         except Exception as e:
             logger.error("   └── 💥 Processing failed")
             return self._handle_error(e, dataset, region_id)
@@ -147,8 +170,9 @@ class ProcessingManager:
                     date=date
                 )
 
-                # Generate contours for SST
-                if dataset_type == 'sst':
+                # Generate contours if supported
+                if dataset_type in ['sst', 'chlorophyll']:
+                    self.logger.info(f"Generating {dataset_type} contours for {dataset}")
                     contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
                     contour_path = contour_converter.convert(
                         data_path=netcdf_path,

@@ -4,12 +4,13 @@ import xarray as xr
 import logging
 import cartopy.crs as ccrs
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
-from matplotlib.colors import LinearSegmentedColormap
-from scipy.ndimage import gaussian_filter
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,7 @@ class SSTProcessor(BaseImageProcessor):
             # Calculate dynamic range
             vmin = max(40, float(expanded_data.min()))
             vmax = min(88, float(expanded_data.max()))
-            
-            # Plot with enhanced detail (removed gaussian_filter)
+
             mesh = ax.pcolormesh(
                 expanded_data[lon_name],
                 expanded_data[lat_name],
