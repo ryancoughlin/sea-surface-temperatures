@@ -76,7 +76,10 @@ async def process_historical_data(days: int = 5):
     
     processor = HistoricalDataProcessor()
     
-    end_date = datetime.now(datetime.UTC)
+    # Set the end date to the current time in UTC
+    end_date = datetime.now(timezone.utc)
+
+    # Generate the list of dates
     dates = [end_date - timedelta(days=i) for i in range(days)]
     
     total_results = []
