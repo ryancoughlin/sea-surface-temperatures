@@ -28,7 +28,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
         """Generate chlorophyll visualization."""
         try:
-            # 1. Load and prepare data
+            # 1. Load and prepare data (already cleaned)
             logger.info(f"Processing chlorophyll data for {region}")
             ds = xr.open_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
@@ -40,18 +40,17 @@ class ChlorophyllProcessor(BaseImageProcessor):
             if 'altitude' in data.dims:
                 data = data.isel(altitude=0)
             
-            # 3. Get coordinates
+            # 3. Get coordinates and mask to region
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
             bounds = REGIONS[region]['bounds']
             
-            # 4. Mask to region first
+            # 4. Mask to region
             regional_data = data.where(
                 (data[lon_name] >= bounds[0][0]) & 
                 (data[lon_name] <= bounds[1][0]) &
                 (data[lat_name] >= bounds[0][1]) & 
-                (data[lat_name] <= bounds[1][1]) &
-                (data <= 15.0),  # Clip high values
+                (data[lat_name] <= bounds[1][1]),
                 drop=True
             )
             

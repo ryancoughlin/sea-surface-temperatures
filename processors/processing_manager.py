@@ -15,6 +15,8 @@ from processors.processor_factory import ProcessorFactory
 from config.settings import SOURCES
 from utils.path_manager import PathManager
 from utils.data_utils import interpolate_dataset
+from processors.data_cleaners.chlorophyll_cleaner import ChlorophyllCleaner
+from processors.data_cleaners.land_masker import LandMasker
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,12 @@ class ProcessingManager:
         self.processor_factory = ProcessorFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
         self.logger = logging.getLogger(__name__)
+        
+        self.cleaners = {
+            'chlorophyll': ChlorophyllCleaner()
+        }
+        
+        self.land_masker = LandMasker()
         
     async def initialize(self, session: aiohttp.ClientSession):
         """Initialize services with session"""
@@ -155,13 +163,22 @@ class ProcessingManager:
             # Get asset paths first
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
             
-            # Create interpolated path
-            interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
+            # Load data
+            ds = xr.open_dataset(netcdf_path)
+            var_name = SOURCES[dataset]['variables'][0]
+            data = ds[var_name]
             
-            dataset_type = SOURCES[dataset]['type']
+            # Apply land masking to all datasets
+            logger.info(f"Masking land for {dataset}")
+            masked_data = self.land_masker.mask_land(data)
+            
+            # Save masked data to new netCDF file
+            masked_path = netcdf_path.parent / f"{netcdf_path.stem}_masked.nc"
+            masked_data.to_netcdf(masked_path)
+            netcdf_path = masked_path
             
             try:
-                # Generate base GeoJSON
+                # Generate base GeoJSON using masked data
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
                 data_path = geojson_converter.convert(
                     data_path=netcdf_path,
