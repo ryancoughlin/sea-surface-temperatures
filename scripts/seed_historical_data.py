@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta
 from pathlib import Path
 import aiohttp
 
@@ -76,7 +76,7 @@ async def process_historical_data(days: int = 5):
     
     processor = HistoricalDataProcessor()
     
-    end_date = datetime.now(UTC)
+    end_date = datetime.now(datetime.UTC)
     dates = [end_date - timedelta(days=i) for i in range(days)]
     
     total_results = []
