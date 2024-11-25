@@ -7,8 +7,6 @@ from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
 import matplotlib.colors as mcolors
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 from typing import Tuple
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -75,11 +73,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 rasterized=True,
                 zorder=1
             )
-            
-            # Add land mask
-            land = cfeature.NaturalEarthFeature('physical', 'land', '10m')
-            ax.add_feature(land, facecolor='#B1C2D8', zorder=2)
-            
+
             return self.save_image(fig, region, dataset, date), None
             
         except Exception as e:

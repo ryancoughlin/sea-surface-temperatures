@@ -9,6 +9,7 @@ copernicusmarine
 
 # Visualization
 matplotlib
+rtree
 cartopy
 
 # Data formats

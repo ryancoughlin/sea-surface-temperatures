@@ -1,8 +1,7 @@
 import xarray as xr
 import numpy as np
 from pathlib import Path
-import cartopy.feature as cfeature
-from shapely.geometry import Point, MultiPolygon, box
+from shapely.geometry import Point, box
 from shapely.prepared import prep
 from cartopy.feature import NaturalEarthFeature
 import logging
