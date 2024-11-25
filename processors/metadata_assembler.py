@@ -32,18 +32,27 @@ class MetadataAssembler:
                         if dim in data.dims:
                             data = data.isel({dim: 0})
 
-                    # Handle temperature conversion
-                    if SOURCES[dataset]['type'] == 'sst':
+                    # Only convert temperature values, not gradient or other variables
+                    if SOURCES[dataset]['type'] == 'sst' and var == 'sea_surface_temperature':
                         data = data * 1.8 + 32
                         unit = 'fahrenheit'
                     else:
                         unit = getattr(data, 'units', 'unknown')
 
-                    ranges[var] = {
-                        'min': round(float(np.nanmin(data).item()), 2),
-                        'max': round(float(np.nanmax(data).item()), 2),
-                        'unit': unit
-                    }
+                    # Get valid (non-NaN) values for min/max calculation
+                    valid_data = data.values[~np.isnan(data.values)]
+                    if len(valid_data) > 0:
+                        ranges[var] = {
+                            'min': round(float(np.min(valid_data)), 3),
+                            'max': round(float(np.max(valid_data)), 3),
+                            'unit': unit
+                        }
+                    else:
+                        ranges[var] = {
+                            'min': None,
+                            'max': None,
+                            'unit': unit
+                        }
                 
                 return ranges
 

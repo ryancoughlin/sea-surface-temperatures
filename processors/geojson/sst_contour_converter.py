@@ -2,7 +2,6 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
-from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
@@ -17,212 +16,150 @@ def clean_value(value):
     return float(value)
 
 class SSTContourConverter(BaseGeoJSONConverter):
-    # Temperature ranges and their significance
-    TEMP_RANGES = {
-        'very_cold': {'min': 0, 'max': 44, 'interval': 2},
-        'cold': {'min': 44, 'max': 54, 'interval': 2},
-        'transition': {'min': 54, 'max': 60, 'interval': 1},
-        'prime': {'min': 60, 'max': 75, 'interval': 1},
-        'warm': {'min': 75, 'max': 90, 'interval': 2}
-    }
+    # Simplified temperature ranges with clear intervals
+    TEMP_INTERVALS = [
+        (0, 44, 2),    # Very cold
+        (44, 54, 2),   # Cold
+        (54, 60, 1),   # Transition
+        (60, 75, 1),   # Prime
+        (75, 90, 2)    # Warm
+    ]
     
-    # Key fishing temperatures
-    KEY_TEMPERATURES = [60, 65, 70, 72]  # Most significant for fishing
-    
-    # Break strength thresholds
-    BREAK_THRESHOLDS = {
-        'strong': 95,    # 95th percentile - bold lines
-        'moderate': 85,  # 85th percentile - medium lines
-        'weak': 0       # < 85th percentile - low opacity lines
-    }
-    
-    def _generate_temp_levels(self, min_temp: float, max_temp: float) -> np.ndarray:
-        """Generate temperature contour levels based on data range and key temperatures."""
+    KEY_TEMPERATURES = [60, 65, 70, 72]
+    BREAK_THRESHOLDS = {'strong': 95, 'moderate': 85, 'weak': 0}
+
+    def _generate_levels(self, min_temp, max_temp):
+        """Generate temperature contour levels."""
         levels = []
-        
-        # Very cold waters (< 44°F)
-        if min_temp < 44:
-            levels.extend(np.arange(np.floor(min_temp), 44, 2))
-            
-        # Cold waters (44-54°F)
-        levels.extend(np.arange(44, 54, 2))
-        
-        # Transition waters (54-60°F)
-        levels.extend(np.arange(54, 60, 1))
-        
-        # Prime fishing temperatures (60-75°F)
-        levels.extend(np.arange(60, 75, 1))
-        
-        # Warm waters (75°F+)
-        if max_temp > 75:
-            # Extend range to cover Gulf temps (up to 90°F if needed)
-            levels.extend(np.arange(75, np.ceil(max_temp) + 2, 2))
-        
-        # Ensure unique values only
+        for start, end, interval in self.TEMP_INTERVALS:
+            if max_temp >= start and min_temp <= end:
+                range_start = max(start, np.floor(min_temp))
+                range_end = min(end, np.ceil(max_temp))
+                levels.extend(np.arange(range_start, range_end, interval))
         return np.unique(levels)
 
-    def _get_break_strength(self, avg_gradient, strong_break, moderate_break):
-        """Classify break strength for styling."""
-        if avg_gradient > strong_break:
-            return 'strong'
-        elif avg_gradient > moderate_break:
-            return 'moderate'
-        return 'weak'  # Instead of 'none'
+    def _process_gradient_data(self, gradient_data, segment):
+        """Process gradient data for a contour segment."""
+        if gradient_data is None:
+            return None, None, 'weak'
+            
+        valid_gradients = gradient_data[~np.isnan(gradient_data)]
+        if len(valid_gradients) == 0:
+            return None, None, 'weak'
+            
+        avg_gradient = float(np.mean(valid_gradients))
+        max_gradient = float(np.max(valid_gradients))
+        
+        # Determine break strength
+        for strength, threshold in self.BREAK_THRESHOLDS.items():
+            if avg_gradient > np.percentile(valid_gradients, threshold):
+                return avg_gradient, max_gradient, strength
+                
+        return avg_gradient, max_gradient, 'weak'
 
-    def _get_temp_range(self, temp: float) -> str:
-        """Classify temperature into fishing-relevant ranges."""
-        for range_name, range_info in self.TEMP_RANGES.items():
-            if range_info['min'] <= temp < range_info['max']:
-                return range_name
-        return 'extreme'
+    def _calculate_path_length(self, segment):
+        """Calculate the length of a contour segment in degrees."""
+        # Calculate differences between consecutive points
+        point_differences = np.diff(segment, axis=0)
+        
+        # Calculate squared distances
+        squared_distances = np.sum(point_differences**2, axis=1)
+        
+        # Sum up the distances to get total path length
+        path_length = np.sum(np.sqrt(squared_distances))
+        
+        return path_length
 
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
-        """Convert SST data to fishing-oriented contour GeoJSON format."""
+        """Convert SST data to contour GeoJSON format."""
         try:
+            # Load and prepare data
             ds = self.load_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = ds[var_name]
+            temp_var = ds[SOURCES[dataset]['variables'][0]]
             
-            # Force 2D data by selecting first index of time and depth (or z) if they exist
-            if 'time' in data.dims:
-                data = data.isel(time=0)
-            if 'depth' in data.dims:
-                data = data.isel(depth=0)
-            elif 'z' in data.dims:
-                data = data.isel(z=0)
+            # Process temperature data - ensure 2D
+            temp_data = temp_var
+            for dim in ['time', 'depth', 'altitude']:
+                if dim in temp_data.dims:
+                    temp_data = temp_data.isel({dim: 0})
             
             # Convert to Fahrenheit
-            data = data * 1.8 + 32
+            temp_data = temp_data * 1.8 + 32
             
-            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
-            
-            # Get regional bounds and mask
+            # Apply regional bounds
             bounds = REGIONS[region]['bounds']
-            lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
-            lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
-            regional_data = data.where(lon_mask & lat_mask, drop=True)
+            lon_mask = (temp_data['longitude'] >= bounds[0][0]) & (temp_data['longitude'] <= bounds[1][0])
+            lat_mask = (temp_data['latitude'] >= bounds[0][1]) & (temp_data['latitude'] <= bounds[1][1])
+            regional_temp = temp_data.where(lon_mask & lat_mask, drop=True)
             
-            # Check if this dataset supports gradient magnitude
-            has_gradient = (dataset == 'LEOACSPOSSTL3SnrtCDaily' and 
-                          'sst_gradient_magnitude' in SOURCES[dataset]['variables'])
+            # Get valid temperatures
+            valid_temps = regional_temp.values[~np.isnan(regional_temp.values)]
+            if len(valid_temps) == 0:
+                return self._create_geojson([], date, None, None)
             
-            if has_gradient:
-                # Enhanced smoothing for major features
-                smoothed_data = gaussian_filter(regional_data.values, sigma=2, mode='nearest')
-                
-                # Calculate gradients with directional components
-                dy, dx = np.gradient(smoothed_data)
-                gradient_magnitude = np.sqrt(dx**2 + dy**2)
-                gradient_magnitude = gaussian_filter(gradient_magnitude, sigma=1.5)
-                
-                # Calculate break thresholds
-                strong_break = np.nanpercentile(gradient_magnitude, self.BREAK_THRESHOLDS['strong'])
-                moderate_break = np.nanpercentile(gradient_magnitude, self.BREAK_THRESHOLDS['moderate'])
-            else:
-                smoothed_data = regional_data.values
-                gradient_magnitude = None
-                strong_break = None
-                moderate_break = None
+            min_temp = float(np.min(valid_temps))
+            max_temp = float(np.max(valid_temps))
             
-            # Generate temperature levels based on actual data range
-            min_temp = np.floor(np.nanmin(smoothed_data))
-            max_temp = np.ceil(np.nanmax(smoothed_data))
-            
-            logger.debug(f"Temperature range: {min_temp}°F to {max_temp}°F")
-            base_levels = self._generate_temp_levels(min_temp, max_temp)
-            logger.debug(f"Generated contour levels: {base_levels}")
-            
-            # Generate contours
-            fig, ax = plt.subplots(figsize=(10, 10))
-            contour_set = ax.contour(
-                regional_data[lon_name],
-                regional_data[lat_name],
-                smoothed_data,
-                levels=base_levels
-            )
-            plt.close(fig)
-            
+            # Generate contours if we have sufficient data
             features = []
-            for level_idx, level_value in enumerate(contour_set.levels):
-                for segment in contour_set.allsegs[level_idx]:
-                    if len(segment) < 10:
-                        continue
+            if len(valid_temps) >= 10 and (max_temp - min_temp) >= 0.5:
+                try:
+                    levels = self._generate_levels(min_temp, max_temp)
+                    fig, ax = plt.subplots(figsize=(10, 10))
+                    contour_set = ax.contour(
+                        regional_temp['longitude'],
+                        regional_temp['latitude'],
+                        regional_temp.values,
+                        levels=levels
+                    )
+                    plt.close(fig)
                     
-                    path_length = np.sum(np.sqrt(np.sum(np.diff(segment, axis=0)**2, axis=1)))
-                    if path_length < 0.5:
-                        continue
-                    
-                    # Initialize gradient variables
-                    avg_gradient = None
-                    max_gradient = None
-                    break_strength = 'none'
-                    
-                    # Calculate gradient properties only for LEOACSPOSSTL3SnrtCDaily
-                    if has_gradient:
-                        x_indices = np.interp(segment[:, 0], regional_data[lon_name], np.arange(len(regional_data[lon_name])))
-                        y_indices = np.interp(segment[:, 1], regional_data[lat_name], np.arange(len(regional_data[lat_name])))
-                        x_indices = np.clip(x_indices.astype(int), 0, gradient_magnitude.shape[1]-1)
-                        y_indices = np.clip(y_indices.astype(int), 0, gradient_magnitude.shape[0]-1)
-                        
-                        gradient_values = gradient_magnitude[y_indices, x_indices]
-                        valid_gradients = gradient_values[~np.isnan(gradient_values)]
-                        
-                        if len(valid_gradients) > 0:
-                            avg_gradient = float(np.mean(valid_gradients))
-                            max_gradient = float(np.max(valid_gradients))
-                            break_strength = self._get_break_strength(avg_gradient, strong_break, moderate_break)
-                    
-                    coords = [[float(x), float(y)] for i, (x, y) in enumerate(segment) 
-                             if i % 2 == 0 and not (np.isnan(x) or np.isnan(y))]
-                    
-                    if len(coords) < 5:
-                        continue
-                    
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": coords
-                        },
-                        "properties": {
-                            "value": clean_value(level_value),
-                            "unit": "fahrenheit",
-                            "gradient": clean_value(avg_gradient),
-                            "max_gradient": clean_value(max_gradient),
-                            "break_strength": break_strength,
-                            "length_nm": clean_value(round(path_length * 60, 1)),
-                            "is_key_temp": level_value in [60, 65, 70, 72]
-                        }
-                    }
-                    features.append(feature)
+                    # Create features from contours
+                    for level_idx, level_value in enumerate(contour_set.levels):
+                        for segment in contour_set.allsegs[level_idx]:
+                            # Skip segments that are too short (less than 10 points)
+                            if len(segment) < 10:
+                                continue
+                                
+                            # Skip segments with small geographical extent
+                            path_length = self._calculate_path_length(segment)
+                            if path_length < 0.5:  # 0.5 degrees minimum length
+                                continue
+                            
+                            features.append({
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "LineString",
+                                    "coordinates": [[float(x), float(y)] for x, y in segment]
+                                },
+                                "properties": {
+                                    "value": clean_value(level_value),
+                                    "unit": "fahrenheit",
+                                    "is_key_temp": level_value in self.KEY_TEMPERATURES
+                                }
+                            })
+                except Exception as e:
+                    logger.warning(f"Could not generate contours: {str(e)}")
             
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
-                    "bounds": {
-                        "min_lon": clean_value(np.nanmin(regional_data[lon_name])),
-                        "max_lon": clean_value(np.nanmax(regional_data[lon_name])),
-                        "min_lat": clean_value(np.nanmin(regional_data[lat_name])),
-                        "max_lat": clean_value(np.nanmax(regional_data[lat_name]))
-                    },
-                    "gradient_thresholds": {
-                        "strong_break": clean_value(strong_break),
-                        "moderate_break": clean_value(moderate_break)
-                    },
-                    "value_range": {
-                        "min": clean_value(np.nanmin(regional_data)),
-                        "max": clean_value(np.nanmax(regional_data))
-                    }
-                }
-            }
-            
+            # Create and save GeoJSON
+            geojson = self._create_geojson(features, date, min_temp, max_temp)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            self.save_geojson(geojson, asset_paths.contours)
-            return asset_paths.contours
+            return self.save_geojson(geojson, asset_paths.contours)
             
         except Exception as e:
             logger.error(f"Error converting data to contour GeoJSON: {str(e)}")
             raise
+
+    def _create_geojson(self, features, date, min_temp, max_temp):
+        """Create a GeoJSON object with consistent structure."""
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+            "properties": {
+                "date": date.strftime('%Y-%m-%d'),
+                "value_range": {
+                    "min": clean_value(min_temp),
+                    "max": clean_value(max_temp)
+                }
+            }
+        }
