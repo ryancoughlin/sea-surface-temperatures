@@ -71,23 +71,6 @@ SOURCES = {
             "capture": "Blends day and night"
         }
     },
-    "CMEMS_Global_Temperature_Daily": {
-        "source_type": "cmems",
-        "name": "CMEMS Global Daily Mean Sea Water Temperature",
-        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
-        "dataset_id": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
-        "variables": ["thetao"],
-        "color_scale": "RdYlBu_r",
-        "type": "sst",
-        "lag_days": 1,
-        "supportedLayers": ["image", "data", "contours"],
-        "metadata": {
-            "cloud-free": "No",
-            "frequency": "Daily",
-            "resolution": "5 miles",
-            "description": "Sea surface temperature from global model data.",
-        }
-    },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
@@ -128,5 +111,22 @@ SOURCES = {
             "resolution": "5 miles",
             "description": "Global wave analysis including height, period, and direction.",
         }
-    }
+    },
+    # "CMEMS_Global_Temperature_Daily": {
+    #     "source_type": "cmems",
+    #     "name": "CMEMS Global Daily Mean Sea Water Temperature",
+    #     "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+    #     "dataset_id": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m",
+    #     "variables": ["thetao"],
+    #     "color_scale": "RdYlBu_r",
+    #     "type": "sst",
+    #     "lag_days": 1,
+    #     "supportedLayers": ["image", "data", "contours"],
+    #     "metadata": {
+    #         "cloud-free": "No",
+    #         "frequency": "Daily",
+    #         "resolution": "5 miles",
+    #         "description": "Sea surface temperature from global model data.",
+    #     }
+    # },
 }

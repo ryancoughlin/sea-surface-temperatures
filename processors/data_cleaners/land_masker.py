@@ -2,30 +2,42 @@ import xarray as xr
 import numpy as np
 from pathlib import Path
 import cartopy.feature as cfeature
-from shapely.geometry import Point, MultiPolygon
+from shapely.geometry import Point, MultiPolygon, box
+from shapely.prepared import prep
 from cartopy.feature import NaturalEarthFeature
 import logging
 from typing import Optional, Dict
+from rtree import index
 
 logger = logging.getLogger(__name__)
 
 class LandMasker:
-    """Handles masking data points that fall over land."""
+    """Handles masking data points that fall over land using efficient spatial indexing."""
     
     def __init__(self):
         self._land_geoms = None
+        self._prepared_land = None
+        self._spatial_index = None
         self._cached_mask = {}  # Cache masks by grid shape and bounds
     
-    @property
-    def land_geoms(self) -> MultiPolygon:
-        """Lazy load land geometries."""
-        if self._land_geoms is None:
-            land = NaturalEarthFeature('physical', 'land', '10m')
-            self._land_geoms = list(land.geometries())
-        return self._land_geoms
+    def _init_spatial_index(self):
+        """Initialize spatial index for land geometries."""
+        if self._spatial_index is None:
+            # Get land geometries if not already loaded
+            if self._land_geoms is None:
+                land = NaturalEarthFeature('physical', 'land', '10m')
+                self._land_geoms = list(land.geometries())
+            
+            # Create spatial index
+            idx = index.Index()
+            for i, geom in enumerate(self._land_geoms):
+                idx.insert(i, geom.bounds)
+            
+            self._spatial_index = idx
+            self._prepared_land = [prep(geom) for geom in self._land_geoms]
 
     def _create_land_mask(self, lons: np.ndarray, lats: np.ndarray) -> np.ndarray:
-        """Create a land mask for the given coordinate grid."""
+        """Create a land mask for the given coordinate grid using spatial indexing."""
         # Create cache key from grid shape and bounds
         cache_key = (
             lons.shape, lats.shape,
@@ -37,15 +49,46 @@ class LandMasker:
         if cache_key in self._cached_mask:
             return self._cached_mask[cache_key]
             
-        # Create new mask
+        # Initialize spatial index if needed
+        self._init_spatial_index()
+        
+        # Create mask array
         mask = np.zeros((len(lats), len(lons)), dtype=bool)
         
-        # Vectorized point creation and checking
-        for i in range(len(lats)):
-            for j in range(len(lons)):
-                point = Point(lons[j], lats[i])
-                if any(geom.contains(point) for geom in self.land_geoms):
-                    mask[i, j] = True
+        # Create a grid of points
+        lon_grid, lat_grid = np.meshgrid(lons, lats)
+        
+        # Process in chunks for memory efficiency
+        chunk_size = 1000
+        for i in range(0, len(lats), chunk_size):
+            for j in range(0, len(lons), chunk_size):
+                # Get chunk bounds
+                i_end = min(i + chunk_size, len(lats))
+                j_end = min(j + chunk_size, len(lons))
+                
+                # Create bounding box for chunk
+                chunk_box = box(
+                    lons[j], lats[i],
+                    lons[min(j_end, len(lons)-1)], 
+                    lats[min(i_end, len(lats)-1)]
+                )
+                
+                # Find potential intersecting land geometries
+                potential_geoms = list(self._spatial_index.intersection(chunk_box.bounds))
+                
+                if not potential_geoms:
+                    continue
+                
+                # Check points in chunk
+                for ii in range(i, i_end):
+                    for jj in range(j, j_end):
+                        point = Point(lon_grid[ii, jj], lat_grid[ii, jj])
+                        
+                        # Check only against potentially intersecting geometries
+                        for idx in potential_geoms:
+                            if self._prepared_land[idx].contains(point):
+                                mask[ii, jj] = True
+                                break
         
         # Cache the mask
         self._cached_mask[cache_key] = mask
@@ -62,15 +105,17 @@ class LandMasker:
             lons = data[lon_name].values
             lats = data[lat_name].values
             
+            logger.info(f"Creating land mask for grid of shape {data.shape}")
+            
             # Create or get cached land mask
             mask = self._create_land_mask(lons, lats)
             
             # Apply land mask
             masked_data = data.where(~mask, drop=False)
             
-            logger.info(f"Applied land mask to data array of shape {data.shape}")
+            logger.info(f"Applied land mask to data array")
             return masked_data
             
         except Exception as e:
             logger.error(f"Error applying land mask: {str(e)}")
-            raise 
+            raise

@@ -150,6 +150,9 @@ class ProcessingManager:
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
+            # Create interpolated path
+            interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
+            
             # Only apply land masking to chlorophyll data
             if dataset_type == 'chlorophyll':
                 logger.info(f"Masking land for chlorophyll dataset {dataset}")
@@ -208,18 +211,14 @@ class ProcessingManager:
                     'dataset': dataset
                 }
 
-            except Exception as e:
-                self.logger.error(f"Error during processing: {str(e)}")
-                raise
-
             finally:
                 # Clean up interpolated file if it exists
                 if interpolated_path.exists():
                     interpolated_path.unlink()
 
         except Exception as e:
-            self.logger.error(f"Error processing {dataset} for {region_id}")
-            self.logger.error(f"Error: {str(e)}")
+            logger.error(f"Error processing {dataset} for {region_id}")
+            logger.error(f"Error: {str(e)}")
             raise
 
     def _handle_error(self, e: Exception, dataset: str, region_id: str) -> Dict:
