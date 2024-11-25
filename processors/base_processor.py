@@ -120,26 +120,7 @@ class BaseImageProcessor(ABC):
             
         return lon_name, lat_name
 
-    def setup_map(self, ax, bounds):
-        """Setup basic map features with land mask overlay."""
-        # Set map extent
-        ax.set_extent([bounds[0][0], bounds[1][0], bounds[0][1], bounds[1][1]], crs=ccrs.PlateCarree())
-        
-        # Add gridlines if needed (below data)
-        ax.gridlines(draw_labels=True, alpha=0.3, zorder=1)
-        
-        # Add land mask last (on top of data)
-        land = cfeature.NaturalEarthFeature(
-            'physical', 'land', '10m',
-            edgecolor='black',
-            facecolor='white',
-            alpha=0.5  # Increased opacity for better masking
-        )
-        ax.add_feature(land, zorder=3)  # Higher zorder to ensure it's on top
-        
-        # Add coastlines for better definition
-        ax.coastlines(resolution='10m', linewidth=0.5, zorder=4)  # Highest zorder
-
+    
     def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
         """
         Expands data near coastlines to prevent gaps while preserving original values.

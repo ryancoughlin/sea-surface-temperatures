@@ -14,79 +14,79 @@ logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
-        """Generate currents visualization with smooth transitions."""
+        """Generate currents visualization while emphasizing moving water and eddies."""
         try:
-            # Load and process data
+            # Load data
             ds = xr.open_dataset(data_path)
             
-            # Get velocity components
-            u_data = ds[SOURCES[dataset]['variables'][0]].squeeze()
-            v_data = ds[SOURCES[dataset]['variables'][1]].squeeze()
-            
-            # Calculate magnitude
+            # Get velocity components from SOURCES config
+            u_var, v_var = SOURCES[dataset]['variables']
+            u_data = ds[u_var].isel(time=0, depth=0)  # Eastward velocity
+            v_data = ds[v_var].isel(time=0, depth=0)  # Northward velocity
+
+            # Compute magnitude of currents
             magnitude = np.sqrt(u_data**2 + v_data**2)
+
+            # Get actual min/max values from valid data for colormap
+            valid_data = magnitude.values[~np.isnan(magnitude.values)]
+            vmin = float(valid_data.min())
+            vmax = float(valid_data.max())
             
-            # Get coordinates and bounds
-            lon_name = 'longitude' if 'longitude' in magnitude.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in magnitude.coords else 'lat'
-            bounds = REGIONS[region]['bounds']
+            logger.info(f"Current speed range - min: {vmin:.2f} m/s, max: {vmax:.2f} m/s")
+
+            # Calculate threshold for eddy detection (10th percentile)
+            magnitude_threshold = float(np.percentile(valid_data, 5))
+            logger.info(f"Eddy detection threshold: {magnitude_threshold:.2f} m/s")
+
+            # Compute spatial gradient of magnitude to detect eddies and changes
+            grad_x, grad_y = np.gradient(magnitude.values)
+            gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
             
-            # Create figure and axes
+            # Define areas of interest: moving water or strong gradients
+            interest_mask = (magnitude.values > magnitude_threshold) | (gradient_magnitude > magnitude_threshold / 2)
+
+            # Create figure and axes using base processor method
             fig, ax = self.create_axes(region)
-        
-            # Create custom colormap
-            colors = [
-                '#ffffff', '#cce6ff', '#66b3ff', '#0080ff',
-                '#0059b3', '#003366', '#001a33', '#000d1a'
-            ]
-            n_bins = 256
-            custom_cmap = plt.matplotlib.colors.LinearSegmentedColormap.from_list('custom_currents', colors, N=n_bins)
-            
-            # Plot magnitude with pcolormesh using custom colormap
+
+            # Plot background current magnitude as colormesh
+            colors = ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033']
+            current_cmap = plt.matplotlib.colors.LinearSegmentedColormap.from_list('ocean_currents', colors, N=256)
+
             mesh = ax.pcolormesh(
-                magnitude[lon_name],
-                magnitude[lat_name],
-                magnitude.values,
+                ds['longitude'],
+                ds['latitude'],
+                magnitude,
                 transform=ccrs.PlateCarree(),
-                cmap=custom_cmap,
+                cmap=current_cmap,
                 shading='gouraud',
-                vmin=0,
-                vmax=4.0,
+                vmin=vmin,
+                vmax=vmax,
                 zorder=1
             )
 
-            # Calculate normalized vectors for quiver plot
-            stride = 3  # Adjust based on data density
-            u_norm = u_data[::stride, ::stride] / magnitude[::stride, ::stride]
-            v_norm = v_data[::stride, ::stride] / magnitude[::stride, ::stride]
-            
-            # Replace NaNs with zeros
-            u_norm = np.nan_to_num(u_norm, nan=0.0)
-            v_norm = np.nan_to_num(v_norm, nan=0.0)
-
-            # Plot arrows
+            # Plot arrows for significant areas
             ax.quiver(
-                magnitude[lon_name][::stride],
-                magnitude[lat_name][::stride],
-                u_norm, v_norm,
+                ds['longitude'],
+                ds['latitude'],
+                u_data.where(interest_mask),
+                v_data.where(interest_mask),
                 transform=ccrs.PlateCarree(),
-                alpha=0.4,
-                color='black',
-                scale=70,
+                color='white',
+                scale=20,
                 scale_units='width',
-                units='width',
                 width=0.001,
-                headwidth=4,
+                headwidth=3.4,
+                headaxislength=4,
                 headlength=3,
-                headaxislength=3,
-                minshaft=0.3,
+                alpha=0.5,
                 pivot='middle',
                 zorder=2
             )
 
-            # Land mask is handled in save_image() in base processor
             return self.save_image(fig, region, dataset, date), None
-            
+
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")
+            logger.error(f"Data dimensions: {ds.dims}")
+            logger.error(f"Variables: {list(ds.variables)}")
             raise
