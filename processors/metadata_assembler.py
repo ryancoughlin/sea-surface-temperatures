@@ -22,53 +22,172 @@ class MetadataAssembler:
     def get_dataset_ranges(self, data_path: Path, dataset: str) -> Dict[str, Dict[str, Any]]:
         """Extract standardized ranges for any dataset type."""
         try:
+            if not data_path.exists():
+                logger.error(f"Data file not found: {data_path}")
+                return {}  # Return empty dict instead of null
+            
             with xr.open_dataset(data_path) as ds:
                 if SOURCES[dataset]['type'] == 'currents':
-                    return self._get_current_ranges(ds, dataset)
+                    ranges = self._get_current_ranges(ds, dataset)
                 elif SOURCES[dataset]['type'] == 'sst':
-                    return self._get_sst_ranges(ds, dataset)
+                    ranges = self._get_sst_ranges(ds, dataset)
+                elif SOURCES[dataset]['type'] == 'waves':
+                    ranges = self._get_waves_ranges(ds, dataset)
+                elif SOURCES[dataset]['type'] == 'chlorophyll':
+                    ranges = self._get_chlorophyll_ranges(ds, dataset)
                 else:
-                    return self._get_default_ranges(ds, dataset)
+                    ranges = self._get_default_ranges(ds, dataset)
+                
+                # Validate ranges before returning
+                if not ranges or not any(ranges.values()):
+                    logger.warning(f"No valid ranges calculated for {dataset}")
+                    return {}  # Return empty dict instead of null
+                
+                return ranges
+            
         except Exception as e:
             logger.error(f"Error getting dataset ranges: {str(e)}")
-            raise
+            logger.exception(e)
+            return {}  # Return empty dict instead of null
 
     def _get_current_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
         """Get standardized ranges for current data."""
-        u_data = ds[SOURCES[dataset]['variables'][0]]
-        v_data = ds[SOURCES[dataset]['variables'][1]]
-        
-        # Handle dimensions
-        for dim in ['time', 'depth', 'altitude']:
-            if dim in u_data.dims:
-                u_data = u_data.isel({dim: 0})
-                v_data = v_data.isel({dim: 0})
-        
-        speed = np.sqrt(u_data**2 + v_data**2)
-        direction = np.degrees(np.arctan2(v_data, u_data)) % 360
-        
-        return {
-            "speed": {
-                "min": round(float(speed.min()), 2),
-                "max": round(float(speed.max()), 2),
-                "unit": "m/s"
-            },
-            "direction": {
-                "min": round(float(direction.min()), 1),
-                "max": round(float(direction.max()), 1),
-                "unit": "degrees"
+        try:
+            # Get u and v components
+            u_data = ds[SOURCES[dataset]['variables'][0]]
+            v_data = ds[SOURCES[dataset]['variables'][1]]
+            
+            # Handle dimensions
+            for dim in ['time', 'depth', 'altitude']:
+                if dim in u_data.dims:
+                    u_data = u_data.isel({dim: 0})
+                    v_data = v_data.isel({dim: 0})
+            
+            # Calculate speed and direction from u/v components
+            speed = np.sqrt(u_data**2 + v_data**2)
+            direction = np.degrees(np.arctan2(v_data, u_data)) % 360
+            
+            # Get valid values only
+            valid_speeds = speed.values[~np.isnan(speed.values)]
+            valid_directions = direction.values[~np.isnan(direction.values)]
+            
+            if len(valid_speeds) == 0 or len(valid_directions) == 0:
+                logger.warning("No valid current data found")
+                return {}
+            
+            # Return only speed and direction ranges (not u/v)
+            return {
+                "speed": {
+                    "min": round(float(np.min(valid_speeds)), 2),
+                    "max": round(float(np.max(valid_speeds)), 2),
+                    "unit": "m/s"
+                },
+                "direction": {
+                    "min": round(float(np.min(valid_directions)), 1),
+                    "max": round(float(np.max(valid_directions)), 1),
+                    "unit": "degrees"
+                }
             }
-        }
+        except Exception as e:
+            logger.error(f"Error calculating current ranges: {str(e)}")
+            logger.exception(e)
+            return {}
 
     def _get_sst_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
         """Get standardized ranges for SST data."""
-        # Implementation for SST data
-        pass
+        try:
+            data = ds[SOURCES[dataset]['variables'][0]]
+            
+            # Handle dimensions
+            for dim in ['time', 'depth']:
+                if dim in data.dims:
+                    data = data.isel({dim: 0})
+            
+            # Convert to Fahrenheit
+            data = data * 1.8 + 32
+            
+            return {
+                "temperature": {
+                    "min": round(float(data.min()), 2),
+                    "max": round(float(data.max()), 2),
+                    "unit": "fahrenheit"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error calculating SST ranges: {str(e)}")
+            return {}
+
+    def _get_waves_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+        """Get standardized ranges for waves data."""
+        try:
+            height = ds['VHM0'].isel(time=0)
+            direction = ds['VMDR'].isel(time=0)
+            mean_period = ds['VTM10'].isel(time=0)
+            peak_period = ds['VTPK'].isel(time=0)
+            
+            return {
+                "height": {
+                    "min": round(float(height.min()), 2),
+                    "max": round(float(height.max()), 2),
+                    "unit": "m"
+                },
+                "mean_period": {
+                    "min": round(float(mean_period.min()), 1),
+                    "max": round(float(mean_period.max()), 1),
+                    "unit": "seconds"
+                },
+                "direction": {
+                    "min": round(float(direction.min()), 1),
+                    "max": round(float(direction.max()), 1),
+                    "unit": "degrees"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error calculating wave ranges: {str(e)}")
+            return {}
+
+    def _get_chlorophyll_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+        """Get standardized ranges for chlorophyll data."""
+        try:
+            data = ds[SOURCES[dataset]['variables'][0]]
+            
+            # Handle dimensions
+            for dim in ['time', 'altitude']:
+                if dim in data.dims:
+                    data = data.isel({dim: 0})
+            
+            return {
+                "concentration": {
+                    "min": round(float(data.min()), 3),
+                    "max": round(float(data.max()), 3),
+                    "unit": "mg/m³"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error calculating chlorophyll ranges: {str(e)}")
+            return {}
 
     def _get_default_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
         """Get standardized ranges for other datasets."""
-        # Implementation for other datasets
-        pass
+        try:
+            ranges = {}
+            for var in SOURCES[dataset]['variables']:
+                data = ds[var]
+                
+                # Handle dimensions
+                for dim in ['time', 'depth', 'altitude']:
+                    if dim in data.dims:
+                        data = data.isel({dim: 0})
+                
+                ranges[var] = {
+                    "min": round(float(data.min()), 2),
+                    "max": round(float(data.max()), 2),
+                    "unit": getattr(data, 'units', 'unknown')
+                }
+            return ranges
+        except Exception as e:
+            logger.error(f"Error calculating default ranges: {str(e)}")
+            return {}
 
     def assemble_metadata(self, date: datetime, dataset: str, region: str, asset_paths) -> Dict[str, Any]:
         """Update global metadata.json with new dataset information."""
@@ -92,8 +211,6 @@ class MetadataAssembler:
     def update_global_metadata(self, region: str, dataset: str, date: datetime, 
                              asset_paths, ranges: Dict[str, Dict[str, Any]]) -> None:
         """Update global metadata file with new dataset information."""
-        global_metadata_path = self.path_manager.output_dir / "metadata.json"
-        
         try:
             # Get layers
             layers = {}
@@ -104,17 +221,27 @@ class MetadataAssembler:
                         path.relative_to(self.path_manager.base_dir)
                     )
 
-            # Log the current state
-            logger.info(f"Updating metadata for {dataset} in region {region} for date {date}")
+            # Validate ranges
+            if not ranges:
+                logger.warning(f"No ranges provided for {dataset} in {region}")
+                ranges = {}  # Use empty dict instead of null
             
-            if global_metadata_path.exists():
-                with open(global_metadata_path) as f:
+            # Create date entry
+            date_entry = {
+                "date": date.strftime('%Y%m%d'),
+                "layers": layers,
+                "ranges": ranges or {}  # Use empty dict instead of null
+            }
+
+            # Update metadata file
+            metadata_path = self.path_manager.output_dir / "metadata.json"
+            if metadata_path.exists():
+                with open(metadata_path) as f:
                     metadata = json.load(f)
-                    logger.info(f"Loaded existing metadata with {len(metadata.get('regions', []))} regions")
             else:
                 metadata = {"regions": [], "lastUpdated": datetime.now().isoformat()}
-                logger.info("Creating new metadata file")
 
+            # Find or create region entry
             region_entry = next((r for r in metadata["regions"] if r["id"] == region), None)
             if not region_entry:
                 region_entry = {
@@ -125,6 +252,7 @@ class MetadataAssembler:
                 }
                 metadata["regions"].append(region_entry)
 
+            # Find or create dataset entry
             dataset_entry = next((d for d in region_entry["datasets"] if d["id"] == dataset), None)
             if not dataset_entry:
                 dataset_entry = {
@@ -137,24 +265,18 @@ class MetadataAssembler:
                 }
                 region_entry["datasets"].append(dataset_entry)
 
-            # Update dates with logging
-            date_str = date.strftime('%Y%m%d')
-            existing_dates = len(dataset_entry["dates"])
-            dataset_entry["dates"] = [d for d in dataset_entry["dates"] if d["date"] != date_str]
-            dataset_entry["dates"].append({
-                "date": date_str,
-                "layers": layers,
-                "ranges": ranges
-            })
+            # Update dates
+            dataset_entry["dates"] = [d for d in dataset_entry["dates"] if d["date"] != date_entry["date"]]
+            dataset_entry["dates"].append(date_entry)
             dataset_entry["dates"].sort(key=lambda x: x["date"], reverse=True)
-            
+
             metadata["lastUpdated"] = datetime.now().isoformat()
-            
-            # Save updated metadata with verification
-            with open(global_metadata_path, 'w') as f:
+
+            # Save metadata
+            with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
-            
-            logger.info(f"Successfully updated metadata: {date_str} (Previous entries: {existing_dates})")
+
+            logger.info(f"Updated metadata for {dataset} in {region}")
 
         except Exception as e:
             logger.error(f"Error updating global metadata: {str(e)}")
