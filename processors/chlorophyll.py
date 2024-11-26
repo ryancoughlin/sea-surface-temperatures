@@ -56,6 +56,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
             
             # Log regional data stats
             valid_regional = regional_data.values[~np.isnan(regional_data.values)]
+            logger.info(f"Valid regional data range: {valid_regional.min()} to {valid_regional.max()}")
             
             # 5. Expand coastal data for smoother visualization
             expanded_data = self.expand_coastal_data(regional_data, buffer_size=4)

@@ -189,9 +189,11 @@ class MetadataAssembler:
             logger.error(f"Error calculating default ranges: {str(e)}")
             return {}
 
-    def assemble_metadata(self, date: datetime, dataset: str, region: str, asset_paths) -> Dict[str, Any]:
+    def assemble_metadata(self, date: datetime, dataset: str, region: str, 
+                         asset_paths, data_path: Path = None) -> Dict[str, Any]:
         """Update global metadata.json with new dataset information."""
-        data_path = self.path_manager.get_data_path(date, dataset, region)
+        # Use provided data_path if available, otherwise fall back to default
+        data_path = data_path or self.path_manager.get_data_path(date, dataset, region)
         ranges = self.get_dataset_ranges(data_path, dataset)
         
         # Collect available layers

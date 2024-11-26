@@ -12,6 +12,7 @@ from services.cmems_service import CMEMSService
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
+from processors.data_preprocessor import DataPreprocessor
 from config.settings import SOURCES
 from utils.path_manager import PathManager
 from processors.data_cleaners.land_masker import LandMasker
@@ -36,9 +37,10 @@ class ProcessingManager:
         self.erddap_service = None
         self.cmems_service = None
         
-        # Initialize factories once
+        # Initialize factories and processors
         self.processor_factory = ProcessorFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
+        self.data_preprocessor = DataPreprocessor()
         self.logger = logging.getLogger(__name__)
         
         self.land_masker = LandMasker()
@@ -142,64 +144,56 @@ class ProcessingManager:
             # Get asset paths first
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
             
-            # Get dataset type early
-            dataset_type = SOURCES[dataset]['type']
-            
             # Load data
             ds = xr.open_dataset(netcdf_path)
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            # Create interpolated path
-            interpolated_path = netcdf_path.parent / f"{netcdf_path.stem}_interpolated.nc"
+            # Preprocess data
+            preprocessed_data = self.data_preprocessor.preprocess_dataset(data, dataset)
             
-            # Only apply land masking to chlorophyll data
-            if dataset_type == 'chlorophyll':
-                logger.info(f"Masking land for chlorophyll: {dataset}")
-                data = self.land_masker.mask_land(data)
-                
-                # Save masked data to new netCDF file
-                masked_path = netcdf_path.parent / f"{netcdf_path.stem}_masked.nc"
-                data.to_netcdf(masked_path)
-                netcdf_path = masked_path
+            # Save preprocessed data
+            preprocessed_path = netcdf_path.parent / f"{netcdf_path.stem}_preprocessed.nc"
+            self.data_preprocessor.save_preprocessed(preprocessed_data, preprocessed_path)
             
             try:
-                # Generate base GeoJSON
+                # Generate base GeoJSON using preprocessed data
                 geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
                 data_path = geojson_converter.convert(
-                    data_path=netcdf_path,
+                    data_path=preprocessed_path,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
 
-                # Generate contours if supported
-                if dataset_type in ['sst', 'chlorophyll']:
-                    self.logger.info(f"Generating {dataset_type} contours for {dataset}")
+                # Generate contours if supported using preprocessed data
+                if SOURCES[dataset]['type'] in ['sst', 'chlorophyll']:
+                    self.logger.info(f"Generating contours for {dataset}")
                     contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
                     contour_path = contour_converter.convert(
-                        data_path=netcdf_path,
+                        data_path=preprocessed_path,
                         region=region_id,
                         dataset=dataset,
                         date=date
                     )
 
-                # Generate image
-                processor = self.processor_factory.create(dataset_type)
+                # Generate image using preprocessed data
+                processor = self.processor_factory.create(SOURCES[dataset]['type'])
                 self.logger.info(f"Processing {dataset} data for {region_id}")
                 image_path = processor.generate_image(
-                    data_path=netcdf_path,
+                    data_path=preprocessed_path,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
 
-                # Update metadata after all assets are generated
+                # Update metadata using preprocessed data
                 self.metadata_assembler.assemble_metadata(
                     date=date,
                     dataset=dataset,
                     region=region_id,
-                    asset_paths=asset_paths
+                    asset_paths=asset_paths,
+                    data_path=preprocessed_path  # Pass preprocessed data path
                 )
 
                 self.logger.info("✅ Processing completed")
@@ -212,9 +206,9 @@ class ProcessingManager:
                 }
 
             finally:
-                # Clean up interpolated file if it exists
-                if interpolated_path.exists():
-                    interpolated_path.unlink()
+                # Clean up preprocessed file
+                if preprocessed_path.exists():
+                    preprocessed_path.unlink()
 
         except Exception as e:
             logger.error(f"Error processing {dataset} for {region_id}")
