@@ -103,16 +103,13 @@ class LandMasker:
             # Get coordinate arrays
             lons = data[lon_name].values
             lats = data[lat_name].values
-            
-            logger.info(f"Creating land mask for grid of shape {data.shape}")
-            
+
             # Create or get cached land mask
             mask = self._create_land_mask(lons, lats)
             
             # Apply land mask
             masked_data = data.where(~mask, drop=False)
-            
-            logger.info(f"Applied land mask to data array")
+
             return masked_data
             
         except Exception as e:

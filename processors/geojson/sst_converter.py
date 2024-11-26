@@ -15,26 +15,6 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
         lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
         return data.where(lon_mask & lat_mask, drop=True)
 
-    def _create_features(self, data, lats, lons):
-        """Create GeoJSON features from gridded data."""
-        # Use numpy operations instead of nested loops
-        valid_mask = ~np.isnan(data)
-        y_indices, x_indices = np.where(valid_mask)
-        
-        features = []
-        for y, x in zip(y_indices, x_indices):
-            features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [float(lons[x]), float(lats[y])]
-                },
-                "properties": {
-                    "value": round(float(data[y, x]), 2),
-                }
-            })
-        return features
-
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
@@ -56,21 +36,47 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
             data = data * 1.8 + 32
             
             # Create features
-            features = self._create_features(
-                data.values,
-                data[lat_name].values,
-                data[lon_name].values
-            )
+            features = []
+            for i in range(len(data[lat_name])):
+                for j in range(len(data[lon_name])):
+                    value = float(data.values[i, j])
+                    if not np.isnan(value):
+                        feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [
+                                    float(data[lon_name][j]),
+                                    float(data[lat_name][i])
+                                ]
+                            },
+                            "properties": {
+                                "temperature": round(value, 2),
+                                "unit": "fahrenheit"
+                            }
+                        }
+                        features.append(feature)
             
-            # Save and return
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
-                    "source": dataset
+            ranges = {
+                "temperature": {
+                    "min": float(data.min()),
+                    "max": float(data.max()),
+                    "unit": "fahrenheit"
                 }
             }
+            
+            metadata = {
+                "source": dataset,
+                "conversion": "celsius_to_fahrenheit"
+            }
+            
+            geojson = self.create_standardized_geojson(
+                features=features,
+                date=date,
+                dataset=dataset,
+                ranges=ranges,
+                metadata=metadata
+            )
             
             return self.save_geojson(
                 geojson,

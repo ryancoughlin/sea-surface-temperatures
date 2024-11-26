@@ -155,7 +155,7 @@ class ProcessingManager:
             
             # Only apply land masking to chlorophyll data
             if dataset_type == 'chlorophyll':
-                logger.info(f"Masking land for chlorophyll dataset {dataset}")
+                logger.info(f"Masking land for chlorophyll: {dataset}")
                 data = self.land_masker.mask_land(data)
                 
                 # Save masked data to new netCDF file

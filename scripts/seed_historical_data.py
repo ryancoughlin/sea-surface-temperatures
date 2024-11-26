@@ -70,7 +70,7 @@ class HistoricalDataProcessor:
             'total': len(results)
         }
 
-async def process_historical_data(days: int = 5):
+async def process_historical_data(days: int = 2):
     """Process historical data for specified number of days"""
     cleanup_metadata()
     

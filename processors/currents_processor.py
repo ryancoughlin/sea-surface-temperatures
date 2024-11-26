@@ -31,12 +31,9 @@ class CurrentsProcessor(BaseImageProcessor):
             valid_data = magnitude.values[~np.isnan(magnitude.values)]
             vmin = float(valid_data.min())
             vmax = float(valid_data.max())
-            
-            logger.info(f"Current speed range - min: {vmin:.2f} m/s, max: {vmax:.2f} m/s")
 
             # Calculate threshold for eddy detection (10th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
-            logger.info(f"Eddy detection threshold: {magnitude_threshold:.2f} m/s")
 
             # Compute spatial gradient of magnitude to detect eddies and changes
             grad_x, grad_y = np.gradient(magnitude.values)

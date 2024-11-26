@@ -6,6 +6,7 @@ import numpy as np
 import json
 from utils.path_manager import PathManager
 from datetime import datetime
+from config.settings import SOURCES
 
 logger = logging.getLogger(__name__)
 
@@ -99,4 +100,45 @@ class BaseGeoJSONConverter(ABC):
         with open(output_path, 'w') as f:
             json.dump(geojson_data, f, separators=(',', ':'))  # Minimize whitespace
         
-        self.logger.info(f"💾 Generated optimized GeoJSON")
+        self.logger.info(f"💾 Generated GeoJSON")
+
+    def create_standardized_geojson(self, features: list, date: datetime, dataset: str, 
+                              ranges: dict, metadata: dict = None) -> dict:
+        """Create standardized GeoJSON structure.
+        
+        Args:
+            features: List of GeoJSON features
+            date: Date of the data
+            dataset: Dataset identifier
+            ranges: Dictionary of value ranges with units
+            metadata: Optional dataset-specific metadata
+        """
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+            "properties": {
+                "date": date.strftime('%Y-%m-%d'),
+                "dataset": dataset,
+                "dataset_type": SOURCES[dataset]['type'],
+                "ranges": self._standardize_ranges(ranges),
+                "metadata": metadata or {}
+            }
+        }
+
+    def _standardize_ranges(self, ranges: dict) -> dict:
+        """Standardize range format.
+        
+        Each range should have:
+        - min: minimum value
+        - max: maximum value
+        - unit: unit of measurement
+        """
+        standardized = {}
+        for key, value in ranges.items():
+            if isinstance(value, dict) and all(k in value for k in ['min', 'max']):
+                standardized[key] = {
+                    'min': round(float(value['min']), 2),
+                    'max': round(float(value['max']), 2),
+                    'unit': value.get('unit', 'unknown')
+                }
+        return standardized

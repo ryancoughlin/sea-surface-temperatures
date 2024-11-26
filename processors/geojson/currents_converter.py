@@ -72,11 +72,12 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                                 ]
                             },
                             "properties": {
-                                "u": round(u_val * vector_scale, 2),
-                                "v": round(v_val * vector_scale, 2),
-                                "spd": round(spd, 2),
-                                "dir": round(direction_val, 1),
-                                "n": round(spd / 2.0, 2)
+                                "speed": round(spd, 2),
+                                "direction": round(direction_val, 1),
+                                "units": {
+                                    "speed": "m/s",
+                                    "direction": "degrees"
+                                }
                             }
                         }
                         features.append(feature)
@@ -84,26 +85,32 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                         logger.warning(f"Error processing current point ({i},{j}): {e}")
                         continue
             
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
-                    "vector_scale": vector_scale,
-                    "decimation_factor": decimation,
-                    "min_magnitude": min_magnitude,
-                    "bounds": {
-                        "min_lon": float(u[lon_name].min()),
-                        "max_lon": float(u[lon_name].max()),
-                        "min_lat": float(u[lat_name].min()),
-                        "max_lat": float(u[lat_name].max())
-                    },
-                    "speed_range": {
-                        "min": float(speed.min()),
-                        "max": float(speed.max())
-                    }
+            ranges = {
+                "speed": {
+                    "min": float(speed.min()),
+                    "max": float(speed.max()),
+                    "unit": "m/s"
+                },
+                "direction": {
+                    "min": float(direction.min()) % 360,
+                    "max": float(direction.max()) % 360,
+                    "unit": "degrees"
                 }
             }
+            
+            metadata = {
+                "min_magnitude": min_magnitude,
+                "vector_scale": vector_scale,
+                "decimation": decimation
+            }
+            
+            geojson = self.create_standardized_geojson(
+                features=features,
+                date=date,
+                dataset=dataset,
+                ranges=ranges,
+                metadata=metadata
+            )
             
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             self.save_geojson(geojson, asset_paths.data)

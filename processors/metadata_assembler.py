@@ -20,46 +20,55 @@ class MetadataAssembler:
         return f"{SERVER_URL}/{str(relative_path).replace('output/', '')}"
 
     def get_dataset_ranges(self, data_path: Path, dataset: str) -> Dict[str, Dict[str, Any]]:
-        """Extract min/max values with units from dataset."""
+        """Extract standardized ranges for any dataset type."""
         try:
             with xr.open_dataset(data_path) as ds:
-                ranges = {}
-                for var in SOURCES[dataset]['variables']:
-                    data = ds[var]
-                    
-                    # Select first index for time/depth dimensions
-                    for dim in ['time', 'depth', 'altitude']:
-                        if dim in data.dims:
-                            data = data.isel({dim: 0})
-
-                    # Only convert temperature values, not gradient or other variables
-                    if SOURCES[dataset]['type'] == 'sst' and var == 'sea_surface_temperature':
-                        data = data * 1.8 + 32
-                        unit = 'fahrenheit'
-                    else:
-                        unit = getattr(data, 'units', 'unknown')
-
-                    # Get valid (non-NaN) values for min/max calculation
-                    valid_data = data.values[~np.isnan(data.values)]
-                    if len(valid_data) > 0:
-                        ranges[var] = {
-                            'min': round(float(np.min(valid_data)), 3),
-                            'max': round(float(np.max(valid_data)), 3),
-                            'unit': unit
-                        }
-                    else:
-                        ranges[var] = {
-                            'min': None,
-                            'max': None,
-                            'unit': unit
-                        }
-                
-                return ranges
-
+                if SOURCES[dataset]['type'] == 'currents':
+                    return self._get_current_ranges(ds, dataset)
+                elif SOURCES[dataset]['type'] == 'sst':
+                    return self._get_sst_ranges(ds, dataset)
+                else:
+                    return self._get_default_ranges(ds, dataset)
         except Exception as e:
             logger.error(f"Error getting dataset ranges: {str(e)}")
-            logger.exception(e)
-            return {}
+            raise
+
+    def _get_current_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+        """Get standardized ranges for current data."""
+        u_data = ds[SOURCES[dataset]['variables'][0]]
+        v_data = ds[SOURCES[dataset]['variables'][1]]
+        
+        # Handle dimensions
+        for dim in ['time', 'depth', 'altitude']:
+            if dim in u_data.dims:
+                u_data = u_data.isel({dim: 0})
+                v_data = v_data.isel({dim: 0})
+        
+        speed = np.sqrt(u_data**2 + v_data**2)
+        direction = np.degrees(np.arctan2(v_data, u_data)) % 360
+        
+        return {
+            "speed": {
+                "min": round(float(speed.min()), 2),
+                "max": round(float(speed.max()), 2),
+                "unit": "m/s"
+            },
+            "direction": {
+                "min": round(float(direction.min()), 1),
+                "max": round(float(direction.max()), 1),
+                "unit": "degrees"
+            }
+        }
+
+    def _get_sst_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+        """Get standardized ranges for SST data."""
+        # Implementation for SST data
+        pass
+
+    def _get_default_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+        """Get standardized ranges for other datasets."""
+        # Implementation for other datasets
+        pass
 
     def assemble_metadata(self, date: datetime, dataset: str, region: str, asset_paths) -> Dict[str, Any]:
         """Update global metadata.json with new dataset information."""

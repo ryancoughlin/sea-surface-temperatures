@@ -15,15 +15,12 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
-            # Load and prepare data
             ds = self.load_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
             data = self.normalize_dataset(ds, var_name)
             
-            # Get coordinates
+            # Get coordinates and mask to region
             lon_name, lat_name = self.get_coordinate_names(data)
-            
-            # Mask to region
             bounds = REGIONS[region]['bounds']
             regional_data = data.where(
                 (data[lon_name] >= bounds[0][0]) & 
@@ -33,7 +30,6 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                 drop=True
             )
             
-            # Create features for each point
             features = []
             for i in range(len(regional_data[lat_name])):
                 for j in range(len(regional_data[lon_name])):
@@ -49,28 +45,39 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                                 ]
                             },
                             "properties": {
-                                "value": value,
+                                "concentration": value,
                                 "unit": "mg/m³"
                             }
                         }
                         features.append(feature)
             
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
-                    "data_range": {
-                        "min": float(regional_data.min()),
-                        "max": float(regional_data.max())
-                    }
+            ranges = {
+                "concentration": {
+                    "min": float(regional_data.min()),
+                    "max": float(regional_data.max()),
+                    "unit": "mg/m³"
                 }
             }
             
-            # Save and return
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            self.save_geojson(geojson, asset_paths.data)
-            return asset_paths.data
+            metadata = {
+                "valid_range": {
+                    "min": 0.01,
+                    "max": 15.0
+                }
+            }
+            
+            geojson = self.create_standardized_geojson(
+                features=features,
+                date=date,
+                dataset=dataset,
+                ranges=ranges,
+                metadata=metadata
+            )
+            
+            return self.save_geojson(
+                geojson,
+                self.path_manager.get_asset_paths(date, dataset, region).data
+            )
             
         except Exception as e:
             logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}")

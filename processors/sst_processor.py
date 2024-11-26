@@ -10,8 +10,6 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
 
-
-
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):

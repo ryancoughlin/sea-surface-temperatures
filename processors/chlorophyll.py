@@ -2,13 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 import xarray as xr
+import cartopy.crs as ccrs
+import matplotlib.colors as mcolors
 from pathlib import Path
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-import matplotlib.colors as mcolors
 from typing import Tuple
 from matplotlib.colors import LinearSegmentedColormap
+import cartopy.feature as cfeature
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
         """Generate chlorophyll visualization."""
         try:
-            # 1. Load and prepare data (already cleaned)
+            # 1. Load and prepare data
             logger.info(f"Processing chlorophyll data for {region}")
             ds = xr.open_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
@@ -52,9 +54,12 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 drop=True
             )
             
-            # 5. Expand coastal data for smoother visualization
-            expanded_data = self.expand_coastal_data(regional_data, buffer_size=3)
+            # Log regional data stats
+            valid_regional = regional_data.values[~np.isnan(regional_data.values)]
             
+            # 5. Expand coastal data for smoother visualization
+            expanded_data = self.expand_coastal_data(regional_data, buffer_size=4)
+
             # 6. Create figure and plot
             fig, ax = self.create_axes(region)
             
@@ -73,7 +78,11 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 rasterized=True,
                 zorder=1
             )
-
+            
+            # Add land mask
+            land = cfeature.NaturalEarthFeature('physical', 'land', '10m')
+            ax.add_feature(land, facecolor='#B1C2D8', zorder=2)
+            
             return self.save_image(fig, region, dataset, date), None
             
         except Exception as e:
