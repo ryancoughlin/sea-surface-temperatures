@@ -51,23 +51,17 @@ class SSTProcessor(BaseImageProcessor):
             # Create figure and axes
             fig, ax = self.create_axes(region)
             
-            # Create custom colormap for SST
-            colors = [
-                '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
-                '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
-                '#3a7bea', '#4185f8', '#41b6c4', '#46c0cd', '#4bcad6',
-                '#50d4df', '#55dde8', '#5ae7f1', '#7fcdbb', '#8ed7c4',
-                '#9de1cd', '#acebd6', '#bbf5df', '#c7e9b4', '#d6edb8',
-                '#e5f1bc', '#f4f5c0', '#fef396', '#fec44f', '#fdb347',
-                '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
-                '#f74d17'
-            ]
-            # Create high-resolution colormap
-            cmap = LinearSegmentedColormap.from_list('sst_detailed', colors, N=1024)
+            # Get color scale configuration
+            color_config = SOURCES[dataset]['color_scale']
+            cmap = LinearSegmentedColormap.from_list('sst_detailed', color_config['colors'], N=color_config['N'])
             
-            # Calculate dynamic range
-            vmin = max(40, float(expanded_data.min()))
-            vmax = min(88, float(expanded_data.max()))
+            # Use configured vmin/vmax or calculate from data
+            vmin = color_config['vmin']
+            vmax = color_config['vmax']
+            if vmin == "auto":
+                vmin = float(expanded_data.min())
+            if vmax == "auto":
+                vmax = float(expanded_data.max())
 
             mesh = ax.pcolormesh(
                 expanded_data[lon_name],

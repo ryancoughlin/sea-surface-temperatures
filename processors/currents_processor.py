@@ -9,6 +9,7 @@ from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Tuple, Optional, Dict
 from datetime import datetime
+from matplotlib.colors import LinearSegmentedColormap
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,8 @@ class CurrentsProcessor(BaseImageProcessor):
 
             # Get actual min/max values from valid data for colormap
             valid_data = magnitude.values[~np.isnan(magnitude.values)]
-            vmin = float(valid_data.min())
-            vmax = float(valid_data.max())
-
-            # Calculate threshold for eddy detection (10th percentile)
+            
+            # Calculate threshold for eddy detection (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
 
             # Compute spatial gradient of magnitude to detect eddies and changes
@@ -45,16 +44,25 @@ class CurrentsProcessor(BaseImageProcessor):
             # Create figure and axes using base processor method
             fig, ax = self.create_axes(region)
 
-            # Plot background current magnitude as colormesh
-            colors = ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033']
-            current_cmap = plt.matplotlib.colors.LinearSegmentedColormap.from_list('ocean_currents', colors, N=256)
+            # Get color scale configuration
+            color_config = SOURCES[dataset]['color_scale']
+            cmap = LinearSegmentedColormap.from_list('ocean_currents', color_config['colors'], N=color_config['N'])
+            
+            # Get or calculate vmin/vmax
+            vmin = color_config['vmin']
+            vmax = color_config['vmax']
+            if vmin == "auto":
+                vmin = float(magnitude.min())
+            if vmax == "auto":
+                vmax = float(magnitude.max())
 
+            # Plot background current magnitude as colormesh
             mesh = ax.pcolormesh(
                 ds['longitude'],
                 ds['latitude'],
                 magnitude,
                 transform=ccrs.PlateCarree(),
-                cmap=current_cmap,
+                cmap=cmap,
                 shading='gouraud',
                 vmin=vmin,
                 vmax=vmax,

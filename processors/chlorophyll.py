@@ -15,16 +15,6 @@ import cartopy.feature as cfeature
 logger = logging.getLogger(__name__)
 
 class ChlorophyllProcessor(BaseImageProcessor):
-    CHLOROPHYLL_COLORS = [
-        '#B1C2D8', '#A3B9D3', '#96B1CF', '#88A8CA', '#7AA0C5',  # Clear water
-        '#6C98C0', '#5F8FBB', '#5187B6', '#437FB0', '#3577AB',  # Low chlorophyll
-        '#2EAB87', '#37B993', '#40C79F', '#49D5AB', '#52E3B7',  # Transition to greens
-        '#63E8B8', '#75EDB9', '#86F3BA', '#98F8BB', '#A9FDBB',  # Greens (moderate)
-        '#C1F5A3', '#DAFD8B', '#F2FF73', '#FFF75B', '#FFE742',  # Lime yellows
-        '#FFD629', '#FFC611', '#FFB600', '#FFA500', '#FF9400',  # Yellow-orange
-        '#FF8300', '#FF7200', '#FF6100', '#FF5000', '#FF3F00'   # High chlorophyll
-    ]
-    
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
         """Generate chlorophyll visualization."""
         try:
@@ -64,8 +54,21 @@ class ChlorophyllProcessor(BaseImageProcessor):
             # 6. Create figure and plot
             fig, ax = self.create_axes(region)
             
-            # Create high-resolution colormap
-            cmap = LinearSegmentedColormap.from_list('chlorophyll', self.CHLOROPHYLL_COLORS, N=1024)
+            # Get color scale configuration
+            color_config = SOURCES[dataset]['color_scale']
+            cmap = LinearSegmentedColormap.from_list('chlorophyll', color_config['colors'], N=color_config['N'])
+            
+            # Create color normalization based on config
+            if color_config.get('norm') == 'log':
+                norm = mcolors.LogNorm(vmin=color_config['vmin'], vmax=color_config['vmax'])
+            else:
+                norm = None
+                vmin = color_config['vmin']
+                vmax = color_config['vmax']
+                if vmin == "auto":
+                    vmin = float(expanded_data.min())
+                if vmax == "auto":
+                    vmax = float(expanded_data.max())
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
@@ -73,7 +76,9 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 expanded_data[lat_name],
                 expanded_data.values,
                 transform=ccrs.PlateCarree(),
-                norm=mcolors.LogNorm(vmin=0.05, vmax=15.0),
+                norm=norm,
+                vmin=None if norm else vmin,
+                vmax=None if norm else vmax,
                 cmap=cmap,
                 shading='gouraud',  # Smooth interpolation
                 rasterized=True,

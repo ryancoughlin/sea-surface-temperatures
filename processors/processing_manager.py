@@ -149,12 +149,15 @@ class ProcessingManager:
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            # Preprocess data
-            preprocessed_data = self.data_preprocessor.preprocess_dataset(data, dataset)
-            
-            # Save preprocessed data
-            preprocessed_path = netcdf_path.parent / f"{netcdf_path.stem}_preprocessed.nc"
-            self.data_preprocessor.save_preprocessed(preprocessed_data, preprocessed_path)
+            # Only preprocess chlorophyll data
+            dataset_type = SOURCES[dataset]['type']
+            if dataset_type == 'chlorophyll':
+                logger.info(f"   └── Preprocessing chlorophyll data")
+                data = self.data_preprocessor.preprocess_dataset(data, dataset)
+                preprocessed_path = netcdf_path.parent / f"{netcdf_path.stem}_preprocessed.nc"
+                self.data_preprocessor.save_preprocessed(data, preprocessed_path)
+            else:
+                preprocessed_path = netcdf_path
             
             try:
                 # Generate base GeoJSON using preprocessed data
@@ -167,8 +170,8 @@ class ProcessingManager:
                 )
 
                 # Generate contours if supported using preprocessed data
-                if SOURCES[dataset]['type'] in ['sst', 'chlorophyll']:
-                    self.logger.info(f"Generating contours for {dataset}")
+                if dataset_type in ['sst', 'chlorophyll']:
+                    self.logger.info(f"   └── Generating contours")
                     contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
                     contour_path = contour_converter.convert(
                         data_path=preprocessed_path,
@@ -178,8 +181,8 @@ class ProcessingManager:
                     )
 
                 # Generate image using preprocessed data
-                processor = self.processor_factory.create(SOURCES[dataset]['type'])
-                self.logger.info(f"Processing {dataset} data for {region_id}")
+                processor = self.processor_factory.create(dataset_type)
+                self.logger.info(f"   └── Generating image")
                 image_path = processor.generate_image(
                     data_path=preprocessed_path,
                     region=region_id,
@@ -187,16 +190,16 @@ class ProcessingManager:
                     date=date
                 )
 
-                # Update metadata using preprocessed data
+                # Update metadata using appropriate data path
                 self.metadata_assembler.assemble_metadata(
                     date=date,
                     dataset=dataset,
                     region=region_id,
                     asset_paths=asset_paths,
-                    data_path=preprocessed_path  # Pass preprocessed data path
+                    data_path=preprocessed_path if dataset_type == 'chlorophyll' else netcdf_path
                 )
 
-                self.logger.info("✅ Processing completed")
+                self.logger.info("   └── ✅ Processing completed")
 
                 return {
                     'status': 'success',
@@ -206,8 +209,8 @@ class ProcessingManager:
                 }
 
             finally:
-                # Clean up preprocessed file
-                if preprocessed_path.exists():
+                # Only clean up preprocessed file for chlorophyll data
+                if dataset_type == 'chlorophyll' and preprocessed_path.exists():
                     preprocessed_path.unlink()
 
         except Exception as e:

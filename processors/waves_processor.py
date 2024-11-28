@@ -14,53 +14,6 @@ logger = logging.getLogger(__name__)
 class WavesProcessor(BaseImageProcessor):
     """Processor for generating wave height visualizations."""
     
-    # Color gradient definitions - 3 colors per foot
-    WAVE_COLORS = [
-        # 0-1 ft (calm)
-        '#053061', '#0a3666', '#0f3d6c',
-        # 1-2 ft
-        '#164270', '#1c4785', '#234d91',
-        # 2-3 ft
-        '#2c5ea0', '#3165a6', '#366dad',
-        # 3-4 ft
-        '#3d77bb', '#417fc0', '#4687c4',
-        # 4-5 ft
-        '#4b8bc2', '#5293c7', '#599bcc',
-        # 5-6 ft
-        '#5EA1CF', '#67aad3', '#70b2d7',
-        # 6-7 ft
-        '#73B3D8', '#7cbbdd', '#85c3e1',
-        # 7-8 ft
-        '#88C4E2', '#91cce6', '#9ad4ea',
-        # 8-9 ft
-        '#9DD6EC', '#a6def0', '#afe5f4',
-        # 9-10 ft
-        '#B2E5F4', '#bae7f3', '#c1e9f2',
-        # 10-12 ft (moderate)
-        '#c6dbef', '#cdddf0', '#d3dff1',
-        # 12-14 ft
-        '#d9e6f2', '#e0e9f3', '#e7ecf4',
-        # 14-16 ft
-        '#e5eef4', '#edf1f6', '#f0f5f7',
-        # 16-18 ft (transition)
-        '#f2f2f1', '#f3efeb', '#f5ebe6',
-        # 18-20 ft
-        '#f4e7df', '#f3e3d9', '#f3e0d4',
-        # 20-22 ft (building)
-        '#f2d9c8', '#f1d1bc', '#f0c5ac',
-        # 22-24 ft
-        '#ecb399', '#e8a086', '#e48d73',
-        # 24-26 ft (large)
-        '#dd7960', '#d66552', '#d15043',
-        # 26-28 ft
-        '#cb3e36', '#c52828', '#bf1f1f',
-        # >28 ft (extreme)
-        '#b81717', '#b01010', '#a80808'
-    ]
-
-    def __init__(self, path_manager=None):
-        super().__init__(path_manager)
-
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
         """Generate wave height visualization in feet."""
         try:
@@ -75,22 +28,34 @@ class WavesProcessor(BaseImageProcessor):
             # Create figure
             fig, ax = self.create_axes(region)
             
-            # Convert to feet and create visualization
+            # Convert to feet
             height_ft = height * 3.28084
-            feet_levels = np.linspace(0, 30, 91)  # Creates 90 intervals (1/3 foot each)
+            
+            # Get color scale configuration
+            color_config = SOURCES[dataset]['color_scale']
+            cmap = LinearSegmentedColormap.from_list('wave_heights', color_config['colors'], N=color_config['N'])
+            
+            # Create levels based on config
+            vmin = color_config['vmin']
+            vmax = color_config['vmax']
+            if vmin == "auto":
+                vmin = float(height_ft.min())
+            if vmax == "auto":
+                vmax = float(height_ft.max())
+            
+            levels = np.linspace(vmin, vmax, color_config['N'])
             
             # Create contour plot
-            cmap = LinearSegmentedColormap.from_list('wave_heights', self.WAVE_COLORS)
             contourf = ax.contourf(
                 height_ft[lon_name],
                 height_ft[lat_name],
                 height_ft.values,
-                levels=feet_levels,
+                levels=levels,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
                 alpha=0.9,
                 zorder=1,
-                extend='both'
+                extend=color_config.get('extend', 'neither')
             )
             
             return self.save_image(fig, region, dataset, date)
