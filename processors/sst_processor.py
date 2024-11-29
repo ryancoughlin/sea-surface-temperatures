@@ -51,17 +51,13 @@ class SSTProcessor(BaseImageProcessor):
             # Create figure and axes
             fig, ax = self.create_axes(region)
             
-            # Get color scale configuration
-            color_config = SOURCES[dataset]['color_scale']
-            cmap = LinearSegmentedColormap.from_list('sst_detailed', color_config['colors'], N=color_config['N'])
+            # Create colormap from color scale
+            cmap = LinearSegmentedColormap.from_list('sst_detailed', SOURCES[dataset]['color_scale'], N=1024)
             
-            # Use configured vmin/vmax or calculate from data
-            vmin = color_config['vmin']
-            vmax = color_config['vmax']
-            if vmin == "auto":
-                vmin = float(expanded_data.min())
-            if vmax == "auto":
-                vmax = float(expanded_data.max())
+            # Calculate dynamic ranges from valid data
+            valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
+            vmin = float(np.percentile(valid_data, 1))  # 1st percentile
+            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
 
             mesh = ax.pcolormesh(
                 expanded_data[lon_name],

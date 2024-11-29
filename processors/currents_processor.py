@@ -31,6 +31,10 @@ class CurrentsProcessor(BaseImageProcessor):
             # Get actual min/max values from valid data for colormap
             valid_data = magnitude.values[~np.isnan(magnitude.values)]
             
+            # Calculate dynamic ranges
+            vmin = float(np.percentile(valid_data, 1))  # 1st percentile
+            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            
             # Calculate threshold for eddy detection (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
 
@@ -44,17 +48,8 @@ class CurrentsProcessor(BaseImageProcessor):
             # Create figure and axes using base processor method
             fig, ax = self.create_axes(region)
 
-            # Get color scale configuration
-            color_config = SOURCES[dataset]['color_scale']
-            cmap = LinearSegmentedColormap.from_list('ocean_currents', color_config['colors'], N=color_config['N'])
-            
-            # Get or calculate vmin/vmax
-            vmin = color_config['vmin']
-            vmax = color_config['vmax']
-            if vmin == "auto":
-                vmin = float(magnitude.min())
-            if vmax == "auto":
-                vmax = float(magnitude.max())
+            # Create colormap from color scale
+            cmap = LinearSegmentedColormap.from_list('ocean_currents', SOURCES[dataset]['color_scale'], N=256)
 
             # Plot background current magnitude as colormesh
             mesh = ax.pcolormesh(

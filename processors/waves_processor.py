@@ -31,19 +31,16 @@ class WavesProcessor(BaseImageProcessor):
             # Convert to feet
             height_ft = height * 3.28084
             
-            # Get color scale configuration
-            color_config = SOURCES[dataset]['color_scale']
-            cmap = LinearSegmentedColormap.from_list('wave_heights', color_config['colors'], N=color_config['N'])
+            # Create colormap from color scale
+            cmap = LinearSegmentedColormap.from_list('wave_heights', SOURCES[dataset]['color_scale'], N=91)
             
-            # Create levels based on config
-            vmin = color_config['vmin']
-            vmax = color_config['vmax']
-            if vmin == "auto":
-                vmin = float(height_ft.min())
-            if vmax == "auto":
-                vmax = float(height_ft.max())
+            # Calculate dynamic ranges from valid data
+            valid_data = height_ft.values[~np.isnan(height_ft.values)]
+            vmin = float(np.percentile(valid_data, 1))  # 1st percentile
+            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
             
-            levels = np.linspace(vmin, vmax, color_config['N'])
+            # Create levels for contour plot
+            levels = np.linspace(vmin, vmax, 91)  # 90 intervals
             
             # Create contour plot
             contourf = ax.contourf(
@@ -55,7 +52,7 @@ class WavesProcessor(BaseImageProcessor):
                 cmap=cmap,
                 alpha=0.9,
                 zorder=1,
-                extend=color_config.get('extend', 'neither')
+                extend='both'
             )
             
             return self.save_image(fig, region, dataset, date)

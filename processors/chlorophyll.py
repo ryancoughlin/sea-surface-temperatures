@@ -54,21 +54,16 @@ class ChlorophyllProcessor(BaseImageProcessor):
             # 6. Create figure and plot
             fig, ax = self.create_axes(region)
             
-            # Get color scale configuration
-            color_config = SOURCES[dataset]['color_scale']
-            cmap = LinearSegmentedColormap.from_list('chlorophyll', color_config['colors'], N=color_config['N'])
+            # Create colormap from color scale
+            cmap = LinearSegmentedColormap.from_list('chlorophyll', SOURCES[dataset]['color_scale'], N=1024)
             
-            # Create color normalization based on config
-            if color_config.get('norm') == 'log':
-                norm = mcolors.LogNorm(vmin=color_config['vmin'], vmax=color_config['vmax'])
-            else:
-                norm = None
-                vmin = color_config['vmin']
-                vmax = color_config['vmax']
-                if vmin == "auto":
-                    vmin = float(expanded_data.min())
-                if vmax == "auto":
-                    vmax = float(expanded_data.max())
+            # Calculate dynamic ranges from valid data
+            valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
+            
+            # Use log scale for chlorophyll
+            vmin = float(np.percentile(valid_data[valid_data > 0], 1))  # 1st percentile of non-zero values
+            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
@@ -77,8 +72,6 @@ class ChlorophyllProcessor(BaseImageProcessor):
                 expanded_data.values,
                 transform=ccrs.PlateCarree(),
                 norm=norm,
-                vmin=None if norm else vmin,
-                vmax=None if norm else vmax,
                 cmap=cmap,
                 shading='gouraud',  # Smooth interpolation
                 rasterized=True,
