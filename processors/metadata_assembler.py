@@ -194,16 +194,31 @@ class MetadataAssembler:
         """Update global metadata.json with new dataset information."""
         # Use provided data_path if available, otherwise fall back to default
         data_path = data_path or self.path_manager.get_data_path(date, dataset, region)
-        ranges = self.get_dataset_ranges(data_path, dataset)
         
-        # Collect available layers
-        layers = {}
-        for layer_type in ['image', 'data', 'contours']:
-            path = getattr(asset_paths, layer_type, None)
-            if path and path.exists():
-                layers[layer_type] = self.get_full_url(
-                    path.relative_to(self.path_manager.base_dir)
-                )
+        # Handle hourly PODAAC data differently
+        if SOURCES[dataset].get('type') == 'podaac':
+            # Get all hourly files for this date
+            date_dir = data_path.parent
+            hourly_files = sorted(date_dir.glob('*/*.nc'))  # e.g., 1542/*.nc
+            
+            if not hourly_files:
+                logger.warning(f"No hourly files found for {dataset} on {date}")
+                return self.path_manager.output_dir / "metadata.json"
+            
+            # Calculate ranges across all hourly files
+            combined_ranges = {}
+            for file in hourly_files:
+                ranges = self.get_dataset_ranges(file, dataset)
+                for key, value in ranges.items():
+                    if key not in combined_ranges:
+                        combined_ranges[key] = value.copy()
+                    else:
+                        combined_ranges[key]['min'] = min(combined_ranges[key]['min'], value['min'])
+                        combined_ranges[key]['max'] = max(combined_ranges[key]['max'], value['max'])
+            
+            ranges = combined_ranges
+        else:
+            ranges = self.get_dataset_ranges(data_path, dataset)
         
         # Update global metadata directly
         self.update_global_metadata(region, dataset, date, asset_paths, ranges)
@@ -216,23 +231,49 @@ class MetadataAssembler:
         try:
             # Get layers
             layers = {}
-            for layer_type in ['image', 'data', 'contours']:
-                path = getattr(asset_paths, layer_type, None)
-                if path and path.exists():
-                    layers[layer_type] = self.get_full_url(
-                        path.relative_to(self.path_manager.base_dir)
-                    )
+            if SOURCES[dataset].get('type') == 'podaac':
+                # For PODAAC, include hourly subdirectories in layer paths
+                date_str = date.strftime('%Y%m%d')
+                base_dir = self.path_manager.base_dir
+                
+                # Get all hourly directories
+                date_dir = Path(asset_paths.data).parent
+                hour_dirs = sorted([d for d in date_dir.glob('*') if d.is_dir()])
+                
+                # Create hourly entries
+                layers['hourly'] = {}
+                for hour_dir in hour_dirs:
+                    hour = hour_dir.name
+                    hour_layers = {}
+                    
+                    for layer_type in ['image', 'data', 'contours']:
+                        layer_path = hour_dir / f"{layer_type}.{SOURCES[dataset]['fileExtensions'][layer_type]}"
+                        if layer_path.exists():
+                            hour_layers[layer_type] = self.get_full_url(
+                                layer_path.relative_to(base_dir)
+                            )
+                    
+                    if hour_layers:
+                        layers['hourly'][hour] = hour_layers
+            else:
+                # Handle non-PODAAC datasets as before
+                for layer_type in ['image', 'data', 'contours']:
+                    path = getattr(asset_paths, layer_type, None)
+                    if path and path.exists():
+                        layers[layer_type] = self.get_full_url(
+                            path.relative_to(self.path_manager.base_dir)
+                        )
 
             # Validate ranges
             if not ranges:
                 logger.warning(f"No ranges provided for {dataset} in {region}")
-                ranges = {}  # Use empty dict instead of null
+                ranges = {}
             
             # Create date entry
             date_entry = {
                 "date": date.strftime('%Y%m%d'),
                 "layers": layers,
-                "ranges": ranges or {}  # Use empty dict instead of null
+                "ranges": ranges or {}
             }
 
             # Update metadata file

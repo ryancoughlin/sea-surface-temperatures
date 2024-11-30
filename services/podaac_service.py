@@ -4,6 +4,7 @@ from pathlib import Path
 import asyncio
 from typing import Optional, List
 import subprocess
+import re
 
 from config.settings import SOURCES
 from config.regions import REGIONS
@@ -16,16 +17,34 @@ class PodaacService:
     def __init__(self, session, path_manager):
         self.path_manager = path_manager
         
+    def _extract_datetime_from_filename(self, filename: str) -> Optional[datetime]:
+        """Extract datetime from GOES16 SST filename format."""
+        # Expected format: YYYYMMDDHHMMSS-OSISAF-L3C_GHRSST...
+        match = re.match(r'(\d{8})(\d{6})', filename)
+        if match:
+            date_str, time_str = match.groups()
+            try:
+                return datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
+            except ValueError:
+                return None
+        return None
+        
     async def save_data(self, date: datetime, dataset: str, region: str) -> List[Path]:
         """Download PODAAC data for date range and region using CLI tool"""
         try:
-            # Use today's date and format in ISO
-            today = datetime.utcnow().date()
+            # Use UTC time consistently
+            now = datetime.utcnow()
+            today = now.date()
+            
+            # Create directory with UTC date
+            download_dir = self.path_manager.data_dir / dataset / today.strftime('%Y%m%d')
+            download_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Set time range for today in UTC
             start_iso = f"{today.isoformat()}T00:00:00Z"
             end_iso = f"{today.isoformat()}T23:59:59Z"
             
-            download_dir = self.path_manager.data_dir / dataset / today.strftime('%Y%m%d')
-            download_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Using UTC time range: {start_iso} to {end_iso}")
             
             # Get region bounds
             bounds = REGIONS[region]['bounds']
@@ -45,7 +64,7 @@ class PodaacService:
                 f'-b={bbox}'
             ]
             
-            logger.info(f"Downloading PODAAC data for {today}")
+            logger.info(f"Downloading PODAAC data for UTC date {today}")
             logger.info(f"Command: {' '.join(cmd)}")
             
             # Run downloader in a subprocess
@@ -63,14 +82,30 @@ class PodaacService:
                 
             logger.info(f"Download completed: {stdout.decode()}")
             
-            # Get all downloaded NetCDF files
+            # Get all downloaded NetCDF files and sort by timestamp
             downloaded_files = list(download_dir.rglob("*.nc"))
             if not downloaded_files:
                 logger.error("No files downloaded")
                 return []
-                
-            logger.info(f"Downloaded {len(downloaded_files)} files")
-            return downloaded_files
+            
+            # Sort files by timestamp (most recent first) and take only the 6 most recent
+            sorted_files = sorted(
+                downloaded_files,
+                key=lambda x: self._extract_datetime_from_filename(x.name) or datetime.min,
+                reverse=True
+            )
+            recent_files = sorted_files[:6]
+            
+            # Remove older files to save space
+            for file in sorted_files[6:]:
+                try:
+                    file.unlink()
+                    logger.info(f"Removed older file: {file.name}")
+                except Exception as e:
+                    logger.warning(f"Could not remove file {file.name}: {str(e)}")
+            
+            logger.info(f"Keeping {len(recent_files)} most recent files")
+            return recent_files
             
         except Exception as e:
             logger.error(f"Error downloading PODAAC data: {str(e)}")
