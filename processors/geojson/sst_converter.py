@@ -5,6 +5,7 @@ import numpy as np
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from config.regions import REGIONS
+from utils.data_utils import convert_temperature_to_f
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,10 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
             lon_name, lat_name = self.get_coordinate_names(data)
             bounds = REGIONS[region]['bounds']
             
-            # Mask and convert to Fahrenheit
+            # Mask and convert to Fahrenheit using source unit from settings
             data = self._mask_to_region(data, bounds, lon_name, lat_name)
-            data = data * 1.8 + 32
+            source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
+            data = convert_temperature_to_f(data, source_unit=source_unit)
             
             # Create features
             features = []
@@ -65,9 +67,10 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
                 }
             }
             
+            # Update metadata to reflect correct conversion
             metadata = {
                 "source": dataset,
-                "conversion": "celsius_to_fahrenheit"
+                "conversion": f"{source_unit.lower()}_to_fahrenheit"
             }
             
             geojson = self.create_standardized_geojson(
