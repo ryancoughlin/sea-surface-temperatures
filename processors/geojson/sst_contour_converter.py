@@ -86,10 +86,13 @@ class SSTContourConverter(BaseGeoJSONConverter):
             # Convert to Fahrenheit
             temp_data = temp_data * 1.8 + 32
             
+            # Get standardized coordinate names
+            lon_var, lat_var = self.get_coordinate_names(temp_data)
+            
             # Apply regional bounds
             bounds = REGIONS[region]['bounds']
-            lon_mask = (temp_data['longitude'] >= bounds[0][0]) & (temp_data['longitude'] <= bounds[1][0])
-            lat_mask = (temp_data['latitude'] >= bounds[0][1]) & (temp_data['latitude'] <= bounds[1][1])
+            lon_mask = (temp_data[lon_var] >= bounds[0][0]) & (temp_data[lon_var] <= bounds[1][0])
+            lat_mask = (temp_data[lat_var] >= bounds[0][1]) & (temp_data[lat_var] <= bounds[1][1])
             regional_temp = temp_data.where(lon_mask & lat_mask, drop=True)
             
             # Get valid temperatures
@@ -107,8 +110,8 @@ class SSTContourConverter(BaseGeoJSONConverter):
                     levels = self._generate_levels(min_temp, max_temp)
                     fig, ax = plt.subplots(figsize=(10, 10))
                     contour_set = ax.contour(
-                        regional_temp['longitude'],
-                        regional_temp['latitude'],
+                        regional_temp[lon_var],
+                        regional_temp[lat_var],
                         regional_temp.values,
                         levels=levels
                     )
