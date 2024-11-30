@@ -6,9 +6,12 @@ import aiohttp
 import logging
 import asyncio
 import xarray as xr
+import re
+import pandas as pd
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
+from services.podaac_service import PodaacService
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
@@ -36,6 +39,7 @@ class ProcessingManager:
         self.session = None
         self.erddap_service = None
         self.cmems_service = None
+        self.podaac_service = None
         
         # Initialize factories and processors
         self.processor_factory = ProcessorFactory(path_manager)
@@ -50,6 +54,7 @@ class ProcessingManager:
         self.session = session
         self.erddap_service = ERDDAPService(session, self.path_manager)
         self.cmems_service = CMEMSService(session, self.path_manager)
+        self.podaac_service = PodaacService(session, self.path_manager)
 
     @contextmanager
     def managed_netcdf(self, path: Path, cleanup: bool = True):
@@ -73,17 +78,8 @@ class ProcessingManager:
             if cleanup and path.exists():
                 path.unlink()
 
-    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> Dict:
-        """Process a single dataset with proper async handling"""
-        if not self.session:
-            raise ProcessingError("initialization", "ProcessingManager not initialized", 
-                                {"dataset": dataset, "region": region_id})
-        
-        logger.info(f"📦 Processing dataset:")
-        logger.info(f"   └── Dataset: {dataset}")
-        logger.info(f"   └── Region: {region_id}")
-        logger.info(f"   └── Date: {date}")
-
+    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> dict:
+        """Process single dataset for a region"""
         try:
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
@@ -91,29 +87,107 @@ class ProcessingManager:
 
             # Use cached or download new data
             logger.info("   └── 🔄 Fetching data...")
-            netcdf_path = await self._get_data(date, dataset, region_id, data_path)
+            source_type = SOURCES[dataset].get('source_type')
             
-            # Process the data
-            logger.info("   └── 🔧 Processing data...")
-            result = await self._process_netcdf_data(
-                netcdf_path, region_id, dataset, date
-            )
+            if source_type == 'podaac':
+                # Handle PODAAC data differently - returns multiple files
+                netcdf_paths = await self._get_data(date, dataset, region_id, data_path)
+                if not netcdf_paths:
+                    return {
+                        'status': 'error',
+                        'error': 'No data downloaded',
+                        'region': region_id,
+                        'dataset': dataset
+                    }
+                
+                # Process each file
+                results = []
+                for netcdf_path in netcdf_paths:
+                    try:
+                        # Extract time from filename or metadata
+                        file_time = self._extract_time_from_file(netcdf_path)
+                        if not file_time:
+                            logger.warning(f"Could not extract time from {netcdf_path}")
+                            continue
+                            
+                        # Get asset paths for this specific time
+                        time_asset_paths = self.path_manager.get_asset_paths(file_time, dataset, region_id)
+                        
+                        # Process the file
+                        logger.info(f"   └── 🔧 Processing file for {file_time}")
+                        result = await self._process_netcdf_data(
+                            netcdf_path, region_id, dataset, file_time
+                        )
+                        if result['status'] == 'success':
+                            results.append(result)
+                            
+                    except Exception as e:
+                        logger.error(f"Error processing file {netcdf_path}: {str(e)}")
+                        continue
+                
+                if not results:
+                    return {
+                        'status': 'error',
+                        'error': 'No files processed successfully',
+                        'region': region_id,
+                        'dataset': dataset
+                    }
+                
+                return {
+                    'status': 'success',
+                    'processed_files': len(results),
+                    'results': results,
+                    'region': region_id,
+                    'dataset': dataset
+                }
             
-            if result['status'] == 'success':
-                logger.info("   └── ✅ Processing complete")
-            return result
-
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout while downloading data for {dataset}")
+            else:
+                # Handle other data sources as before
+                netcdf_path = await self._get_data(date, dataset, region_id, data_path)
+                if not netcdf_path:
+                    return {
+                        'status': 'error',
+                        'error': 'No data downloaded',
+                        'region': region_id,
+                        'dataset': dataset
+                    }
+                
+                # Process the data
+                logger.info("   └── 🔧 Processing data...")
+                return await self._process_netcdf_data(
+                    netcdf_path, region_id, dataset, date
+                )
+                
+        except Exception as e:
+            logger.error(f"Error processing {dataset} for {region_id}")
+            logger.error(f"Error: {str(e)}")
             return {
                 'status': 'error',
-                'error': 'Download timeout',
+                'error': str(e),
                 'region': region_id,
                 'dataset': dataset
             }
+            
+    def _extract_time_from_file(self, file_path: Path) -> Optional[datetime]:
+        """Extract time from PODAAC filename or metadata"""
+        try:
+            # First try to get from filename
+            # Expected format: GOES16_SST_OSISAF_L3C_YYYYMMDD_HH.nc
+            match = re.search(r'(\d{8})_(\d{2})\.nc$', file_path.name)
+            if match:
+                date_str, hour_str = match.groups()
+                return datetime.strptime(f"{date_str}{hour_str}", '%Y%m%d%H')
+            
+            # If not in filename, try to read from NetCDF metadata
+            ds = xr.open_dataset(file_path)
+            if 'time' in ds.dims:
+                return pd.to_datetime(ds.time.values[0])
+            
+            return None
+            
         except Exception as e:
-            logger.error("   └── 💥 Processing failed")
-            return self._handle_error(e, dataset, region_id)
+            logger.error(f"Error extracting time from file: {str(e)}")
+            return None
 
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Path:
         """Get data from cache or download"""
@@ -127,6 +201,8 @@ class ProcessingManager:
                 return await self.cmems_service.save_data(date, dataset, region_id)
             elif source_type == 'erddap':
                 return await self.erddap_service.save_data(date, dataset, region_id)
+            elif source_type == 'podaac':
+                return await self.podaac_service.save_data(date, dataset, region_id)
             else:
                 raise ProcessingError("download", f"Unknown source type: {source_type}",
                                    {"dataset": dataset, "region": region_id})
