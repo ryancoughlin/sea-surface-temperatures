@@ -103,8 +103,12 @@ class MetadataAssembler:
                 if dim in data.dims:
                     data = data.isel({dim: 0})
             
-            # Convert to Fahrenheit
-            data = data * 1.8 + 32
+            # Convert to Fahrenheit using source unit from settings
+            source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
+            if source_unit == 'K':
+                data = (data - 273.15) * 9/5 + 32  # Kelvin to Fahrenheit
+            else:
+                data = data * 9/5 + 32  # Celsius to Fahrenheit
             
             return {
                 "temperature": {

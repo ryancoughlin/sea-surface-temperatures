@@ -28,23 +28,33 @@ class PodaacService:
             except ValueError:
                 return None
         return None
+
+    def _calculate_time_window(self) -> tuple[str, str]:
+        """Calculate time window for 6 most recent hourly files."""
+        now = datetime.utcnow()
         
+        # For hourly data, we need the last 6 hours
+        # Start from 6 hours ago to ensure we get 6 files
+        start_time = now - timedelta(hours=6)
+        
+        # Format times in ISO format
+        start_iso = start_time.strftime('%Y-%m-%dT%H:00:00Z')  # Round to hour start
+        end_iso = now.strftime('%Y-%m-%dT%H:59:59Z')  # Include the full current hour
+        
+        logger.info(f"Calculated hourly time window: {start_iso} to {end_iso}")
+        return start_iso, end_iso
+
     async def save_data(self, date: datetime, dataset: str, region: str) -> List[Path]:
-        """Download PODAAC data for date range and region using CLI tool"""
+        """Download PODAAC data for optimal time window and region using CLI tool"""
         try:
-            # Use UTC time consistently
-            now = datetime.utcnow()
-            today = now.date()
-            
             # Create directory with UTC date
+            today = datetime.utcnow().date()
             download_dir = self.path_manager.data_dir / dataset / today.strftime('%Y%m%d')
             download_dir.mkdir(parents=True, exist_ok=True)
             
-            # Set time range for today in UTC
-            start_iso = f"{today.isoformat()}T00:00:00Z"
-            end_iso = f"{today.isoformat()}T23:59:59Z"
-            
-            logger.info(f"Using UTC time range: {start_iso} to {end_iso}")
+            # Calculate optimal time window for ~6 files
+            start_iso, end_iso = self._calculate_time_window()
+            logger.info(f"Using optimized UTC time window: {start_iso} to {end_iso}")
             
             # Get region bounds
             bounds = REGIONS[region]['bounds']
@@ -54,7 +64,7 @@ class PodaacService:
             # Format for PODAAC: "W Longitude,S Latitude,E Longitude,N Latitude"
             bbox = f"-{abs(lon_max)},{lat_min},-{abs(lon_min)},{lat_max}"
             
-            # Construct command exactly matching working example
+            # Construct command
             cmd = [
                 'podaac-data-downloader',
                 '-c', SOURCES[dataset]['dataset_id'],
@@ -64,10 +74,9 @@ class PodaacService:
                 f'-b={bbox}'
             ]
             
-            logger.info(f"Downloading PODAAC data for UTC date {today}")
+            logger.info(f"Downloading PODAAC data with optimized time window")
             logger.info(f"Command: {' '.join(cmd)}")
             
-            # Run downloader in a subprocess
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -88,25 +97,29 @@ class PodaacService:
                 logger.error("No files downloaded")
                 return []
             
-            # Sort files by timestamp (most recent first) and take only the 6 most recent
+            # Sort files by timestamp (most recent first)
             sorted_files = sorted(
                 downloaded_files,
                 key=lambda x: self._extract_datetime_from_filename(x.name) or datetime.min,
                 reverse=True
             )
-            recent_files = sorted_files[:6]
             
-            # Remove older files to save space
-            for file in sorted_files[6:]:
-                try:
-                    file.unlink()
-                    logger.info(f"Removed older file: {file.name}")
-                except Exception as e:
-                    logger.warning(f"Could not remove file {file.name}: {str(e)}")
+            # Take only the 6 most recent if we got more
+            if len(sorted_files) > 6:
+                recent_files = sorted_files[:6]
+                # Remove any extra files
+                for file in sorted_files[6:]:
+                    try:
+                        file.unlink()
+                        logger.info(f"Removed extra file: {file.name}")
+                    except Exception as e:
+                        logger.warning(f"Could not remove file {file.name}: {str(e)}")
+            else:
+                recent_files = sorted_files
             
-            logger.info(f"Keeping {len(recent_files)} most recent files")
+            logger.info(f"Retained {len(recent_files)} most recent files")
             return recent_files
             
         except Exception as e:
-            logger.error(f"Error downloading PODAAC data: {str(e)}")
-            return [] 
+            logger.error(f"Error in PODAAC download: {str(e)}")
+            raise 

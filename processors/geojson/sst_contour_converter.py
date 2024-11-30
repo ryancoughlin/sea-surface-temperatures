@@ -83,8 +83,12 @@ class SSTContourConverter(BaseGeoJSONConverter):
                 if dim in temp_data.dims:
                     temp_data = temp_data.isel({dim: 0})
             
-            # Convert to Fahrenheit
-            temp_data = temp_data * 1.8 + 32
+            # Convert to Fahrenheit using source unit from settings
+            source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
+            if source_unit == 'K':
+                temp_data = (temp_data - 273.15) * 9/5 + 32  # Kelvin to Fahrenheit
+            else:
+                temp_data = temp_data * 9/5 + 32  # Celsius to Fahrenheit
             
             # Get standardized coordinate names
             lon_var, lat_var = self.get_coordinate_names(temp_data)
@@ -102,6 +106,8 @@ class SSTContourConverter(BaseGeoJSONConverter):
             
             min_temp = float(np.min(valid_temps))
             max_temp = float(np.max(valid_temps))
+
+            logger.info(f"Processing SST data for {date} with min: {min_temp}, max: {max_temp}")   
             
             # Generate contours if we have sufficient data
             features = []
