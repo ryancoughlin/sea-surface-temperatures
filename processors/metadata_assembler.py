@@ -19,12 +19,12 @@ class MetadataAssembler:
         """Convert relative path to full URL."""
         return f"{SERVER_URL}/{str(relative_path).replace('output/', '')}"
 
-    def get_dataset_ranges(self, data_path: Path, dataset: str) -> Dict[str, Dict[str, Any]]:
+    def get_dataset_ranges(self, data_path: Path, dataset: str, processed_data: xr.DataArray = None) -> Dict[str, Dict[str, Any]]:
         """Extract standardized ranges for any dataset type."""
         try:
             if not data_path.exists():
                 logger.error(f"Data file not found: {data_path}")
-                return {}  # Return empty dict instead of null
+                return {}
             
             with xr.open_dataset(data_path) as ds:
                 if SOURCES[dataset]['type'] == 'currents':
@@ -37,18 +37,17 @@ class MetadataAssembler:
                     ranges = self._get_chlorophyll_ranges(ds, dataset)
                 else:
                     ranges = self._get_default_ranges(ds, dataset)
-                
-                # Validate ranges before returning
-                if not ranges or not any(ranges.values()):
-                    logger.warning(f"No valid ranges calculated for {dataset}")
-                    return {}  # Return empty dict instead of null
-                
-                return ranges
+            
+            if not ranges or not any(ranges.values()):
+                logger.warning(f"No valid ranges calculated for {dataset}")
+                return {}
+            
+            return ranges
             
         except Exception as e:
             logger.error(f"Error getting dataset ranges: {str(e)}")
             logger.exception(e)
-            return {}  # Return empty dict instead of null
+            return {}
 
     def _get_current_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
         """Get standardized ranges for current data."""
@@ -150,20 +149,33 @@ class MetadataAssembler:
             logger.error(f"Error calculating wave ranges: {str(e)}")
             return {}
 
-    def _get_chlorophyll_ranges(self, ds: xr.Dataset, dataset: str) -> Dict:
+    def _get_chlorophyll_ranges(self, ds: xr.Dataset, dataset: str, processed_data: xr.DataArray = None) -> Dict:
         """Get standardized ranges for chlorophyll data."""
         try:
-            data = ds[SOURCES[dataset]['variables'][0]]
+            if processed_data is not None:
+                # Use the already processed data
+                valid_data = processed_data.values[~np.isnan(processed_data.values)]
+            else:
+                # Fallback to raw data processing
+                data = ds[SOURCES[dataset]['variables'][0]]
+                for dim in ['time', 'altitude']:
+                    if dim in data.dims:
+                        data = data.isel({dim: 0})
+                valid_data = data.values[~np.isnan(data.values)]
             
-            # Handle dimensions
-            for dim in ['time', 'altitude']:
-                if dim in data.dims:
-                    data = data.isel({dim: 0})
+            if len(valid_data) == 0:
+                logger.warning("No valid chlorophyll data found")
+                return {}
+            
+            data_min = float(np.min(valid_data))
+            data_max = float(np.max(valid_data))
+            
+            logger.info(f"[RANGES] Metadata min/max: {data_min:.4f} to {data_max:.4f}")
             
             return {
                 "concentration": {
-                    "min": round(float(data.min()), 3),
-                    "max": round(float(data.max()), 3),
+                    "min": round(data_min, 4),
+                    "max": round(data_max, 4),
                     "unit": "mg/m³"
                 }
             }

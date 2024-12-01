@@ -8,13 +8,15 @@ from .waves_converter import WavesGeoJSONConverter
 from .sst_contour_converter import SSTContourConverter
 from config.settings import SOURCES
 
+
 class ConverterType:
     DATA = 'data'
     CONTOUR = 'contour'
 
 class GeoJSONConverterFactory:
-    def __init__(self, path_manager):
+    def __init__(self, path_manager, metadata_assembler=None):
         self.path_manager = path_manager
+        self.metadata_assembler = metadata_assembler
         self._converters: Dict[str, Dict[str, Type[BaseGeoJSONConverter]]] = {
             ConverterType.DATA: {
                 'sst': SSTGeoJSONConverter,
@@ -51,4 +53,4 @@ class GeoJSONConverterFactory:
                 f"converter_type: {converter_type}"
             )
             
-        return converter_class(self.path_manager)
+        return converter_class(self.path_manager, self.metadata_assembler)

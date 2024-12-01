@@ -18,58 +18,37 @@ class ChlorophyllProcessor(BaseImageProcessor):
     def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
         """Generate chlorophyll visualization."""
         try:
-            # 1. Load and prepare data
+            # Load preprocessed data
             logger.info(f"Processing chlorophyll data for {region}")
             ds = xr.open_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
             data = ds[var_name]
             
-            # 2. Handle dimensions
-            if 'time' in data.dims:
-                data = data.isel(time=0)
-            if 'altitude' in data.dims:
-                data = data.isel(altitude=0)
+            # Get valid data for ranges
+            valid_data = data.values[~np.isnan(data.values)]
+            logger.info(f"[RANGES] Image data min/max: {valid_data.min():.4f} to {valid_data.max():.4f}")
             
-            # 3. Get coordinates and mask to region
+            # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
-            bounds = REGIONS[region]['bounds']
-            
-            # 4. Mask to region
-            regional_data = data.where(
-                (data[lon_name] >= bounds[0][0]) & 
-                (data[lon_name] <= bounds[1][0]) &
-                (data[lat_name] >= bounds[0][1]) & 
-                (data[lat_name] <= bounds[1][1]),
-                drop=True
-            )
-            
-            # Log regional data stats
-            valid_regional = regional_data.values[~np.isnan(regional_data.values)]
-            logger.info(f"Valid regional data range: {valid_regional.min()} to {valid_regional.max()}")
-            
-            # 5. Expand coastal data for smoother visualization
-            expanded_data = self.expand_coastal_data(regional_data, buffer_size=4)
 
-            # 6. Create figure and plot
+            # Create figure and plot
             fig, ax = self.create_axes(region)
             
             # Create colormap from color scale
             cmap = LinearSegmentedColormap.from_list('chlorophyll', SOURCES[dataset]['color_scale'], N=1024)
             
-            # Calculate dynamic ranges from valid data
-            valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
+            # Use actual min/max for visualization
+            vmin = float(valid_data.min())
+            vmax = float(valid_data.max())
             
-            # Use log scale for chlorophyll
-            vmin = float(np.percentile(valid_data[valid_data > 0], 1))  # 1st percentile of non-zero values
-            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
             norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
-                expanded_data[lon_name],
-                expanded_data[lat_name],
-                expanded_data.values,
+                data[lon_name],
+                data[lat_name],
+                data.values,
                 transform=ccrs.PlateCarree(),
                 norm=norm,
                 cmap=cmap,

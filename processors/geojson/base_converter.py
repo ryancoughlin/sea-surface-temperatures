@@ -13,14 +13,17 @@ logger = logging.getLogger(__name__)
 class BaseGeoJSONConverter(ABC):
     """Base class for GeoJSON converters with common functionality."""
     
-    def __init__(self, path_manager: PathManager):
+    def __init__(self, path_manager: PathManager, metadata_assembler=None):
         self.path_manager = path_manager
+        self.metadata_assembler = metadata_assembler
         self.logger = logging.getLogger(__name__)
+        self.data_path = None  # Will be set when loading dataset
     
     def load_dataset(self, data_path: Path) -> xr.Dataset:
         """Common dataset loading with error handling."""
         try:
             self.logger.info(f"📂 Loading dataset")
+            self.data_path = data_path
             return xr.open_dataset(data_path)
         except Exception as e:
             self.logger.error(f"❌ Error loading dataset")
@@ -102,26 +105,26 @@ class BaseGeoJSONConverter(ABC):
         
         self.logger.info(f"💾 Generated GeoJSON")
 
-    def create_standardized_geojson(self, features: list, date: datetime, dataset: str, 
-                              ranges: dict, metadata: dict = None) -> dict:
-        """Create standardized GeoJSON structure.
+    def create_standardized_geojson(self, features: list, date: datetime, 
+                               dataset: str, ranges: dict, metadata: dict,
+                               processed_data: xr.DataArray = None) -> dict:
+        """Create a standardized GeoJSON object."""
+        # Get ranges from metadata assembler using processed data if available
+        if self.metadata_assembler:
+            metadata_ranges = self.metadata_assembler.get_dataset_ranges(
+                self.data_path, dataset, processed_data
+            )
+            if metadata_ranges:
+                ranges.update(metadata_ranges)
         
-        Args:
-            features: List of GeoJSON features
-            date: Date of the data
-            dataset: Dataset identifier
-            ranges: Dictionary of value ranges with units
-            metadata: Optional dataset-specific metadata
-        """
         return {
             "type": "FeatureCollection",
             "features": features,
-            "properties": {
-                "date": date.strftime('%Y-%m-%d'),
+            "metadata": {
+                "date": date.strftime('%Y%m%d'),
                 "dataset": dataset,
-                "dataset_type": SOURCES[dataset]['type'],
-                "ranges": self._standardize_ranges(ranges),
-                "metadata": metadata or {}
+                "ranges": ranges,
+                **metadata
             }
         }
 

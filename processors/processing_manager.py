@@ -43,7 +43,7 @@ class ProcessingManager:
         
         # Initialize factories and processors
         self.processor_factory = ProcessorFactory(path_manager)
-        self.geojson_converter_factory = GeoJSONConverterFactory(path_manager)
+        self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, metadata_assembler)
         self.data_preprocessor = DataPreprocessor()
         self.logger = logging.getLogger(__name__)
         
@@ -229,7 +229,7 @@ class ProcessingManager:
             dataset_type = SOURCES[dataset]['type']
             if dataset_type == 'chlorophyll':
                 logger.info(f"   └── Preprocessing chlorophyll data")
-                data = self.data_preprocessor.preprocess_dataset(data, dataset)
+                data = self.data_preprocessor.preprocess_dataset(data, dataset, region_id)
                 preprocessed_path = netcdf_path.parent / f"{netcdf_path.stem}_preprocessed.nc"
                 self.data_preprocessor.save_preprocessed(data, preprocessed_path)
             else:

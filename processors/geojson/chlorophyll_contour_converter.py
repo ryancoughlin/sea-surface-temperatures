@@ -4,7 +4,6 @@ from pathlib import Path
 import logging
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
-from config.regions import REGIONS
 import datetime
 from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
@@ -52,26 +51,21 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
     def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data focusing on bloom identification."""
         try:
-            # Load and prepare data
+            # Load preprocessed data
             ds = self.load_dataset(data_path)
             var_name = SOURCES[dataset]['variables'][0]
             data = self.normalize_dataset(ds, var_name)
             
-            # Get coordinates
-            lon_name, lat_name = self.get_coordinate_names(data)
+            # Get coordinate names
+            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
+            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
             
-            # Mask to region
-            bounds = REGIONS[region]['bounds']
-            regional_data = data.where(
-                (data[lon_name] >= bounds[0][0]) & 
-                (data[lon_name] <= bounds[1][0]) &
-                (data[lat_name] >= bounds[0][1]) & 
-                (data[lat_name] <= bounds[1][1]),
-                drop=True
-            )
+            # Log data ranges before smoothing
+            valid_data = data.values[~np.isnan(data.values)]
+            logger.info(f"[RANGES] Contour data min/max before smoothing: {valid_data.min():.4f} to {valid_data.max():.4f}")
             
             # Smooth data to focus on significant features
-            smoothed_data = gaussian_filter(regional_data.values, sigma=1.5)
+            smoothed_data = gaussian_filter(data.values, sigma=1.5)
             
             # Calculate levels
             levels = self._calculate_contour_levels(smoothed_data)
@@ -81,11 +75,13 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                 'p95': levels[2]
             }
             
+            logger.info(f"[RANGES] Contour levels: p75={levels[0]:.4f}, p90={levels[1]:.4f}, p95={levels[2]:.4f}")
+            
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
             contour_set = ax.contour(
-                regional_data[lon_name],
-                regional_data[lat_name],
+                data[lon_name],
+                data[lat_name],
                 smoothed_data,
                 levels=levels
             )
@@ -144,8 +140,7 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
             
             # Save and return
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            self.save_geojson(geojson, asset_paths.contours)
-            return asset_paths.contours
+            return self.save_geojson(geojson, asset_paths.contours)
             
         except Exception as e:
             logger.error(f"Error converting chlorophyll data to contours: {str(e)}")
