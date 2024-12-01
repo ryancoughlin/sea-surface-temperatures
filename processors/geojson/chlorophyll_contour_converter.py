@@ -48,14 +48,9 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                 "description": "Productivity boundary"
             }
 
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data focusing on bloom identification."""
         try:
-            # Load preprocessed data
-            ds = self.load_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = self.normalize_dataset(ds, var_name)
-            
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
@@ -126,17 +121,18 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                     }
                     features.append(feature)
             
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
+            geojson = self.create_standardized_geojson(
+                features=features,
+                date=date,
+                dataset=dataset,
+                ranges={
                     "bloom_thresholds": {
                         "bloom": float(percentiles['p90']),
                         "major_bloom": float(percentiles['p95'])
                     }
-                }
-            }
+                },
+                metadata={}
+            )
             
             # Save and return
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)

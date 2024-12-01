@@ -6,6 +6,7 @@ from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
+import xarray as xr
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +17,9 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
         lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
         return data.where(lon_mask & lat_mask, drop=True)
 
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
-            ds = self.load_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = ds[var_name]
-            
             # Force 2D by selecting first index of time and depth
             for dim in ['time', 'depth']:
                 if dim in data.dims:

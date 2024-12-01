@@ -9,21 +9,18 @@ from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
+from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
+    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate SST visualization."""
         try:
             # Get paths and create directories
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             asset_paths.image.parent.mkdir(parents=True, exist_ok=True)
 
-            # Load and process data
-            ds = xr.open_dataset(data_path)
-            data = ds[SOURCES[dataset]['variables'][0]]
-            
             # Force 2D data
             if 'time' in data.dims:
                 data = data.isel(time=0)
@@ -73,7 +70,8 @@ class SSTProcessor(BaseImageProcessor):
                 zorder=1
             )
             
-            return self.save_image(fig, region, dataset, date)
+            image_path = self.save_image(fig, region, dataset, date)
+            return image_path, None
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")

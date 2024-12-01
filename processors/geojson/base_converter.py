@@ -17,36 +17,11 @@ class BaseGeoJSONConverter(ABC):
         self.path_manager = path_manager
         self.metadata_assembler = metadata_assembler
         self.logger = logging.getLogger(__name__)
-        self.data_path = None  # Will be set when loading dataset
     
-    def load_dataset(self, data_path: Path) -> xr.Dataset:
-        """Common dataset loading with error handling."""
-        try:
-            self.logger.info(f"📂 Loading dataset")
-            self.data_path = data_path
-            return xr.open_dataset(data_path)
-        except Exception as e:
-            self.logger.error(f"❌ Error loading dataset")
-            self.logger.error(f"   └── 💥 {str(e)}")
-            raise
-    
-    def normalize_dataset(self, ds: xr.Dataset, var_name: str) -> xr.DataArray:
-        """Normalize dataset structure by handling different dimension layouts."""
-        data = ds[var_name]
-        
-        # Handle time dimension
-        if 'time' in data.dims:
-            data = data.isel(time=0)
-        
-        # Handle depth dimension if present (CMEMS data)
-        if 'depth' in data.dims:
-            data = data.isel(depth=0)
-        
-        # Handle altitude dimension if present
-        if 'altitude' in data.dims:
-            data = data.isel(altitude=0)
-        
-        return data
+    @abstractmethod
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
+        """Convert data to GeoJSON format."""
+        pass
     
     def get_coordinate_names(self, data: xr.DataArray) -> tuple:
         """Get standardized coordinate names."""
@@ -79,7 +54,7 @@ class BaseGeoJSONConverter(ABC):
         
         return feature
 
-    def save_geojson(self, geojson_data: dict, output_path: Path) -> None:
+    def save_geojson(self, geojson_data: dict, output_path: Path) -> Path:
         """Save optimized GeoJSON data to file."""
         if output_path is None:
             return
@@ -104,19 +79,11 @@ class BaseGeoJSONConverter(ABC):
             json.dump(geojson_data, f, separators=(',', ':'))  # Minimize whitespace
         
         self.logger.info(f"💾 Generated GeoJSON")
+        return output_path
 
     def create_standardized_geojson(self, features: list, date: datetime, 
-                               dataset: str, ranges: dict, metadata: dict,
-                               processed_data: xr.DataArray = None) -> dict:
+                               dataset: str, ranges: dict, metadata: dict) -> dict:
         """Create a standardized GeoJSON object."""
-        # Get ranges from metadata assembler using processed data if available
-        if self.metadata_assembler:
-            metadata_ranges = self.metadata_assembler.get_dataset_ranges(
-                self.data_path, dataset, processed_data
-            )
-            if metadata_ranges:
-                ranges.update(metadata_ranges)
-        
         return {
             "type": "FeatureCollection",
             "features": features,
@@ -127,21 +94,3 @@ class BaseGeoJSONConverter(ABC):
                 **metadata
             }
         }
-
-    def _standardize_ranges(self, ranges: dict) -> dict:
-        """Standardize range format.
-        
-        Each range should have:
-        - min: minimum value
-        - max: maximum value
-        - unit: unit of measurement
-        """
-        standardized = {}
-        for key, value in ranges.items():
-            if isinstance(value, dict) and all(k in value for k in ['min', 'max']):
-                standardized[key] = {
-                    'min': round(float(value['min']), 2),
-                    'max': round(float(value['max']), 2),
-                    'unit': value.get('unit', 'unknown')
-                }
-        return standardized

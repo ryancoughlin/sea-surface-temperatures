@@ -27,9 +27,14 @@ class BaseImageProcessor(ABC):
         self.image_optimizer = ImageOptimizer()
 
     @abstractmethod
-    def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
         """
         Generate visualization and any additional layers.
+        Args:
+            data: Input data as xarray DataArray
+            region: Region identifier
+            dataset: Dataset identifier
+            date: Processing date
         Returns:
             Tuple[Path, Optional[Dict]]: (image_path, additional_layers)
         """
@@ -46,14 +51,20 @@ class BaseImageProcessor(ABC):
             path = self.path_manager.get_asset_paths(date, dataset, region)
             path.image.parent.mkdir(parents=True, exist_ok=True)
             
-            # Save initial high-quality image
+            # Save to BytesIO first to avoid PIL fileno error
+            buf = BytesIO()
             fig.savefig(
-                path.image,
+                buf,
                 dpi=self.settings['dpi'],
                 bbox_inches='tight',
                 format='png'
             )
             plt.close(fig)
+            
+            # Write buffer to file
+            buf.seek(0)
+            with open(path.image, 'wb') as f:
+                f.write(buf.getvalue())
             
             # Optimize the saved image
             self.image_optimizer.optimize_png(path.image)

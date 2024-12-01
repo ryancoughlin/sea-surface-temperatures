@@ -11,35 +11,18 @@ logger = logging.getLogger(__name__)
 class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
     """Converts ocean current data to GeoJSON format with speed and direction"""
     
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
         """
         Convert currents data to GeoJSON. Calculates and includes current speed and direction.
         Returns data in user-friendly units (m/s for speed, degrees for direction).
         """
         try:
-            ds = self.load_dataset(data_path)
-            
-            # Log available variables
-            available_vars = list(ds.variables.keys())
-            logger.info(f"🔄 Converting currents data for {dataset}...")
-            
             # Get u and v components from dataset config
             u_var, v_var = SOURCES[dataset]['variables']
             
-            # Check if variables exist
-            if u_var not in ds or v_var not in ds:
-                logger.error(f"Missing required current components:")
-                if u_var not in ds:
-                    logger.error(f"   └── Missing U component: {u_var}")
-                if v_var not in ds:
-                    logger.error(f"   └── Missing V component: {v_var}")
-                logger.error(f"   └── Available variables: {available_vars}")
-                logger.error(f"   └── This may indicate an incomplete download or CMEMS service issue")
-                raise KeyError(f"Required current components not found in dataset. Available: {available_vars}")
-            
-            # Load and normalize current components
-            u = self.normalize_dataset(ds, u_var)
-            v = self.normalize_dataset(ds, v_var)
+            # Split data into u and v components
+            u = data[0]  # First component is u
+            v = data[1]  # Second component is v
             
             # Get coordinate names
             lon_name, lat_name = self.get_coordinate_names(u)
@@ -117,7 +100,4 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             
         except Exception as e:
             logger.error(f"Error converting currents to GeoJSON: {str(e)}")
-            logger.error(f"Dataset path: {data_path}")
-            if 'ds' in locals():
-                logger.error(f"Dataset variables: {list(ds.variables.keys())}")
             raise

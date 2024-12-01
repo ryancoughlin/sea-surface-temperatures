@@ -7,22 +7,17 @@ import matplotlib.colors as mcolors
 from pathlib import Path
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
-from config.regions import REGIONS
-from typing import Tuple
+from typing import Dict, Optional, Tuple
 from matplotlib.colors import LinearSegmentedColormap
 import cartopy.feature as cfeature
 
 logger = logging.getLogger(__name__)
 
 class ChlorophyllProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Tuple[Path, None]:
+    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate chlorophyll visualization."""
         try:
-            # Load preprocessed data
             logger.info(f"Processing chlorophyll data for {region}")
-            ds = xr.open_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = ds[var_name]
             
             # Get valid data for ranges
             valid_data = data.values[~np.isnan(data.values)]
@@ -61,7 +56,9 @@ class ChlorophyllProcessor(BaseImageProcessor):
             land = cfeature.NaturalEarthFeature('physical', 'land', '10m')
             ax.add_feature(land, facecolor='#B1C2D8', zorder=2)
             
-            return self.save_image(fig, region, dataset, date), None
+            # Use base class's save_image method
+            image_path = self.save_image(fig, region, dataset, date)
+            return image_path, None
             
         except Exception as e:
             logger.error(f"Error processing chlorophyll data: {str(e)}")

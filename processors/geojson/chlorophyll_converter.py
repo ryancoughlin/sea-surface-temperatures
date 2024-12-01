@@ -11,17 +11,9 @@ logger = logging.getLogger(__name__)
 class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
     """Converts chlorophyll data to GeoJSON for basic data display."""
     
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
-            # Store data_path for metadata assembler
-            self.data_path = data_path
-            
-            # Load preprocessed data
-            ds = self.load_dataset(data_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = self.normalize_dataset(ds, var_name)
-            
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
@@ -53,8 +45,11 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
             
             if len(valid_values) == 0:
                 logger.warning("No valid chlorophyll data found")
-                return self.save_geojson({"type": "FeatureCollection", "features": []}, 
-                    self.path_manager.get_asset_paths(date, dataset, region).data)
+                empty_geojson = {"type": "FeatureCollection", "features": []}
+                return self.save_geojson(
+                    empty_geojson,
+                    self.path_manager.get_asset_paths(date, dataset, region).data
+                )
             
             data_min = float(min(valid_values))
             data_max = float(max(valid_values))
@@ -81,8 +76,7 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                 date=date,
                 dataset=dataset,
                 ranges=ranges,
-                metadata=metadata,
-                processed_data=data  # Pass the preprocessed data
+                metadata=metadata
             )
             
             return self.save_geojson(

@@ -61,17 +61,8 @@ class ProcessingManager:
         """Manage NetCDF dataset lifecycle"""
         ds = None
         try:
-            self.logger.info("📂 Loading dataset")
-            ds = xr.open_dataset(
-                path,
-                chunks=None,
-                decode_times=True
-            )
+            ds = xr.open_dataset(path, decode_times=True)
             yield ds
-        except Exception as e:
-            self.logger.error("❌ Error loading dataset")
-            self.logger.error(f"   └── 💥 {str(e)}")
-            raise ProcessingError("loading", str(e), {"path": str(path)})
         finally:
             if ds:
                 ds.close()
@@ -191,10 +182,12 @@ class ProcessingManager:
 
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Path:
         """Get data from cache or download"""
+        logger.info(f"   └── Checking for cached data at {cache_path}")
         if cache_path.exists():
-            logger.info(f"Using cached data: {cache_path.name}")
+            logger.info(f"   └── ✅ Using cached data: {cache_path.name}")
             return cache_path
 
+        logger.info(f"   └── 💾 No cache found, downloading from {SOURCES[dataset].get('source_type')}")
         source_type = SOURCES[dataset].get('source_type')
         try:
             if source_type == 'cmems':
@@ -217,77 +210,65 @@ class ProcessingManager:
     async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime):
         """Process the downloaded netCDF data."""
         try:
-            # Get asset paths first
+            # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            
-            # Load data
-            ds = xr.open_dataset(netcdf_path)
-            var_name = SOURCES[dataset]['variables'][0]
-            data = ds[var_name]
-            
-            # Only preprocess chlorophyll data
             dataset_type = SOURCES[dataset]['type']
-            if dataset_type == 'chlorophyll':
-                logger.info(f"   └── Preprocessing chlorophyll data")
-                data = self.data_preprocessor.preprocess_dataset(data, dataset, region_id)
-                preprocessed_path = netcdf_path.parent / f"{netcdf_path.stem}_preprocessed.nc"
-                self.data_preprocessor.save_preprocessed(data, preprocessed_path)
-            else:
-                preprocessed_path = netcdf_path
             
-            try:
-                # Generate base GeoJSON using preprocessed data
-                geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
-                data_path = geojson_converter.convert(
-                    data_path=preprocessed_path,
+            # 1. Load and process data once
+            logger.info(f"   └── Processing {dataset} data")
+            with self.managed_netcdf(netcdf_path) as ds:
+                var_name = SOURCES[dataset]['variables'][0]
+                raw_data = ds[var_name]
+                processed_data = self.data_preprocessor.preprocess_dataset(raw_data, dataset, region_id)
+            
+            # 2. Generate assets using processed data
+            # Base GeoJSON
+            logger.info(f"   └── Generating GeoJSON")
+            geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
+            data_path = geojson_converter.convert(
+                data=processed_data,
+                region=region_id,
+                dataset=dataset,
+                date=date
+            )
+
+            # Contours for supported types
+            if dataset_type in ['sst', 'chlorophyll']:
+                logger.info(f"   └── Generating contours")
+                contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+                contour_path = contour_converter.convert(
+                    data=processed_data,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
 
-                # Generate contours if supported using preprocessed data
-                if dataset_type in ['sst', 'chlorophyll']:
-                    self.logger.info(f"   └── Generating contours")
-                    contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
-                    contour_path = contour_converter.convert(
-                        data_path=preprocessed_path,
-                        region=region_id,
-                        dataset=dataset,
-                        date=date
-                    )
+            # Image
+            logger.info(f"   └── Generating image")
+            processor = self.processor_factory.create(dataset_type)
+            image_path, additional_layers = processor.generate_image(
+                data=processed_data,
+                region=region_id,
+                dataset=dataset,
+                date=date
+            )
 
-                # Generate image using preprocessed data
-                processor = self.processor_factory.create(dataset_type)
-                self.logger.info(f"   └── Generating image")
-                image_path = processor.generate_image(
-                    data_path=preprocessed_path,
-                    region=region_id,
-                    dataset=dataset,
-                    date=date
-                )
+            # 3. Update metadata with processed data
+            self.metadata_assembler.assemble_metadata(
+                date=date,
+                dataset=dataset,
+                region=region_id,
+                asset_paths=asset_paths,
+                data=processed_data
+            )
 
-                # Update metadata using appropriate data path
-                self.metadata_assembler.assemble_metadata(
-                    date=date,
-                    dataset=dataset,
-                    region=region_id,
-                    asset_paths=asset_paths,
-                    data_path=preprocessed_path if dataset_type == 'chlorophyll' else netcdf_path
-                )
-
-                self.logger.info("   └── ✅ Processing completed")
-
-                return {
-                    'status': 'success',
-                    'paths': asset_paths._asdict(),
-                    'region': region_id,
-                    'dataset': dataset
-                }
-
-            finally:
-                # Only clean up preprocessed file for chlorophyll data
-                if dataset_type == 'chlorophyll' and preprocessed_path.exists():
-                    preprocessed_path.unlink()
+            logger.info("   └── ✅ Processing completed")
+            return {
+                'status': 'success',
+                'paths': asset_paths._asdict(),
+                'region': region_id,
+                'dataset': dataset
+            }
 
         except Exception as e:
             logger.error(f"Error processing {dataset} for {region_id}")

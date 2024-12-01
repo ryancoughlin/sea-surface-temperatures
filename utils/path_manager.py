@@ -30,7 +30,7 @@ class PathManager:
         # Get the dataset_id from SOURCES config
         dataset_id = SOURCES[dataset]['dataset_id']
         region_name = region.lower().replace(" ", "_")
-        date_str = date.strftime('%Y%m%d_%H%M%S')
+        date_str = date.strftime('%Y%m%d_%H')
         return self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:

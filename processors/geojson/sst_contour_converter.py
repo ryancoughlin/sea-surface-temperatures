@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from config.regions import REGIONS
+import xarray as xr
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +71,11 @@ class SSTContourConverter(BaseGeoJSONConverter):
         
         return path_length
 
-    def convert(self, data_path: Path, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to contour GeoJSON format."""
         try:
-            # Load and prepare data
-            ds = self.load_dataset(data_path)
-            temp_var = ds[SOURCES[dataset]['variables'][0]]
-            
             # Process temperature data - ensure 2D
-            temp_data = temp_var
+            temp_data = data
             for dim in ['time', 'depth', 'altitude']:
                 if dim in temp_data.dims:
                     temp_data = temp_data.isel({dim: 0})
