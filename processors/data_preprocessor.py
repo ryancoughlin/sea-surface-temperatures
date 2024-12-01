@@ -95,17 +95,10 @@ class DataPreprocessor:
         
         # Apply type-specific processing
         dataset_type = SOURCES[dataset]['type']
-        source = SOURCES[dataset].get('source', '')
         
         # Apply land masking for ocean data
         if dataset_type in ['sst', 'chlorophyll']:
             data = self.land_masker.mask_land(data)
-        
-        # Special handling for PODAAC data with temporal ranges
-        if source == 'podaac':
-            # Keep temporal dimension for PODAAC data
-            if 'time' in data.dims:
-                data = data.sel(time=slice(None))  # Keep all times
         
         # Log ranges
         valid_data = data.values[~np.isnan(data.values)]

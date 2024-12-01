@@ -11,7 +11,6 @@ import pandas as pd
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
-from services.podaac_service import PodaacService
 from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
@@ -54,7 +53,6 @@ class ProcessingManager:
         self.session = session
         self.erddap_service = ERDDAPService(session, self.path_manager)
         self.cmems_service = CMEMSService(session, self.path_manager)
-        self.podaac_service = PodaacService(session, self.path_manager)
 
     @contextmanager
     def managed_netcdf(self, path: Path, cleanup: bool = True):
@@ -81,83 +79,27 @@ class ProcessingManager:
             logger.info("   ├── 🔄 Fetching data")
             source_type = SOURCES[dataset].get('source_type')
             
-            if source_type == 'podaac':
-                # Handle PODAAC data differently - returns multiple files
-                netcdf_paths = await self._get_data(date, dataset, region_id, data_path)
-                if not netcdf_paths:
-                    logger.error("   └── ❌ No data downloaded")
-                    return {
-                        'status': 'error',
-                        'error': 'No data downloaded',
-                        'region': region_id,
-                        'dataset': dataset
-                    }
-                
-                # Process each file
-                results = []
-                for netcdf_path in netcdf_paths:
-                    try:
-                        # Extract time from filename or metadata
-                        file_time = self._extract_time_from_file(netcdf_path)
-                        if not file_time:
-                            logger.warning(f"   ├── ⚠️ Could not extract time from {netcdf_path}")
-                            continue
-                            
-                        # Get asset paths for this specific time
-                        time_asset_paths = self.path_manager.get_asset_paths(file_time, dataset, region_id)
-                        
-                        # Process the file
-                        logger.info(f"   ├── 🔧 Processing file for {file_time}")
-                        result = await self._process_netcdf_data(
-                            netcdf_path, region_id, dataset, file_time
-                        )
-                        if result['status'] == 'success':
-                            results.append(result)
-                            logger.info(f"   ├── ✅ File processed successfully")
-                            
-                    except Exception as e:
-                        logger.error(f"   ├── ❌ Error processing file {netcdf_path}: {str(e)}")
-                        continue
-                
-                if not results:
-                    logger.error("   └── ❌ No files processed successfully")
-                    return {
-                        'status': 'error',
-                        'error': 'No files processed successfully',
-                        'region': region_id,
-                        'dataset': dataset
-                    }
-                
-                logger.info(f"   └── ✅ Processed {len(results)} files successfully")
+
+            # Handle other data sources as before
+            netcdf_path = await self._get_data(date, dataset, region_id, data_path)
+            if not netcdf_path:
+                logger.error("   └── ❌ No data downloaded")
                 return {
-                    'status': 'success',
-                    'processed_files': len(results),
-                    'results': results,
+                    'status': 'error',
+                    'error': 'No data downloaded',
                     'region': region_id,
                     'dataset': dataset
                 }
             
-            else:
-                # Handle other data sources as before
-                netcdf_path = await self._get_data(date, dataset, region_id, data_path)
-                if not netcdf_path:
-                    logger.error("   └── ❌ No data downloaded")
-                    return {
-                        'status': 'error',
-                        'error': 'No data downloaded',
-                        'region': region_id,
-                        'dataset': dataset
-                    }
-                
-                # Process the data
-                logger.info("   ├── 🔧 Processing data")
-                result = await self._process_netcdf_data(
-                    netcdf_path, region_id, dataset, date
-                )
-                if result['status'] == 'success':
-                    logger.info("   └── ✅ Processing completed successfully")
-                return result
-                
+            # Process the data
+            logger.info("   ├── 🔧 Processing data")
+            result = await self._process_netcdf_data(
+                netcdf_path, region_id, dataset, date
+            )
+            if result['status'] == 'success':
+                logger.info("   └── ✅ Processing completed successfully")
+            return result
+            
         except Exception as e:
             logger.error(f"   └── ❌ Error processing {dataset} for {region_id}: {str(e)}")
             return {
@@ -202,8 +144,6 @@ class ProcessingManager:
                 return await self.cmems_service.save_data(date, dataset, region_id)
             elif source_type == 'erddap':
                 return await self.erddap_service.save_data(date, dataset, region_id)
-            elif source_type == 'podaac':
-                return await self.podaac_service.save_data(date, dataset, region_id)
             else:
                 logger.error(f"   └── ❌ Unknown source type: {source_type}")
                 raise ProcessingError("download", f"Unknown source type: {source_type}",

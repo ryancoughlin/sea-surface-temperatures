@@ -147,31 +147,5 @@ SOURCES = {
             "resolution": "5 miles",
             "description": "Global wave analysis including height, period, and direction.",
         }
-    },
-    "podaac_goes16_sst": {
-        "source_type": "podaac",
-        "type": "sst",
-        "name": "GOES-16 SST L3C",
-        "dataset_id": "GOES16-SST-OSISAF-L3C-v1.0",
-        "variables": ["sea_surface_temperature"],
-        "supportedLayers": ["image", "data", "contours"],
-        "source_unit": "K",
-        "color_scale": [
-            '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
-            '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
-            '#3a7bea', '#4185f8', '#41b6c4', '#46c0cd', '#4bcad6',
-            '#50d4df', '#55dde8', '#5ae7f1', '#7fcdbb', '#8ed7c4',
-            '#9de1cd', '#acebd6', '#bbf5df', '#c7e9b4', '#d6edb8',
-            '#e5f1bc', '#f4f5c0', '#fef396', '#fec44f', '#fdb347',
-            '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
-            '#f74d17'
-        ],
-        "metadata": {
-            "cloud-free": "No",
-            "frequency": "Hourly",
-            "resolution": "2 km",
-            "description": "GOES-16 Sea Surface Temperature Level 3C product.",
-            "capture": "Day and night"
-        }
-    },
+    }
 }

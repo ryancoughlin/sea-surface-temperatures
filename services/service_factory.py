@@ -1,14 +1,13 @@
 from typing import Dict
 from .erddap_service import ERDDAPService
-from .podaac_service import PODAACService
 from .cmems_service import CMEMSService
+from .base_service import BaseService
 
 class ServiceFactory:
     @staticmethod
     def get_service(source_type: str) -> BaseService:
         services = {
             'erddap': ERDDAPService(),
-            'podaac': PODAACService(),
             'cmems': CMEMSService()
         }
         

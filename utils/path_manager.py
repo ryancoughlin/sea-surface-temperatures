@@ -48,17 +48,8 @@ class PathManager:
         return base_path
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
-        """Get asset paths, with special handling for PODAAC data."""
-        # Check if this is PODAAC data
-        source = SOURCES[dataset].get('source', '')
-        
-        if source == 'podaac':
-            # For PODAAC, use full date/hour/minute structure
-            date_str = date.strftime('%Y%m%d/%H%M')
-        else:
-            # For other sources, just use date
-            date_str = date.strftime('%Y%m%d')
-        
+        """Get asset paths for the given dataset."""
+        date_str = date.strftime('%Y%m%d')
         dataset_dir = self.output_dir / region / dataset / date_str
         dataset_dir.mkdir(parents=True, exist_ok=True)
         

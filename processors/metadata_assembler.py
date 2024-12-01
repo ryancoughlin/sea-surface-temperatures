@@ -22,11 +22,19 @@ class MetadataAssembler:
     def assemble_metadata(self, data: xr.DataArray | xr.Dataset, dataset: str, region: str, date: datetime):
         """Update metadata for a dataset."""
         try:
-            # Get dataset type and source
+            # Get dataset type
             dataset_type = SOURCES[dataset]['type']
-            source = SOURCES[dataset].get('source', '')
+            logger.info(f"Assembling metadata for {dataset} ({dataset_type}) in {region}")
+            logger.info(f"Input data type: {type(data)}")
+            
+            if isinstance(data, xr.Dataset):
+                logger.info(f"Dataset variables: {list(data.variables)}")
+            elif isinstance(data, xr.DataArray):
+                logger.info(f"DataArray dims: {data.dims}")
+                logger.info(f"DataArray shape: {data.shape}")
             
             # Calculate ranges based on dataset type
+            logger.info(f"Calculating ranges for {dataset_type}")
             if dataset_type == 'currents':
                 ranges = self._get_current_ranges_from_data(data, dataset)
             elif dataset_type == 'sst':
@@ -38,6 +46,8 @@ class MetadataAssembler:
             else:
                 logger.warning(f"Unknown dataset type: {dataset_type}")
                 ranges = {}
+
+            logger.info(f"Calculated ranges: {ranges}")
 
             # Get asset paths
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
@@ -55,6 +65,7 @@ class MetadataAssembler:
 
         except Exception as e:
             logger.error(f"Error updating metadata: {str(e)}")
+            logger.exception(e)  # Log full traceback
             raise
 
     def update_global_metadata(self, region: str, dataset: str, date: datetime, 
@@ -63,38 +74,12 @@ class MetadataAssembler:
         try:
             # Get layers
             layers = {}
-            if SOURCES[dataset].get('type') == 'podaac':
-                # For PODAAC, include hourly subdirectories in layer paths
-                date_str = date.strftime('%Y%m%d')
-                base_dir = self.path_manager.base_dir
-                
-                # Get all hourly directories
-                date_dir = Path(asset_paths.data).parent
-                hour_dirs = sorted([d for d in date_dir.glob('*') if d.is_dir()])
-                
-                # Create hourly entries
-                layers['hourly'] = {}
-                for hour_dir in hour_dirs:
-                    hour = hour_dir.name
-                    hour_layers = {}
-                    
-                    for layer_type in ['image', 'data', 'contours']:
-                        layer_path = hour_dir / f"{layer_type}.{SOURCES[dataset]['fileExtensions'][layer_type]}"
-                        if layer_path.exists():
-                            hour_layers[layer_type] = self.get_full_url(
-                                layer_path.relative_to(base_dir)
-                            )
-                    
-                    if hour_layers:
-                        layers['hourly'][hour] = hour_layers
-            else:
-                # Handle non-PODAAC datasets as before
-                for layer_type in ['image', 'data', 'contours']:
-                    path = getattr(asset_paths, layer_type, None)
-                    if path and path.exists():
-                        layers[layer_type] = self.get_full_url(
-                            path.relative_to(self.path_manager.base_dir)
-                        )
+            for layer_type in ['image', 'data', 'contours']:
+                path = getattr(asset_paths, layer_type, None)
+                if path and path.exists():
+                    layers[layer_type] = self.get_full_url(
+                        path.relative_to(self.path_manager.base_dir)
+                    )
 
             # Validate ranges
             if not ranges:
@@ -193,27 +178,47 @@ class MetadataAssembler:
     def _get_sst_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
         """Get standardized ranges for SST data from DataArray."""
         try:
+            # Handle Dataset vs DataArray
+            if isinstance(data, xr.Dataset):
+                variables = SOURCES[dataset]['variables']
+                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
+                data = data[sst_var]
+            
+            logger.info(f"Calculating SST ranges for {dataset}")
+            logger.info(f"Data type: {type(data)}")
+            logger.info(f"Data shape: {data.shape}")
+            logger.info(f"Data dims: {data.dims}")
+            
             # Convert to Fahrenheit using source unit from settings
             source_unit = SOURCES[dataset].get('source_unit', 'C')
+            logger.info(f"Source unit: {source_unit}")
+            
             if source_unit == 'K':
                 data = (data - 273.15) * 9/5 + 32  # Kelvin to Fahrenheit
             else:
                 data = data * 9/5 + 32  # Celsius to Fahrenheit
             
             valid_data = data.values[~np.isnan(data.values)]
+            logger.info(f"Found {len(valid_data)} valid data points")
+            
             if len(valid_data) == 0:
                 logger.warning("No valid SST data found")
                 return {}
             
+            min_temp = float(np.min(valid_data))
+            max_temp = float(np.max(valid_data))
+            logger.info(f"Temperature range (F): {min_temp:.2f} to {max_temp:.2f}")
+            
             return {
                 "temperature": {
-                    "min": round(float(np.min(valid_data)), 2),
-                    "max": round(float(np.max(valid_data)), 2),
+                    "min": round(min_temp, 2),
+                    "max": round(max_temp, 2),
                     "unit": "fahrenheit"
                 }
             }
         except Exception as e:
             logger.error(f"Error calculating SST ranges: {str(e)}")
+            logger.exception(e)  # Log full traceback
             return {}
 
     def _get_waves_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
@@ -253,40 +258,13 @@ class MetadataAssembler:
                 logger.warning("No valid chlorophyll data found")
                 return {}
             
-            data_min = float(np.min(valid_data))
-            data_max = float(np.max(valid_data))
-            
-            logger.info(f"[RANGES] Metadata min/max: {data_min:.4f} to {data_max:.4f}")
-            
             return {
                 "concentration": {
-                    "min": round(data_min, 4),
-                    "max": round(data_max, 4),
+                    "min": round(float(np.min(valid_data)), 4),
+                    "max": round(float(np.max(valid_data)), 4),
                     "unit": "mg/m³"
                 }
             }
         except Exception as e:
             logger.error(f"Error calculating chlorophyll ranges: {str(e)}")
-            return {}
-
-    def _get_default_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
-        """Get standardized ranges for other datasets from DataArray."""
-        try:
-            ranges = {}
-            for var in SOURCES[dataset]['variables']:
-                var_data = data[var]
-                valid_data = var_data.values[~np.isnan(var_data.values)]
-                
-                if len(valid_data) == 0:
-                    logger.warning(f"No valid data found for {var}")
-                    continue
-                
-                ranges[var] = {
-                    "min": round(float(np.min(valid_data)), 2),
-                    "max": round(float(np.max(valid_data)), 2),
-                    "unit": getattr(var_data, 'units', 'unknown')
-                }
-            return ranges
-        except Exception as e:
-            logger.error(f"Error calculating default ranges: {str(e)}")
             return {}
