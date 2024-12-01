@@ -71,14 +71,28 @@ class SSTContourConverter(BaseGeoJSONConverter):
         
         return path_length
 
-    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to contour GeoJSON format."""
         try:
+            # Extract temperature data from dataset if needed
+            if isinstance(data, xr.Dataset):
+                variables = SOURCES[dataset]['variables']
+                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
+                temp_data = data[sst_var]
+                
+                # Check for gradient data
+                gradient_var = next((var for var in variables if 'gradient' in var.lower()), None)
+                gradient_data = data[gradient_var] if gradient_var else None
+            else:
+                temp_data = data
+                gradient_data = None
+            
             # Process temperature data - ensure 2D
-            temp_data = data
             for dim in ['time', 'depth', 'altitude']:
                 if dim in temp_data.dims:
                     temp_data = temp_data.isel({dim: 0})
+                if gradient_data is not None and dim in gradient_data.dims:
+                    gradient_data = gradient_data.isel({dim: 0})
             
             # Convert to Fahrenheit using source unit from settings
             source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
@@ -95,6 +109,9 @@ class SSTContourConverter(BaseGeoJSONConverter):
             lon_mask = (temp_data[lon_var] >= bounds[0][0]) & (temp_data[lon_var] <= bounds[1][0])
             lat_mask = (temp_data[lat_var] >= bounds[0][1]) & (temp_data[lat_var] <= bounds[1][1])
             regional_temp = temp_data.where(lon_mask & lat_mask, drop=True)
+            
+            if gradient_data is not None:
+                gradient_data = gradient_data.where(lon_mask & lat_mask, drop=True)
             
             # Get valid temperatures
             valid_temps = regional_temp.values[~np.isnan(regional_temp.values)]
@@ -132,7 +149,20 @@ class SSTContourConverter(BaseGeoJSONConverter):
                             if path_length < 0.5:  # 0.5 degrees minimum length
                                 continue
                             
-                            features.append({
+                            # Process gradient data if available
+                            gradient_info = {}
+                            if gradient_data is not None:
+                                avg_gradient, max_gradient, strength = self._process_gradient_data(
+                                    gradient_data.values, segment
+                                )
+                                if avg_gradient is not None:
+                                    gradient_info.update({
+                                        "avg_gradient": round(avg_gradient, 4),
+                                        "max_gradient": round(max_gradient, 4),
+                                        "strength": strength
+                                    })
+                            
+                            feature = {
                                 "type": "Feature",
                                 "geometry": {
                                     "type": "LineString",
@@ -141,9 +171,12 @@ class SSTContourConverter(BaseGeoJSONConverter):
                                 "properties": {
                                     "value": clean_value(level_value),
                                     "unit": "fahrenheit",
-                                    "is_key_temp": level_value in self.KEY_TEMPERATURES
+                                    "is_key_temp": level_value in self.KEY_TEMPERATURES,
+                                    **gradient_info
                                 }
-                            })
+                            }
+                            features.append(feature)
+                            
                 except Exception as e:
                     logger.warning(f"Could not generate contours: {str(e)}")
             

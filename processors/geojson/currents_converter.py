@@ -20,9 +20,9 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             # Get u and v components from dataset config
             u_var, v_var = SOURCES[dataset]['variables']
             
-            # Split data into u and v components
-            u = data[0]  # First component is u
-            v = data[1]  # Second component is v
+            # Split data into u and v components using variable names
+            u = data[u_var]  # Get u component by name
+            v = data[v_var]  # Get v component by name
             
             # Get coordinate names
             lon_name, lat_name = self.get_coordinate_names(u)

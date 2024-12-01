@@ -41,13 +41,6 @@ class DataProcessor:
                 region_id=region_id,
                 dataset=dataset
             )
-            if result['status'] == 'success':
-                # Verify metadata was updated
-                metadata_path = self.path_manager.output_dir / "metadata.json"
-                if not metadata_path.exists():
-                    logger.error(f"❌ Metadata file not created for {dataset}/{region_id}")
-                else:
-                    logger.info(f"✅ Metadata updated for {dataset}/{region_id}")
             return result
         except Exception as e:
             logger.error(f"💥 Failed {dataset}/{region_id}: {str(e)}")

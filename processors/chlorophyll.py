@@ -27,6 +27,10 @@ class ChlorophyllProcessor(BaseImageProcessor):
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
 
+            # Apply coastal buffer to fill gaps
+            logger.info("Applying coastal buffer to fill data gaps")
+            buffered_data = self.expand_coastal_data(data, buffer_size=3)
+            
             # Create figure and plot
             fig, ax = self.create_axes(region)
             
@@ -41,9 +45,9 @@ class ChlorophyllProcessor(BaseImageProcessor):
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
-                data[lon_name],
-                data[lat_name],
-                data.values,
+                buffered_data[lon_name],
+                buffered_data[lat_name],
+                buffered_data.values,
                 transform=ccrs.PlateCarree(),
                 norm=norm,
                 cmap=cmap,

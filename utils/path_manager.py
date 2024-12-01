@@ -12,7 +12,6 @@ class AssetPaths(NamedTuple):
     image: Path
     data: Path
     contours: Optional[Path]
-    metadata: Path
 
 class PathManager:
     BASE_DIR = Path(__file__).parent.parent
@@ -31,19 +30,47 @@ class PathManager:
         dataset_id = SOURCES[dataset]['dataset_id']
         region_name = region.lower().replace(" ", "_")
         date_str = date.strftime('%Y%m%d_%H')
-        return self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
+        
+        # First check for exact match
+        base_path = self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
+        if base_path.exists():
+            logger.info(f"Found exact cache match at {base_path}")
+            return base_path
+            
+        # Then check for files with timestamps
+        pattern = f"{dataset_id}_{region_name}_{date_str}*.nc"
+        matches = list(self.data_dir.glob(pattern))
+        if matches:
+            logger.info(f"Found cache match at {matches[0]}")
+            return matches[0]
+            
+        # If no existing file found, return base path for new file
+        return base_path
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
-        date_str = date.strftime('%Y%m%d/%H%M')
+        """Get asset paths, with special handling for PODAAC data."""
+        # Check if this is PODAAC data
+        source = SOURCES[dataset].get('source', '')
+        
+        if source == 'podaac':
+            # For PODAAC, use full date/hour/minute structure
+            date_str = date.strftime('%Y%m%d/%H%M')
+        else:
+            # For other sources, just use date
+            date_str = date.strftime('%Y%m%d')
+        
         dataset_dir = self.output_dir / region / dataset / date_str
         dataset_dir.mkdir(parents=True, exist_ok=True)
         
         return AssetPaths(
             image=dataset_dir / "image.png",
             data=dataset_dir / "data.json",
-            contours=dataset_dir / "contours.json" if "contours" in SOURCES[dataset]["supportedLayers"] else None,
-            metadata=dataset_dir / "metadata.json"
+            contours=dataset_dir / "contours.json" if "contours" in SOURCES[dataset]["supportedLayers"] else None
         )
+
+    def get_metadata_path(self) -> Path:
+        """Get path to the global metadata file."""
+        return self.output_dir / "metadata.json"
 
     def cleanup_old_data(self, keep_days: int = 5):
         """Remove data older than specified number of days"""

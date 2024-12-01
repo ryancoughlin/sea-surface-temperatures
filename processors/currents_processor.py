@@ -14,26 +14,38 @@ from matplotlib.colors import LinearSegmentedColormap
 logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
-    def generate_image(self, data_path: Path, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
         """Generate currents visualization while emphasizing moving water and eddies."""
         try:
-            # Load data
-            ds = xr.open_dataset(data_path)
-            
             # Get velocity components from SOURCES config
             u_var, v_var = SOURCES[dataset]['variables']
-            u_data = ds[u_var].isel(time=0, depth=0)  # Eastward velocity
-            v_data = ds[v_var].isel(time=0, depth=0)  # Northward velocity
+            u_data = data[u_var]  # Eastward velocity
+            v_data = data[v_var]  # Northward velocity
+            
+            # Handle dimensions
+            for dim in ['time', 'depth']:
+                if dim in u_data.dims:
+                    u_data = u_data.isel({dim: 0})
+                if dim in v_data.dims:
+                    v_data = v_data.isel({dim: 0})
+
+            # Log data ranges before processing
+            logger.info(f"Raw u_data range: {float(u_data.min().values):.4f} to {float(u_data.max().values):.4f}")
+            logger.info(f"Raw v_data range: {float(v_data.min().values):.4f} to {float(v_data.max().values):.4f}")
 
             # Compute magnitude of currents
             magnitude = np.sqrt(u_data**2 + v_data**2)
 
             # Get actual min/max values from valid data for colormap
             valid_data = magnitude.values[~np.isnan(magnitude.values)]
+            if len(valid_data) == 0:
+                logger.error("No valid current data after preprocessing")
+                raise ValueError("No valid current data after preprocessing")
             
             # Calculate dynamic ranges
             vmin = float(np.percentile(valid_data, 1))  # 1st percentile
             vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            logger.info(f"Current magnitude range: {vmin:.4f} to {vmax:.4f}")
             
             # Calculate threshold for eddy detection (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
@@ -44,6 +56,7 @@ class CurrentsProcessor(BaseImageProcessor):
             
             # Define areas of interest: moving water or strong gradients
             interest_mask = (magnitude.values > magnitude_threshold) | (gradient_magnitude > magnitude_threshold / 2)
+            logger.info(f"Interest points found: {np.sum(interest_mask)}")
 
             # Create figure and axes using base processor method
             fig, ax = self.create_axes(region)
@@ -53,8 +66,8 @@ class CurrentsProcessor(BaseImageProcessor):
 
             # Plot background current magnitude as colormesh
             mesh = ax.pcolormesh(
-                ds['longitude'],
-                ds['latitude'],
+                data['longitude'],
+                data['latitude'],
                 magnitude,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
@@ -66,8 +79,8 @@ class CurrentsProcessor(BaseImageProcessor):
 
             # Plot arrows for significant areas
             ax.quiver(
-                ds['longitude'],
-                ds['latitude'],
+                data['longitude'],
+                data['latitude'],
                 u_data.where(interest_mask),
                 v_data.where(interest_mask),
                 transform=ccrs.PlateCarree(),
@@ -87,6 +100,6 @@ class CurrentsProcessor(BaseImageProcessor):
 
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")
-            logger.error(f"Data dimensions: {ds.dims}")
-            logger.error(f"Variables: {list(ds.variables)}")
+            logger.error(f"Data dimensions: {data.dims}")
+            logger.error(f"Variables: {list(data.variables)}")
             raise

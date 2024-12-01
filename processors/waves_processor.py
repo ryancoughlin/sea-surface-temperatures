@@ -8,22 +8,31 @@ from matplotlib.colors import LinearSegmentedColormap
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
+from typing import Tuple, Optional, Dict
 
 logger = logging.getLogger(__name__)
 
 class WavesProcessor(BaseImageProcessor):
     """Processor for generating wave height visualizations."""
     
-    def generate_image(self, data_path: Path, region: str, dataset: str, date: str) -> Path:
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate wave height visualization in feet."""
         try:
-            # Load data efficiently
-            ds = xr.open_dataset(data_path, chunks={'time': 1})
-            height = ds['VHM0'].isel(time=0).load()
+            # Get wave height data
+            height = data['VHM0']
+            
+            # Handle dimensions
+            for dim in ['time', 'depth']:
+                if dim in height.dims:
+                    height = height.isel({dim: 0})
             
             # Get coordinates
             lon_name, lat_name = self.get_coordinate_names(height)
             bounds = REGIONS[region]['bounds']
+            
+            # Log data info
+            logger.info(f"Wave height dimensions: {height.dims}")
+            logger.info(f"Wave height coordinates: {list(height.coords)}")
             
             # Create figure
             fig, ax = self.create_axes(region)
@@ -36,8 +45,13 @@ class WavesProcessor(BaseImageProcessor):
             
             # Calculate dynamic ranges from valid data
             valid_data = height_ft.values[~np.isnan(height_ft.values)]
+            if len(valid_data) == 0:
+                logger.error("No valid wave height data")
+                raise ValueError("No valid wave height data")
+                
             vmin = float(np.percentile(valid_data, 1))  # 1st percentile
             vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            logger.info(f"Wave height range (ft): {vmin:.2f} to {vmax:.2f}")
             
             # Create levels for contour plot
             levels = np.linspace(vmin, vmax, 91)  # 90 intervals
@@ -55,8 +69,12 @@ class WavesProcessor(BaseImageProcessor):
                 extend='both'
             )
             
-            return self.save_image(fig, region, dataset, date)
+            image_path = self.save_image(fig, region, dataset, date)
+            return image_path, None
             
         except Exception as e:
             logger.error(f"Error processing wave data: {str(e)}")
+            logger.error(f"Data dimensions: {data.dims}")
+            logger.error(f"Variables: {list(data.variables)}")
+            logger.error(f"Coordinates: {list(data.coords)}")
             raise

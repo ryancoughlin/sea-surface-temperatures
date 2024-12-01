@@ -14,12 +14,18 @@ from typing import Dict, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 class SSTProcessor(BaseImageProcessor):
-    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate SST visualization."""
         try:
             # Get paths and create directories
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
             asset_paths.image.parent.mkdir(parents=True, exist_ok=True)
+
+            # Handle Dataset vs DataArray
+            if isinstance(data, xr.Dataset):
+                variables = SOURCES[dataset]['variables']
+                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
+                data = data[sst_var]
 
             # Force 2D data
             if 'time' in data.dims:
