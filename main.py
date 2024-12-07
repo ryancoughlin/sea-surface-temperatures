@@ -78,19 +78,12 @@ class DataProcessor:
         logger.info(f"   ❌ Failed: {failed}")
         logger.info(f"   📝 Total: {len(results)}")
         
-        # Log region-specific stats
-        for region_id, region_results in grouped_results.items():
-            region_success = sum(1 for r in region_results if r.is_success)
-            logger.info(f"\n   {REGIONS[region_id]['name']}:")
-            logger.info(f"      ✅ Success: {region_success}")
-            logger.info(f"      ❌ Failed: {len(region_results) - region_success}")
-        
-        # Log failed datasets
+        # Log failed datasets without region summaries
         if failed > 0:
             logger.info("\nFailed datasets:")
             for result in results:
                 if not result.is_success:
-                    logger.error(f"   ❌ {result.region}/{result.dataset}: {result.error}")
+                    logger.error(f"   ❌ {result.dataset}: {result.error}")
 
     async def run(self) -> Dict[str, int]:
         """Process all datasets for all regions"""

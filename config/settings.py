@@ -149,3 +149,72 @@ SOURCES = {
         }
     }
 }
+
+REGIONS = {
+    "west_coast": {
+        "name": "U.S. West Coast",
+        "bounds": {
+            "north": 49.0,  # Canadian border
+            "south": 32.0,  # San Diego
+            "east": -116.0,
+            "west": -126.0
+        },
+        "center": [44.0, -124.0],
+        "zoom": 5
+    },
+    "hawaii": {
+        "name": "Hawaiian Islands",
+        "bounds": {
+            "north": 23.0,
+            "south": 18.0,
+            "east": -154.0,
+            "west": -161.0
+        },
+        "center": [20.5, -157.5],
+        "zoom": 6
+    },
+    "baja": {
+        "name": "Baja California",
+        "bounds": {
+            "north": 32.5,  # Includes San Diego
+            "south": 22.5,  # Cabo San Lucas
+            "east": -109.0,
+            "west": -118.0
+        },
+        "center": [27.5, -113.5],
+        "zoom": 6
+    },
+    "pnw": {
+        "name": "Pacific Northwest",
+        "bounds": {
+            "north": 49.0,  # Canadian border
+            "south": 42.0,  # Oregon-California border
+            "east": -122.0,
+            "west": -126.0
+        },
+        "center": [45.5, -124.0],
+        "zoom": 6
+    },
+    "socal": {
+        "name": "Southern California",
+        "bounds": {
+            "north": 35.0,  # Point Conception
+            "south": 32.0,  # San Diego
+            "east": -117.0,
+            "west": -121.0
+        },
+        "center": [33.5, -119.0],
+        "zoom": 7
+    },
+    "central_cal": {
+        "name": "Central California",
+        "bounds": {
+            "north": 39.0,  # Cape Mendocino
+            "south": 35.0,  # Point Conception
+            "east": -121.0,
+            "west": -125.0
+        },
+        "center": [37.0, -123.0],
+        "zoom": 7
+    }
+}
