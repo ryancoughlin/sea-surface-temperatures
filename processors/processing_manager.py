@@ -18,6 +18,7 @@ from processors.data_preprocessor import DataPreprocessor
 from config.settings import SOURCES
 from utils.path_manager import PathManager
 from processors.data_cleaners.land_masker import LandMasker
+from processors.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,11 @@ class ProcessingManager:
         self.cmems_service = None
         self.podaac_service = None
         
-        # Initialize factories and processors
+        # Initialize services and managers
         self.processor_factory = ProcessorFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, metadata_assembler)
         self.data_preprocessor = DataPreprocessor()
+        self.cache_manager = CacheManager()
         self.logger = logging.getLogger(__name__)
         
         self.land_masker = LandMasker()
@@ -76,11 +78,8 @@ class ProcessingManager:
 
             # Use cached or download new data
             logger.info(f"📦 Processing {dataset} for {region_id}")
-            logger.info("   ├── 🔄 Fetching data")
             source_type = SOURCES[dataset].get('source_type')
-            
 
-            # Handle other data sources as before
             netcdf_path = await self._get_data(date, dataset, region_id, data_path)
             if not netcdf_path:
                 logger.error("   └── ❌ No data downloaded")
@@ -130,24 +129,32 @@ class ProcessingManager:
             logger.error(f"Error extracting time from file: {str(e)}")
             return None
 
-    async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Path:
+    async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Optional[Path]:
         """Get data from cache or download"""
-        logger.info(f"   ├── 🔍 Checking cache: {cache_path.name}")
-        if cache_path.exists():
-            logger.info(f"   ├── ✅ Using cached data")
-            return cache_path
-
+        # Check cache first
+        cached_file = self.cache_manager.get_cached_file(dataset, region_id, date)
+        if cached_file:
+            logger.info(f"   ├── ✅ Using cached file: {cached_file.name}")
+            return cached_file
+            
+        # If not in cache, download
         source_type = SOURCES[dataset].get('source_type')
         logger.info(f"   ├── 📥 Downloading from {source_type}")
+        
         try:
             if source_type == 'cmems':
-                return await self.cmems_service.save_data(date, dataset, region_id)
+                downloaded_path = await self.cmems_service.save_data(date, dataset, region_id)
             elif source_type == 'erddap':
-                return await self.erddap_service.save_data(date, dataset, region_id)
+                downloaded_path = await self.erddap_service.save_data(date, dataset, region_id)
             else:
                 logger.error(f"   └── ❌ Unknown source type: {source_type}")
                 raise ProcessingError("download", f"Unknown source type: {source_type}",
                                    {"dataset": dataset, "region": region_id})
+                
+            # Save to cache if download successful
+            if downloaded_path:
+                return self.cache_manager.save_to_cache(downloaded_path, dataset, region_id, date)
+            return None
                 
         except asyncio.CancelledError:
             logger.warning(f"   └── ⚠️ Task cancelled for {dataset}")
