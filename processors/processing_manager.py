@@ -67,7 +67,7 @@ class ProcessingManager:
             if cleanup and path.exists():
                 path.unlink()
 
-    async def process_dataset(self, date: datetime, region_id: str, dataset: str) -> dict:
+    async def process_dataset(self, date: datetime, region_id: str, dataset: str, skip_geojson: bool = False) -> dict:
         """Process single dataset for a region"""
         try:
             # Get paths
@@ -94,7 +94,7 @@ class ProcessingManager:
             # Process the data
             logger.info("   ├── 🔧 Processing data")
             result = await self._process_netcdf_data(
-                netcdf_path, region_id, dataset, date
+                netcdf_path, region_id, dataset, date, skip_geojson
             )
             if result['status'] == 'success':
                 logger.info("   └── ✅ Processing completed successfully")
@@ -157,7 +157,7 @@ class ProcessingManager:
             raise ProcessingError("download", str(e), 
                                 {"dataset": dataset, "region": region_id}) from e
 
-    async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime):
+    async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, skip_geojson: bool = False):
         """Process the downloaded netCDF data."""
         try:
             # Get asset paths and dataset type
@@ -176,7 +176,7 @@ class ProcessingManager:
                         continue
                         
                     result = await self._process_single_netcdf(
-                        file_path, region_id, dataset, file_date
+                        file_path, region_id, dataset, file_date, skip_geojson
                     )
                     if result['status'] == 'success':
                         results.append(result)
@@ -200,7 +200,7 @@ class ProcessingManager:
                 }
             
             # Standard processing for non-PODAAC data
-            return await self._process_single_netcdf(netcdf_path, region_id, dataset, date)
+            return await self._process_single_netcdf(netcdf_path, region_id, dataset, date, skip_geojson)
             
         except Exception as e:
             logger.error(f"   └── ❌ Processing failed: {str(e)}")
@@ -219,7 +219,7 @@ class ProcessingManager:
                 return None
         return None
 
-    async def _process_single_netcdf(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime):
+    async def _process_single_netcdf(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, skip_geojson: bool = False):
         """Process a single netCDF file."""
         try:
             # Get asset paths and dataset type
@@ -264,28 +264,29 @@ class ProcessingManager:
                 )
             
             # Generate assets using processed data
-            # Base GeoJSON
-            logger.info(f"   ├── 🗺️  Generating GeoJSON")
-            geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
-            data_path = geojson_converter.convert(
-                data=processed_data,
-                region=region_id,
-                dataset=dataset,
-                date=date
-            )
-            logger.info(f"   ├── ✅ GeoJSON generated")
-
-            # Contours for supported types
-            if dataset_type in ['sst', 'chlorophyll']:
-                logger.info(f"   ├── 📈 Generating contours")
-                contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
-                contour_path = contour_converter.convert(
+            if not skip_geojson:
+                # Base GeoJSON
+                logger.info(f"   ├── 🗺️  Generating GeoJSON")
+                geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
+                data_path = geojson_converter.convert(
                     data=processed_data,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
-                logger.info(f"   ├── ✅ Contours generated")
+                logger.info(f"   ├── ✅ GeoJSON generated")
+
+                # Contours for supported types
+                if dataset_type in ['sst', 'chlorophyll']:
+                    logger.info(f"   ├── 📈 Generating contours")
+                    contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+                    contour_path = contour_converter.convert(
+                        data=processed_data,
+                        region=region_id,
+                        dataset=dataset,
+                        date=date
+                    )
+                    logger.info(f"   ├── ✅ Contours generated")
 
             # Image
             logger.info(f"   ├── 🖼️  Generating image")
@@ -313,7 +314,7 @@ class ProcessingManager:
                 'dataset': dataset,
                 'region': region_id,
                 'paths': {
-                    'data': str(data_path),
+                    'data': str(asset_paths.data),
                     'image': str(image_path)
                 }
             }

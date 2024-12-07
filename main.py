@@ -33,17 +33,25 @@ class DataProcessor:
     async def process_dataset(self, session: aiohttp.ClientSession, 
                             date: datetime, region_id: str, dataset: str) -> Dict:
         """Process single dataset for a region"""
-        logger.info(f"🚀 Starting {dataset} for region {region_id}")
+        logger.info(f"🚀 Processing {dataset} for region {region_id}")
         
         try:
+            # Skip GeoJSON only for united_states region
+            skip_geojson = (region_id == "united_states")
+            
             result = await self.processing_manager.process_dataset(
                 date=date,
                 region_id=region_id,
-                dataset=dataset
+                dataset=dataset,
+                skip_geojson=skip_geojson
             )
+            
+            status = "✅" if result['status'] == 'success' else "❌"
+            logger.info(f"{status} {dataset} completed")
+            
             return result
         except Exception as e:
-            logger.error(f"💥 Failed {dataset}/{region_id}: {str(e)}")
+            logger.error(f"💥 Failed {dataset}: {str(e)}")
             return {
                 'status': 'error',
                 'dataset': dataset,
@@ -54,21 +62,21 @@ class DataProcessor:
     async def run(self) -> Dict[str, int]:
         """Process all datasets for all regions"""
         date = datetime.now()
-
         results = []
         
         async with aiohttp.ClientSession() as session:
-            # Initialize services
             await self.processing_manager.initialize(session)
             
-            # Process each dataset/region combination
+            # Process each region and dataset combination
             for region_id in REGIONS:
+                logger.info(f"\n📍 Processing region: {REGIONS[region_id]['name']}")
                 for dataset in SOURCES:
                     result = await self.process_dataset(
                         session, date, region_id, dataset
                     )
                     results.append(result)
 
+        # Compile statistics
         successful = sum(1 for r in results if r['status'] == 'success')
         failed = len(results) - successful
         
@@ -76,6 +84,21 @@ class DataProcessor:
         logger.info(f"   ✅ Successful: {successful}")
         logger.info(f"   ❌ Failed: {failed}")
         logger.info(f"   📝 Total: {len(results)}")
+        
+        # Group results by region
+        for region_id in REGIONS:
+            region_results = [r for r in results if r.get('region') == region_id]
+            region_success = sum(1 for r in region_results if r['status'] == 'success')
+            logger.info(f"\n   {REGIONS[region_id]['name']}:")
+            logger.info(f"      ✅ Success: {region_success}")
+            logger.info(f"      ❌ Failed: {len(region_results) - region_success}")
+        
+        # Log details for failed datasets
+        if failed > 0:
+            logger.info("\nFailed datasets:")
+            for result in results:
+                if result['status'] == 'error':
+                    logger.error(f"   ❌ {result.get('region', 'Unknown')}/{result['dataset']}: {result.get('error', 'Unknown error')}")
         
         return {
             'successful': successful,
@@ -86,16 +109,17 @@ class DataProcessor:
 async def main():
     """Entry point for data processing"""
     try:
+        logger.info("🌊 Starting Oceanographic Data Processing")
         processor = DataProcessor()
         stats = await processor.run()
         
-        logger.info("Processing Summary:")
-        logger.info(f"Successful: {stats['successful']}")
-        logger.info(f"Failed: {stats['failed']}")
-        logger.info(f"Total: {stats['total']}")
+        if stats['failed'] > 0:
+            logger.warning(f"⚠️  Completed with {stats['failed']} failures")
+        else:
+            logger.info("✨ All processing completed successfully")
         
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"💥 Fatal error: {e}")
         raise
 
 if __name__ == "__main__":

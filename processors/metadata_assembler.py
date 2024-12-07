@@ -147,9 +147,12 @@ class MetadataAssembler:
     def _get_current_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
         """Get standardized ranges for current data from DataArray."""
         try:
+            # Get u and v components from dataset config
+            u_var, v_var = SOURCES[dataset]['variables']
+            
             # Calculate speed and direction from u/v components
-            speed = np.sqrt(data[0]**2 + data[1]**2)
-            direction = np.degrees(np.arctan2(data[1], data[0])) % 360
+            speed = np.sqrt(data[u_var]**2 + data[v_var]**2)
+            direction = np.degrees(np.arctan2(data[v_var], data[u_var])) % 360
             
             # Get valid values only
             valid_speeds = speed.values[~np.isnan(speed.values)]

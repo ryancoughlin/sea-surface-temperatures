@@ -62,4 +62,18 @@ REGIONS: Dict[str, Region] = {
             [-80.0, 31.0]
         ]
     },
+    "us_complete": {
+        "name": "United States Complete",
+        "bounds": [
+            [-125.0, 24.0],  # Southwest corner (covers West Coast + Hawaii area)
+            [-66.0, 49.0]    # Northeast corner (covers East Coast + Alaska southern tip)
+        ]
+    },
+    "united_states": {
+        "name": "United States Waters",
+        "bounds": [
+            [-180.0, 15.0],  # Southwest corner (includes Hawaii, Guam, and Caribbean)
+            [-64.0, 72.0]    # Northeast corner (includes Alaska and Maine)
+        ]
+    },
 }
