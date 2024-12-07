@@ -6,7 +6,7 @@ netCDF4
 
 # Data access
 copernicusmarine
-podaac-data-downloader
+podaac-data-subscriber
 
 # Visualization
 matplotlib
