@@ -6,6 +6,7 @@ import copernicusmarine
 import os
 from config.settings import SOURCES
 from config.regions import REGIONS
+from processors.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +14,18 @@ class CMEMSService:
     def __init__(self, session, path_manager):
         self.session = session
         self.path_manager = path_manager
+        self.cache_manager = CacheManager(path_manager.data_dir)
         
     async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
         logger.info(f"📥 CMEMS Download:")
         logger.info(f"   └── Dataset: {dataset}")
         logger.info(f"   └── Region: {region}")
         
-        
-        output_path = self.path_manager.get_data_path(date, dataset, region)
-        if output_path.exists():
+        # Check cache first using cache manager
+        cached_file = self.cache_manager.get_cached_file(dataset, region, date)
+        if cached_file:
             logger.info("   └── ♻️  Using cached data")
-            return output_path
+            return cached_file
             
         logger.info("   └── 🔄 Starting download request...")
         config = SOURCES[dataset]
@@ -34,6 +36,9 @@ class CMEMSService:
         adjusted_date = date - timedelta(days=lag_days)
         
         try:
+            # Get the proper cache path for the download
+            output_path = self.cache_manager.get_cache_path(dataset, region, date)
+            
             copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
                 variables=config['variables'],
@@ -44,7 +49,7 @@ class CMEMSService:
                 start_datetime=adjusted_date.strftime("%Y-%m-%dT00:00:00"),
                 end_datetime=adjusted_date.strftime("%Y-%m-%dT23:59:59"),
                 output_filename=str(output_path),
-                force_download=True
+                force_download=True  # Keep this to ensure fresh data when cache is invalid
             )
             
             # Check if download completed

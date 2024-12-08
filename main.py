@@ -135,7 +135,7 @@ async def main():
     try:
         logger.info("🌊 Starting Oceanographic Data Processing")
         # Adjust max_concurrent_tasks based on your DigitalOcean box capacity
-        processor = DataProcessor(max_concurrent_tasks=3)
+        processor = DataProcessor(max_concurrent_tasks=4)
         stats = await processor.run()
         
         if stats['failed'] > 0:

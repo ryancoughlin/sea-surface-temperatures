@@ -7,7 +7,7 @@ import cartopy.crs as ccrs
 from .base_processor import BaseImageProcessor
 from config.settings import SOURCES
 from config.regions import REGIONS
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, NamedTuple
 from datetime import datetime
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -15,54 +15,52 @@ logger = logging.getLogger(__name__)
 
 class CurrentsProcessor(BaseImageProcessor):
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
-        """Generate currents visualization while emphasizing moving water and eddies."""
+        """Generate currents visualization using preprocessed data."""
         try:
-            # Get velocity components from SOURCES config
+            # Get velocity components
             u_var, v_var = SOURCES[dataset]['variables']
-            u_data = data[u_var]  # Eastward velocity
-            v_data = data[v_var]  # Northward velocity
+            u_data = data[u_var]
+            v_data = data[v_var]
             
-            # Handle dimensions
-            for dim in ['time', 'depth']:
-                if dim in u_data.dims:
-                    u_data = u_data.isel({dim: 0})
-                if dim in v_data.dims:
-                    v_data = v_data.isel({dim: 0})
-
-            # Compute magnitude of currents
-            magnitude = np.sqrt(u_data**2 + v_data**2)
-
-            # Get actual min/max values from valid data for colormap
+            # Compute magnitude on the proper grid
+            magnitude = xr.DataArray(
+                np.sqrt(u_data**2 + v_data**2),
+                coords={'latitude': data.latitude, 'longitude': data.longitude},
+                dims=['latitude', 'longitude']
+            )
+            
+            # Get valid data statistics
             valid_data = magnitude.values[~np.isnan(magnitude.values)]
             if len(valid_data) == 0:
-                logger.error("No valid current data after preprocessing")
-                raise ValueError("No valid current data after preprocessing")
+                raise ValueError("No valid current data for visualization")
             
-            # Calculate dynamic ranges
-            vmin = float(np.percentile(valid_data, 1))  # 1st percentile
-            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            # Calculate dynamic ranges using percentiles
+            vmin = float(np.percentile(valid_data, 1))
+            vmax = float(np.percentile(valid_data, 99))
             logger.info(f"Current magnitude range: {vmin:.4f} to {vmax:.4f}")
             
-            # Calculate threshold for eddy detection (5th percentile)
+            # Calculate threshold for significant currents (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
-
-            # Compute spatial gradient of magnitude to detect eddies and changes
+            
+            # Compute spatial gradients
             grad_x, grad_y = np.gradient(magnitude.values)
             gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
             
-            # Define areas of interest: moving water or strong gradients
+            # Create interest mask for areas with significant currents or gradients
             interest_mask = (magnitude.values > magnitude_threshold) | (gradient_magnitude > magnitude_threshold / 2)
-
-            # Create figure and axes using base processor method
+            
+            # Create figure and axes
             fig, ax = self.create_axes(region)
-
-            # Create colormap from color scale
-            cmap = LinearSegmentedColormap.from_list('ocean_currents', SOURCES[dataset]['color_scale'], N=256)
-
-            # Plot background current magnitude as colormesh
+            
+            # Create colormap
+            cmap = LinearSegmentedColormap.from_list('ocean_currents', 
+                                                    SOURCES[dataset]['color_scale'], 
+                                                    N=256)
+            
+            # Plot background current magnitude
             mesh = ax.pcolormesh(
-                data['longitude'],
-                data['latitude'],
+                data.longitude,
+                data.latitude,
                 magnitude,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
@@ -71,73 +69,42 @@ class CurrentsProcessor(BaseImageProcessor):
                 vmax=vmax,
                 zorder=1
             )
-
-            # Reduce density of arrows by taking every nth point
-            skip = 3  # Adjust this value to change arrow density (higher = fewer arrows)
             
-            # Option 1: Thin, minimal arrows
+            # Calculate arrow density based on grid resolution
+            nx, ny = len(data.longitude), len(data.latitude)
+            skip = max(1, min(nx, ny) // 25)  # Aim for roughly 25 arrows in smallest dimension
+            
+            # Create proper coordinate grids for quiver plot
+            lon_mesh, lat_mesh = np.meshgrid(data.longitude[::skip], data.latitude[::skip])
+            
+            # Prepare masked velocity components
+            u_masked = np.where(interest_mask, u_data, np.nan)[::skip, ::skip]
+            v_masked = np.where(interest_mask, v_data, np.nan)[::skip, ::skip]
+            
+            # Add quiver plot with masked velocities
             ax.quiver(
-                data['longitude'][::skip],
-                data['latitude'][::skip],
-                u_data.where(interest_mask)[::skip],
-                v_data.where(interest_mask)[::skip],
+                lon_mesh,
+                lat_mesh,
+                u_masked,
+                v_masked,
                 transform=ccrs.PlateCarree(),
                 color='white',
                 scale=25,
                 scale_units='width',
-                width=0.0008,  # Thinner arrows
-                headwidth=3,    # Smaller head
+                width=0.0008,
+                headwidth=3,
                 headaxislength=2.5,
                 headlength=2.5,
                 alpha=0.6,
                 pivot='middle',
                 zorder=2
             )
-
-            # Uncomment one of these alternative styles:
             
-            # Option 2: Classic arrows with better visibility
-            # ax.quiver(
-            #     data['longitude'][::skip],
-            #     data['latitude'][::skip],
-            #     u_data.where(interest_mask)[::skip],
-            #     v_data.where(interest_mask)[::skip],
-            #     transform=ccrs.PlateCarree(),
-            #     color='white',
-            #     scale=22,
-            #     scale_units='width',
-            #     width=0.001,
-            #     headwidth=4,
-            #     headaxislength=3,
-            #     headlength=3.5,
-            #     alpha=0.7,
-            #     pivot='middle',
-            #     zorder=2
-            # )
-
-            # Option 3: Modern, streamlined arrows
-            # ax.quiver(
-            #     data['longitude'][::skip],
-            #     data['latitude'][::skip],
-            #     u_data.where(interest_mask)[::skip],
-            #     v_data.where(interest_mask)[::skip],
-            #     transform=ccrs.PlateCarree(),
-            #     color='white',
-            #     scale=30,
-            #     scale_units='width',
-            #     width=0.0005,  # Very thin arrows
-            #     headwidth=2.5,  # Compact head
-            #     headaxislength=2,
-            #     headlength=2,
-            #     alpha=0.8,
-            #     pivot='middle',
-            #     zorder=2
-            # )
-
             return self.save_image(fig, region, dataset, date), None
-
+            
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")
-            logger.error(f"Data dimensions: {data.dims}")
-            logger.error(f"Variables: {list(data.variables)}")
+            if isinstance(data, xr.Dataset):
+                logger.error(f"Data dimensions: {data.dims}")
+                logger.error(f"Variables: {list(data.variables)}")
             raise
