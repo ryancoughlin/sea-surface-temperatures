@@ -20,9 +20,9 @@ from config.regions import REGIONS
 # Define consistent styling
 THUMBNAIL_STYLE = {
     'figsize': (4, 3),  # 4:3 ratio
-    'dpi': 100,
-    'land_color': '#ECE4C9',  # Light gray for land
-    'ocean_color': '#AAC3E4',   # White for ocean
+    'dpi': 300,
+    'land_color': '#EBE59B',  # Light gray for land
+    'ocean_color': '#B1C2D8',   # White for ocean
     'extent_buffer': 0.1      # 10% buffer around region bounds
 }
 
@@ -30,9 +30,9 @@ def generate_thumbnail(region_id: str, bounds: list, output_dir: Path):
     """Generate a simple thumbnail for a region with consistent 4:3 ratio"""
     logger.info(f"Generating thumbnail for {region_id}")
     
-    # Calculate bounds with buffer
-    lon_min, lat_min = bounds[0]
-    lon_max, lat_max = bounds[1]
+    # Get bounds from coordinate pairs [lon, lat]
+    lon_min, lat_min = bounds[0]  # Southwest corner
+    lon_max, lat_max = bounds[1]  # Northeast corner
     
     # Calculate center and span
     center_lon = (lon_min + lon_max) / 2
