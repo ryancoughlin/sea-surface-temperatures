@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class DataProcessor:
     """Coordinates oceanographic data processing"""
     
-    def __init__(self, output_dir: str = "output"):
+    def __init__(self, output_dir: str = "output", max_concurrent_tasks: int = 3):
         self.output_dir = Path(output_dir)
         self.path_manager = PathManager()
         self.metadata_assembler = MetadataAssembler(self.path_manager)
@@ -31,7 +31,8 @@ class DataProcessor:
             self.path_manager,
             self.metadata_assembler
         )
-    
+        self.max_concurrent_tasks = max_concurrent_tasks
+        
     async def process_dataset(self, session: aiohttp.ClientSession, 
                             config: ProcessingConfig) -> ProcessingResult:
         """Process single dataset for a region"""
@@ -59,6 +60,50 @@ class DataProcessor:
                 error=error_msg
             )
 
+    async def process_batch(self, session: aiohttp.ClientSession, configs: List[ProcessingConfig]) -> List[ProcessingResult]:
+        """Process a batch of datasets concurrently"""
+        tasks = [self.process_dataset(session, config) for config in configs]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def run(self) -> Dict[str, int]:
+        """Process all datasets for all regions with controlled concurrency"""
+        date = datetime.now()
+        results: List[ProcessingResult] = []
+        
+        # Create all processing configs
+        configs = [
+            ProcessingConfig(
+                date=date,
+                region_id=region_id,
+                dataset=dataset
+            )
+            for region_id in REGIONS
+            for dataset in SOURCES
+        ]
+        
+        # Process in batches with controlled concurrency
+        async with aiohttp.ClientSession() as session:
+            await self.processing_manager.initialize(session)
+            
+            for i in range(0, len(configs), self.max_concurrent_tasks):
+                batch = configs[i:i + self.max_concurrent_tasks]
+                batch_results = await self.process_batch(session, batch)
+                results.extend(batch_results)
+                
+                # Small delay between batches to prevent resource exhaustion
+                await asyncio.sleep(0.5)
+        
+        # Log processing summary
+        grouped_results = self._group_results_by_region(results)
+        self._log_processing_summary(results, grouped_results)
+        
+        successful = sum(1 for r in results if r.is_success)
+        return {
+            'successful': successful,
+            'failed': len(results) - successful,
+            'total': len(results)
+        }
+
     def _group_results_by_region(self, results: List[ProcessingResult]) -> Dict[str, List[ProcessingResult]]:
         """Group processing results by region"""
         grouped = {}
@@ -85,42 +130,12 @@ class DataProcessor:
                 if not result.is_success:
                     logger.error(f"   ❌ {result.dataset}: {result.error}")
 
-    async def run(self) -> Dict[str, int]:
-        """Process all datasets for all regions"""
-        date = datetime.now()
-        results: List[ProcessingResult] = []
-        
-        async with aiohttp.ClientSession() as session:
-            await self.processing_manager.initialize(session)
-            
-            # Process each region and dataset combination
-            for region_id in REGIONS:
-                logger.info(f"\n📍 Processing region: {REGIONS[region_id]['name']}")
-                for dataset in SOURCES:
-                    config = ProcessingConfig(
-                        date=date,
-                        region_id=region_id,
-                        dataset=dataset
-                    )
-                    result = await self.process_dataset(session, config)
-                    results.append(result)
-
-        # Log processing summary
-        grouped_results = self._group_results_by_region(results)
-        self._log_processing_summary(results, grouped_results)
-        
-        successful = sum(1 for r in results if r.is_success)
-        return {
-            'successful': successful,
-            'failed': len(results) - successful,
-            'total': len(results)
-        }
-
 async def main():
     """Entry point for data processing"""
     try:
         logger.info("🌊 Starting Oceanographic Data Processing")
-        processor = DataProcessor()
+        # Adjust max_concurrent_tasks based on your DigitalOcean box capacity
+        processor = DataProcessor(max_concurrent_tasks=3)
         stats = await processor.run()
         
         if stats['failed'] > 0:
