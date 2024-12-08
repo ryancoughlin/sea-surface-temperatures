@@ -25,16 +25,7 @@ class MetadataAssembler:
             # Get dataset type
             dataset_type = SOURCES[dataset]['type']
             logger.info(f"Assembling metadata for {dataset} ({dataset_type}) in {region}")
-            logger.info(f"Input data type: {type(data)}")
-            
-            if isinstance(data, xr.Dataset):
-                logger.info(f"Dataset variables: {list(data.variables)}")
-            elif isinstance(data, xr.DataArray):
-                logger.info(f"DataArray dims: {data.dims}")
-                logger.info(f"DataArray shape: {data.shape}")
-            
-            # Calculate ranges based on dataset type
-            logger.info(f"Calculating ranges for {dataset_type}")
+
             if dataset_type == 'currents':
                 ranges = self._get_current_ranges_from_data(data, dataset)
             elif dataset_type == 'sst':

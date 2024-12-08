@@ -29,10 +29,6 @@ class CurrentsProcessor(BaseImageProcessor):
                 if dim in v_data.dims:
                     v_data = v_data.isel({dim: 0})
 
-            # Log data ranges before processing
-            logger.info(f"Raw u_data range: {float(u_data.min().values):.4f} to {float(u_data.max().values):.4f}")
-            logger.info(f"Raw v_data range: {float(v_data.min().values):.4f} to {float(v_data.max().values):.4f}")
-
             # Compute magnitude of currents
             magnitude = np.sqrt(u_data**2 + v_data**2)
 
@@ -56,7 +52,6 @@ class CurrentsProcessor(BaseImageProcessor):
             
             # Define areas of interest: moving water or strong gradients
             interest_mask = (magnitude.values > magnitude_threshold) | (gradient_magnitude > magnitude_threshold / 2)
-            logger.info(f"Interest points found: {np.sum(interest_mask)}")
 
             # Create figure and axes using base processor method
             fig, ax = self.create_axes(region)
@@ -77,24 +72,67 @@ class CurrentsProcessor(BaseImageProcessor):
                 zorder=1
             )
 
-            # Plot arrows for significant areas
+            # Reduce density of arrows by taking every nth point
+            skip = 3  # Adjust this value to change arrow density (higher = fewer arrows)
+            
+            # Option 1: Thin, minimal arrows
             ax.quiver(
-                data['longitude'],
-                data['latitude'],
-                u_data.where(interest_mask),
-                v_data.where(interest_mask),
+                data['longitude'][::skip],
+                data['latitude'][::skip],
+                u_data.where(interest_mask)[::skip],
+                v_data.where(interest_mask)[::skip],
                 transform=ccrs.PlateCarree(),
                 color='white',
-                scale=20,
+                scale=25,
                 scale_units='width',
-                width=0.001,
-                headwidth=3.4,
-                headaxislength=4,
-                headlength=3,
-                alpha=0.5,
+                width=0.0008,  # Thinner arrows
+                headwidth=3,    # Smaller head
+                headaxislength=2.5,
+                headlength=2.5,
+                alpha=0.6,
                 pivot='middle',
                 zorder=2
             )
+
+            # Uncomment one of these alternative styles:
+            
+            # Option 2: Classic arrows with better visibility
+            # ax.quiver(
+            #     data['longitude'][::skip],
+            #     data['latitude'][::skip],
+            #     u_data.where(interest_mask)[::skip],
+            #     v_data.where(interest_mask)[::skip],
+            #     transform=ccrs.PlateCarree(),
+            #     color='white',
+            #     scale=22,
+            #     scale_units='width',
+            #     width=0.001,
+            #     headwidth=4,
+            #     headaxislength=3,
+            #     headlength=3.5,
+            #     alpha=0.7,
+            #     pivot='middle',
+            #     zorder=2
+            # )
+
+            # Option 3: Modern, streamlined arrows
+            # ax.quiver(
+            #     data['longitude'][::skip],
+            #     data['latitude'][::skip],
+            #     u_data.where(interest_mask)[::skip],
+            #     v_data.where(interest_mask)[::skip],
+            #     transform=ccrs.PlateCarree(),
+            #     color='white',
+            #     scale=30,
+            #     scale_units='width',
+            #     width=0.0005,  # Very thin arrows
+            #     headwidth=2.5,  # Compact head
+            #     headaxislength=2,
+            #     headlength=2,
+            #     alpha=0.8,
+            #     pivot='middle',
+            #     zorder=2
+            # )
 
             return self.save_image(fig, region, dataset, date), None
 
