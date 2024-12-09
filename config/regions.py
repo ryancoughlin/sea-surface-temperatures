@@ -7,10 +7,10 @@ class Region(TypedDict):
     center: List[float]
 
 REGIONS: Dict[str, Region] = {
-    # East Coast
+    # Atlantic Ocean
     "gulf_of_maine": {
         "name": "Gulf of Maine",
-        "group": "East Coast",
+        "group": "Atlantic Ocean",
         "bounds": [
             [-71.0, 41.5],  # Southwest corner
             [-65.5, 45.0]   # Northeast corner
@@ -19,7 +19,7 @@ REGIONS: Dict[str, Region] = {
     },
     "cape_cod": {
         "name": "Cape Cod and Georges Bank",
-        "group": "East Coast",
+        "group": "Atlantic Ocean",
         "bounds": [
             [-71.0, 40.5],  # Southwest corner
             [-66.0, 42.5]   # Northeast corner
@@ -27,8 +27,8 @@ REGIONS: Dict[str, Region] = {
         "center": [41.5, -68.5]
     },
     "ne_canyons": {
-        "name": "NE Canyons Overview",
-        "group": "East Coast",
+        "name": "Northeast Canyons",
+        "group": "Atlantic Ocean",
         "bounds": [
             [-77.0, 36.0],  # Southwest corner
             [-65.0, 42.0]   # Northeast corner
@@ -37,7 +37,7 @@ REGIONS: Dict[str, Region] = {
     },
     "carolinas": {
         "name": "Carolinas",
-        "group": "East Coast",
+        "group": "Atlantic Ocean",
         "bounds": [
             [-79.0, 33.0],  # Southwest corner
             [-72.0, 37.0]   # Northeast corner
@@ -46,7 +46,7 @@ REGIONS: Dict[str, Region] = {
     },
     "sc_ga": {
         "name": "South Carolina and Georgia",
-        "group": "East Coast",
+        "group": "Atlantic Ocean",
         "bounds": [
             [-81.75, 30.5],  # Southwest corner
             [-75.0, 34.25]   # Northeast corner
@@ -85,42 +85,60 @@ REGIONS: Dict[str, Region] = {
         "center": [24.5, -89.0]
     },
     
-    # Pacific Coast
+    # Pacific Ocean
+    "southern_alaska": {
+        "name": "Southern Alaska",
+        "group": "Pacific Ocean",
+        "bounds": [
+            [-150.0, 54.0],  # Southwest corner
+            [-130.0, 61.0]   # Northeast corner
+        ],
+        "center": [57.5, -140.0]
+    },
+    "british_columbia": {
+        "name": "British Columbia",
+        "group": "Pacific Ocean",
+        "bounds": [
+            [-132.0, 48.0],  # Southwest corner
+            [-122.0, 54.0]   # Northeast corner
+        ],
+        "center": [51.0, -127.0]
+    },
     "west_coast": {
         "name": "U.S. West Coast",
-        "group": "Pacific Coast",
+        "group": "Pacific Ocean",
         "bounds": [
-            [-126.0, 32.0],  # Southwest corner (San Diego)
+            [-132.0, 32.0],  # Southwest corner (San Diego)
             [-116.0, 49.0]   # Northeast corner (Canadian border)
         ],
-        "center": [40.5, -121.0]
+        "center": [40.5, -124.0]
     },
     "pnw": {
         "name": "Pacific Northwest",
-        "group": "Pacific Coast",
+        "group": "Pacific Ocean",
         "bounds": [
-            [-126.0, 42.0],  # Southwest corner (Oregon-California border)
+            [-132.0, 42.0],  # Southwest corner (Oregon-California border)
             [-122.0, 49.0]   # Northeast corner (Canadian border)
         ],
-        "center": [45.5, -124.0]
+        "center": [45.5, -127.0]
     },
     "central_cal": {
         "name": "Central California",
-        "group": "Pacific Coast",
+        "group": "Pacific Ocean",
         "bounds": [
-            [-125.0, 35.0],  # Southwest corner (Point Conception)
+            [-132.0, 35.0],  # Southwest corner (Point Conception)
             [-121.0, 39.0]   # Northeast corner (Cape Mendocino)
         ],
-        "center": [37.0, -123.0]
+        "center": [37.0, -126.5]
     },
     "socal": {
         "name": "Southern California",
-        "group": "Pacific Coast",
+        "group": "Pacific Ocean",
         "bounds": [
-            [-121.0, 32.0],  # Southwest corner (San Diego)
+            [-132.0, 32.0],  # Southwest corner (San Diego)
             [-117.0, 35.0]   # Northeast corner (Point Conception)
         ],
-        "center": [33.5, -119.0]
+        "center": [33.5, -124.5]
     },
     
     # Mexico
@@ -137,7 +155,7 @@ REGIONS: Dict[str, Region] = {
     # Pacific Islands
     "hawaii": {
         "name": "Hawaiian Islands",
-        "group": "Pacific Islands",
+        "group": "Pacific Ocean",
         "bounds": [
             [-161.0, 18.0],  # Southwest corner
             [-154.0, 23.0]   # Northeast corner
