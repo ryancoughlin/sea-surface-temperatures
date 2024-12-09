@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import aiohttp
+import time
 
 from config.settings import SOURCES
 from config.regions import REGIONS
@@ -69,6 +70,7 @@ class DataProcessor:
 
     async def run(self) -> Dict[str, int]:
         """Process all datasets for all regions with controlled concurrency"""
+        start_time = time.time()
         date = datetime.now()
         results: List[ProcessingResult] = []
         
@@ -99,15 +101,22 @@ class DataProcessor:
                 # Small delay between batches to prevent resource exhaustion
                 await asyncio.sleep(0.5)
         
+        # Calculate total processing time
+        total_time = time.time() - start_time
+        hours = int(total_time // 3600)
+        minutes = int((total_time % 3600) // 60)
+        seconds = int(total_time % 60)
+        
         # Log processing summary
         grouped_results = self._group_results_by_region(results)
-        self._log_processing_summary(results, grouped_results)
+        self._log_processing_summary(results, grouped_results, total_time)
         
         successful = sum(1 for r in results if r.is_success)
         return {
             'successful': successful,
             'failed': len(results) - successful,
-            'total': len(results)
+            'total': len(results),
+            'processing_time': total_time
         }
 
     def _group_results_by_region(self, results: List[ProcessingResult]) -> Dict[str, List[ProcessingResult]]:
@@ -119,15 +128,23 @@ class DataProcessor:
             grouped[result.region].append(result)
         return grouped
 
-    def _log_processing_summary(self, results: List[ProcessingResult], grouped_results: Dict[str, List[ProcessingResult]]):
+    def _log_processing_summary(self, results: List[ProcessingResult], 
+                              grouped_results: Dict[str, List[ProcessingResult]], 
+                              total_time: float):
         """Log processing summary statistics"""
         successful = sum(1 for r in results if r.is_success)
         failed = len(results) - successful
+        
+        # Format time components
+        hours = int(total_time // 3600)
+        minutes = int((total_time % 3600) // 60)
+        seconds = int(total_time % 60)
         
         logger.info("\n📊 Processing Summary:")
         logger.info(f"   ✅ Successful: {successful}")
         logger.info(f"   ❌ Failed: {failed}")
         logger.info(f"   📝 Total: {len(results)}")
+        logger.info(f"   ⏱️  Total Processing Time: {hours:02d}:{minutes:02d}:{seconds:02d}")
         
         # Log failed datasets without region summaries
         if failed > 0:
@@ -148,6 +165,13 @@ async def main():
             logger.warning(f"⚠️  Completed with {stats['failed']} failures")
         else:
             logger.info("✨ All processing completed successfully")
+            
+        # Log total processing time
+        total_time = stats['processing_time']
+        hours = int(total_time // 3600)
+        minutes = int((total_time % 3600) // 60)
+        seconds = int(total_time % 60)
+        logger.info(f"⏱️  Total Runtime: {hours:02d}:{minutes:02d}:{seconds:02d}")
         
     except Exception as e:
         logger.error(f"💥 Fatal error: {e}")

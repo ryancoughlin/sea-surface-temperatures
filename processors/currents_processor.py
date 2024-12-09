@@ -41,7 +41,7 @@ class CurrentsProcessor(BaseImageProcessor):
             
             # Calculate threshold for significant currents (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))
-            
+        
             # Compute spatial gradients
             grad_x, grad_y = np.gradient(magnitude.values)
             gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
