@@ -11,6 +11,7 @@ from processors.metadata_assembler import MetadataAssembler
 from processors.processing_manager import ProcessingManager
 from processors.processing_config import ProcessingConfig
 from processors.processing_result import ProcessingResult
+from processors.cleanup_manager import CleanupManager
 from utils.path_manager import PathManager
 
 logging.basicConfig(
@@ -31,6 +32,7 @@ class DataProcessor:
             self.path_manager,
             self.metadata_assembler
         )
+        self.cleanup_manager = CleanupManager(self.path_manager)
         self.max_concurrent_tasks = max_concurrent_tasks
         
     async def process_dataset(self, session: aiohttp.ClientSession, 
@@ -69,6 +71,10 @@ class DataProcessor:
         """Process all datasets for all regions with controlled concurrency"""
         date = datetime.now()
         results: List[ProcessingResult] = []
+        
+        # Run cleanup before processing
+        logger.info("🧹 Running data cleanup")
+        self.cleanup_manager.cleanup()
         
         # Create all processing configs
         configs = [
