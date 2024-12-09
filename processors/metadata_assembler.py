@@ -179,13 +179,9 @@ class MetadataAssembler:
                 data = data[sst_var]
             
             logger.info(f"Calculating SST ranges for {dataset}")
-            logger.info(f"Data type: {type(data)}")
-            logger.info(f"Data shape: {data.shape}")
-            logger.info(f"Data dims: {data.dims}")
             
             # Convert to Fahrenheit using source unit from settings
             source_unit = SOURCES[dataset].get('source_unit', 'C')
-            logger.info(f"Source unit: {source_unit}")
             
             if source_unit == 'K':
                 data = (data - 273.15) * 9/5 + 32  # Kelvin to Fahrenheit

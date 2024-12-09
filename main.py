@@ -76,7 +76,7 @@ class DataProcessor:
         
         # Run cleanup before processing
         logger.info("🧹 Running data cleanup")
-        self.cleanup_manager.cleanup()
+        self.cleanup_manager.cleanup_all()
         
         # Create all processing configs
         configs = [

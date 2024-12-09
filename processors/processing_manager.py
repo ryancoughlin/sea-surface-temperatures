@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from contextlib import contextmanager
 import aiohttp
 import logging
@@ -57,26 +57,18 @@ class ProcessingManager:
         self.session = session
         self.erddap_service = ERDDAPService(session, self.path_manager)
         self.cmems_service = CMEMSService(session, self.path_manager)
-
-    @contextmanager
-    def managed_netcdf(self, path: Path, cleanup: bool = True):
-        """Manage NetCDF dataset lifecycle"""
-        ds = None
-        try:
-            ds = xr.open_dataset(path, decode_times=True)
-            yield ds
-        finally:
-            if ds:
-                ds.close()
-            if cleanup and path.exists():
-                path.unlink()
+        
+    async def process_datasets(self, date: datetime, region_id: str, datasets: List[str], skip_geojson: bool = False) -> List[dict]:
+        """Process multiple datasets for a region"""
+        results = []
+        for dataset in datasets:
+            result = await self.process_dataset(date, region_id, dataset, skip_geojson)
+            results.append(result)
+        return results
 
     async def process_dataset(self, date: datetime, region_id: str, dataset: str, skip_geojson: bool = False) -> dict:
         """Process single dataset for a region"""
         try:
-            # Perform cleanup before processing new data
-            self.cleanup_manager.cleanup()
-            
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
@@ -112,6 +104,17 @@ class ProcessingManager:
                 'region': region_id,
                 'dataset': dataset
             }
+
+    @contextmanager
+    def managed_netcdf(self, path: Path):
+        """Manage NetCDF dataset lifecycle"""
+        ds = None
+        try:
+            ds = xr.open_dataset(path, decode_times=True)
+            yield ds
+        finally:
+            if ds:
+                ds.close()
 
     def _extract_time_from_file(self, file_path: Path) -> Optional[datetime]:
         """Extract time from PODAAC filename or metadata"""
