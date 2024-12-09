@@ -15,6 +15,7 @@ from processors.metadata_assembler import MetadataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.processor_factory import ProcessorFactory
 from processors.data_preprocessor import DataPreprocessor
+from processors.cleanup_manager import CleanupManager
 from config.settings import SOURCES
 from utils.path_manager import PathManager
 from processors.data_cleaners.land_masker import LandMasker
@@ -46,6 +47,7 @@ class ProcessingManager:
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, metadata_assembler)
         self.data_preprocessor = DataPreprocessor()
         self.cache_manager = CacheManager()
+        self.cleanup_manager = CleanupManager(path_manager)
         self.logger = logging.getLogger(__name__)
         
         self.land_masker = LandMasker()
@@ -72,6 +74,9 @@ class ProcessingManager:
     async def process_dataset(self, date: datetime, region_id: str, dataset: str, skip_geojson: bool = False) -> dict:
         """Process single dataset for a region"""
         try:
+            # Perform cleanup before processing new data
+            self.cleanup_manager.cleanup()
+            
             # Get paths
             data_path = self.path_manager.get_data_path(date, dataset, region_id)
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
