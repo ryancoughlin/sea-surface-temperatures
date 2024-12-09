@@ -30,6 +30,9 @@ class WavesProcessor(BaseImageProcessor):
             lon_name, lat_name = self.get_coordinate_names(height)
             bounds = REGIONS[region]['bounds']
             
+            # Expand data near coastlines
+            height = self.expand_coastal_data(height)
+            
             # Log data info
             logger.info(f"Wave height dimensions: {height.dims}")
             logger.info(f"Wave height coordinates: {list(height.coords)}")

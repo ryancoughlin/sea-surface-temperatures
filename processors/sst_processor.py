@@ -50,7 +50,7 @@ class SSTProcessor(BaseImageProcessor):
             # Convert temperature using source unit from settings
             source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
             regional_data = convert_temperature_to_f(regional_data, source_unit=source_unit)
-            expanded_data = self.expand_coastal_data(regional_data, buffer_size=3)
+            expanded_data = self.expand_coastal_data(regional_data)
             
             # Create figure and axes
             fig, ax = self.create_axes(region)

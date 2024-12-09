@@ -29,7 +29,7 @@ class ChlorophyllProcessor(BaseImageProcessor):
 
             # Apply coastal buffer to fill gaps
             logger.info("Applying coastal buffer to fill data gaps")
-            buffered_data = self.expand_coastal_data(data, buffer_size=3)
+            buffered_data = self.expand_coastal_data(data)
             
             # Create figure and plot
             fig, ax = self.create_axes(region)
