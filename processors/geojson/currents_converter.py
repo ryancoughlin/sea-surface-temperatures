@@ -3,6 +3,7 @@ import numpy as np
 import logging
 from pathlib import Path
 from datetime import datetime
+from typing import Optional, Dict
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 
@@ -24,6 +25,10 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             u = data[u_var]  # Get u component by name
             v = data[v_var]  # Get v component by name
             
+            # Reduce dimensions
+            u = self._reduce_dimensions(u)
+            v = self._reduce_dimensions(v)
+            
             # Get coordinate names
             lon_name, lat_name = self.get_coordinate_names(u)
             
@@ -31,55 +36,44 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             speed = np.sqrt(u**2 + v**2)
             direction = np.degrees(np.arctan2(v, u)) % 360
             
-            features = []
-            for i in range(len(u[lat_name])):
-                for j in range(len(u[lon_name])):
-                    # Get values for this point
-                    spd = float(speed.values[i, j])
-                    u_val = float(u.values[i, j])
-                    v_val = float(v.values[i, j])
-                    
-                    # Skip if any values are NaN
-                    if np.isnan(spd) or np.isnan(u_val) or np.isnan(v_val):
-                        continue
-                    
-                    direction_val = float(direction.values[i, j])
-                    
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [
-                                round(float(u[lon_name].values[j]), 4),
-                                round(float(u[lat_name].values[i]), 4)
-                            ]
-                        },
-                        "properties": {
-                            "speed": round(spd, 2),
-                            "direction": round(direction_val, 1),
-                            "units": {
-                                "speed": "m/s",
-                                "direction": "degrees"
-                            }
-                        }
+            # Prepare data for feature generation
+            lats = u[lat_name].values
+            lons = u[lon_name].values
+            speed_values = speed.values
+            direction_values = direction.values
+            u_values = u.values
+            v_values = v.values
+            
+            def property_generator(i: int, j: int) -> Optional[Dict]:
+                spd = float(speed_values[i, j])
+                u_val = float(u_values[i, j])
+                v_val = float(v_values[i, j])
+                
+                # Skip if any values are NaN
+                if np.isnan(spd) or np.isnan(u_val) or np.isnan(v_val):
+                    return None
+                
+                direction_val = float(direction_values[i, j])
+                
+                return {
+                    "speed": round(spd, 2),
+                    "direction": round(direction_val, 1),
+                    "units": {
+                        "speed": "m/s",
+                        "direction": "degrees"
                     }
-                    features.append(feature)
-            
-            logger.info(f"   └── Generated {len(features)} current vectors")
-            
-            # Calculate ranges for all variables
-            ranges = {
-                "speed": {
-                    "min": float(speed.min()),
-                    "max": float(speed.max()),
-                    "unit": "m/s"
-                },
-                "direction": {
-                    "min": float(direction.min()) % 360,
-                    "max": float(direction.max()) % 360,
-                    "unit": "degrees"
                 }
+            
+            # Generate features using base class utility
+            features = self._generate_features(lats, lons, property_generator)
+            
+            # Calculate ranges using base class utility
+            data_dict = {
+                "speed": (speed_values, "m/s"),
+                "direction": (direction_values, "degrees")
             }
+            
+            ranges = self._calculate_ranges(data_dict)
             
             metadata = {
                 "available_variables": ["speed", "direction"]

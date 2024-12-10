@@ -2,21 +2,15 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
+from typing import Optional, Dict, Tuple
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
-from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
 import xarray as xr
 
 logger = logging.getLogger(__name__)
 
 class SSTGeoJSONConverter(BaseGeoJSONConverter):
-    def _mask_to_region(self, data, bounds, lon_name, lat_name):
-        """Mask dataset to region bounds."""
-        lon_mask = (data[lon_name] >= bounds[0][0]) & (data[lon_name] <= bounds[1][0])
-        lat_mask = (data[lat_name] >= bounds[0][1]) & (data[lat_name] <= bounds[1][1])
-        return data.where(lon_mask & lat_mask, drop=True)
-
     def convert(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
@@ -34,80 +28,53 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
                 temp_data = data
                 gradient_data = None
             
-            # Force 2D by selecting first index of time and depth
-            for dim in ['time', 'depth']:
-                if dim in temp_data.dims:
-                    temp_data = temp_data.isel({dim: 0})
-                if gradient_data is not None and dim in gradient_data.dims:
-                    gradient_data = gradient_data.isel({dim: 0})
+            # Reduce dimensions (time, depth)
+            temp_data = self._reduce_dimensions(temp_data)
+            if gradient_data is not None:
+                gradient_data = self._reduce_dimensions(gradient_data)
             
-            # Get coordinates and mask to region
+            # Get coordinates
             lon_name, lat_name = self.get_coordinate_names(temp_data)
-            bounds = REGIONS[region]['bounds']
             
-            # Mask and convert to Fahrenheit using source unit from settings
-            temp_data = self._mask_to_region(temp_data, bounds, lon_name, lat_name)
+            # Convert to Fahrenheit using source unit from settings
             source_unit = SOURCES[dataset].get('source_unit', 'C')  # Default to Celsius if not specified
             temp_data = convert_temperature_to_f(temp_data, source_unit=source_unit)
             
-            if gradient_data is not None:
-                gradient_data = self._mask_to_region(gradient_data, bounds, lon_name, lat_name)
-            
-            # Create features
-            features = []
+            # Prepare data for feature generation
             lats = temp_data[lat_name].values
             lons = temp_data[lon_name].values
             temp_values = temp_data.values
             gradient_values = gradient_data.values if gradient_data is not None else None
             
-            for i in range(len(lats)):
-                for j in range(len(lons)):
-                    temp_value = float(temp_values[i, j])
-                    if np.isnan(temp_value):
-                        continue
-                        
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [
-                                float(lons[j]),
-                                float(lats[i])
-                            ]
-                        },
-                        "properties": {
-                            "temperature": round(temp_value, 2),
-                            "unit": "fahrenheit"
-                        }
-                    }
+            def property_generator(i: int, j: int) -> Optional[Dict]:
+                temp_value = float(temp_values[i, j])
+                if np.isnan(temp_value):
+                    return None
                     
-                    # Add gradient information if available
-                    if gradient_values is not None:
-                        gradient_value = float(gradient_values[i, j])
-                        if not np.isnan(gradient_value):
-                            feature["properties"]["gradient"] = round(gradient_value, 4)
-                    
-                    features.append(feature)
-            
-            # Calculate ranges from valid data
-            valid_temps = temp_values[~np.isnan(temp_values)]
-            ranges = {
-                "temperature": {
-                    "min": float(np.min(valid_temps)) if len(valid_temps) > 0 else None,
-                    "max": float(np.max(valid_temps)) if len(valid_temps) > 0 else None,
+                properties = {
+                    "temperature": round(temp_value, 2),
                     "unit": "fahrenheit"
                 }
-            }
+                
+                # Add gradient information if available
+                if gradient_values is not None:
+                    gradient_value = float(gradient_values[i, j])
+                    if not np.isnan(gradient_value):
+                        properties["gradient"] = round(gradient_value, 4)
+                
+                return properties
             
-            # Add gradient ranges if available
+            # Generate features using base class utility
+            features = self._generate_features(lats, lons, property_generator)
+            
+            # Calculate ranges using base class utility
+            data_dict = {
+                "temperature": (temp_values, "fahrenheit")
+            }
             if gradient_values is not None:
-                valid_gradients = gradient_values[~np.isnan(gradient_values)]
-                if len(valid_gradients) > 0:
-                    ranges["gradient"] = {
-                        "min": float(np.min(valid_gradients)),
-                        "max": float(np.max(valid_gradients)),
-                        "unit": "magnitude"
-                    }
+                data_dict["gradient"] = (gradient_values, "magnitude")
+            
+            ranges = self._calculate_ranges(data_dict)
             
             # Update metadata
             metadata = {

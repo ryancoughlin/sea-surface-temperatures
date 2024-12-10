@@ -4,6 +4,7 @@ import logging
 import xarray as xr
 import numpy as np
 import json
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from utils.path_manager import PathManager
 from datetime import datetime
 from config.settings import SOURCES
@@ -28,6 +29,80 @@ class BaseGeoJSONConverter(ABC):
         lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
         lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
         return lon_name, lat_name
+
+    def _reduce_dimensions(self, data: Union[xr.DataArray, xr.Dataset], 
+                         dims_to_reduce: List[str] = ['time', 'depth']) -> Union[xr.DataArray, xr.Dataset]:
+        """
+        Reduce dimensions by selecting first index of specified dimensions.
+        
+        Args:
+            data: Input data array or dataset
+            dims_to_reduce: List of dimension names to reduce
+            
+        Returns:
+            Reduced data array or dataset
+        """
+        for dim in dims_to_reduce:
+            if dim in data.dims:
+                data = data.isel({dim: 0})
+        return data
+
+    def _generate_features(self, 
+                         lats: np.ndarray, 
+                         lons: np.ndarray,
+                         property_generator: Callable[[int, int], Optional[Dict]]) -> List[Dict]:
+        """
+        Generate GeoJSON features using a property generator callback.
+        
+        Args:
+            lats: Latitude values array
+            lons: Longitude values array
+            property_generator: Callback function that takes (i, j) indices and returns properties dict or None
+            
+        Returns:
+            List of GeoJSON features
+        """
+        features = []
+        for i in range(len(lats)):
+            for j in range(len(lons)):
+                properties = property_generator(i, j)
+                if properties is None:  # Skip if any values are NaN
+                    continue
+                    
+                feature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            self._round_coordinates(float(lons[j])),
+                            self._round_coordinates(float(lats[i]))
+                        ]
+                    },
+                    "properties": properties
+                }
+                features.append(feature)
+        return features
+
+    def _calculate_ranges(self, data_dict: Dict[str, Tuple[np.ndarray, str]]) -> Dict[str, Dict]:
+        """
+        Calculate ranges for multiple variables.
+        
+        Args:
+            data_dict: Dictionary mapping variable names to (data, unit) tuples
+            
+        Returns:
+            Dictionary of ranges with min, max, and unit for each variable
+        """
+        ranges = {}
+        for var_name, (data, unit) in data_dict.items():
+            valid_data = data[~np.isnan(data)]
+            if len(valid_data) > 0:
+                ranges[var_name] = {
+                    "min": float(np.min(valid_data)),
+                    "max": float(np.max(valid_data)),
+                    "unit": unit
+                }
+        return ranges
 
     def _round_coordinates(self, value: float, precision: int = 3) -> float:
         """Round coordinate values to specified precision."""
