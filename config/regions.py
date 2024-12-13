@@ -108,37 +108,37 @@ REGIONS: Dict[str, Region] = {
         "name": "U.S. West Coast",
         "group": "Pacific Ocean",
         "bounds": [
-            [-132.0, 32.0],  # Southwest corner (San Diego)
+            [-127.0, 32.0],  # Southwest corner (San Diego)
             [-116.0, 49.0]   # Northeast corner (Canadian border)
         ],
-        "center": [40.5, -124.0]
+        "center": [40.5, -121.5]
     },
     "pnw": {
         "name": "Pacific Northwest",
         "group": "Pacific Ocean",
         "bounds": [
-            [-132.0, 42.0],  # Southwest corner (Oregon-California border)
+            [-127.0, 42.0],  # Southwest corner (Oregon-California border)
             [-122.0, 49.0]   # Northeast corner (Canadian border)
         ],
-        "center": [45.5, -127.0]
+        "center": [45.5, -124.5]
     },
     "central_cal": {
         "name": "Central California",
         "group": "Pacific Ocean",
         "bounds": [
-            [-132.0, 35.0],  # Southwest corner (Point Conception)
+            [-127.0, 35.0],  # Southwest corner (Point Conception)
             [-121.0, 39.0]   # Northeast corner (Cape Mendocino)
         ],
-        "center": [37.0, -126.5]
+        "center": [37.0, -124.0]
     },
     "socal": {
         "name": "Southern California",
         "group": "Pacific Ocean",
         "bounds": [
-            [-132.0, 32.0],  # Southwest corner (San Diego)
+            [-127.0, 32.0],  # Southwest corner (San Diego)
             [-117.0, 35.0]   # Northeast corner (Point Conception)
         ],
-        "center": [33.5, -124.5]
+        "center": [33.5, -122.0]
     },
     
     # Mexico
