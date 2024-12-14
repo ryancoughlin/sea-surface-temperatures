@@ -8,83 +8,109 @@ from typing import Dict, Any
 
 from config.settings import SOURCES, SERVER_URL
 from config.regions import REGIONS
+from utils.data_utils import convert_temperature_to_f, extract_variables
 
 logger = logging.getLogger(__name__)
 
 class MetadataAssembler:
+    """Assembles metadata JSON for the front-end API endpoint."""
+    
     def __init__(self, path_manager):
         self.path_manager = path_manager
 
     def get_full_url(self, relative_path: str) -> str:
-        """Convert relative path to full URL."""
+        """Convert relative path to full URL for front-end access."""
         return f"{SERVER_URL}/{str(relative_path).replace('output/', '')}"
 
-    def assemble_metadata(self, data: xr.DataArray | xr.Dataset, dataset: str, region: str, date: datetime):
-        """Update metadata for a dataset."""
-        try:
-            # Get dataset type
-            dataset_type = SOURCES[dataset]['type']
-            logger.info(f"Assembling metadata for {dataset} ({dataset_type}) in {region}")
-
-            if dataset_type == 'currents':
-                ranges = self._get_current_ranges_from_data(data, dataset)
-            elif dataset_type == 'sst':
-                ranges = self._get_sst_ranges_from_data(data, dataset)
-            elif dataset_type == 'waves':
-                ranges = self._get_waves_ranges_from_data(data, dataset)
-            elif dataset_type == 'chlorophyll':
-                ranges = self._get_chlorophyll_ranges_from_data(data, dataset)
-            else:
-                logger.warning(f"Unknown dataset type: {dataset_type}")
-                ranges = {}
-
-            logger.info(f"Calculated ranges: {ranges}")
-
-            # Get asset paths
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+    @staticmethod
+    def get_dataset_config(dataset: str) -> Dict:
+        """Get dataset configuration with validation.
+        
+        Args:
+            dataset: Dataset identifier from settings
             
-            # Update global metadata
-            self.update_global_metadata(
+        Returns:
+            Dict containing dataset configuration
+            
+        Raises:
+            ValueError: If dataset not found in settings
+        """
+        if dataset not in SOURCES:
+            raise ValueError(f"Dataset {dataset} not found in SOURCES")
+        return SOURCES[dataset]
+
+    def assemble_metadata(self, data: xr.DataArray | xr.Dataset, dataset: str, region: str, date: datetime):
+        """Update metadata JSON with new dataset information."""
+        try:
+            # Calculate ranges for the dataset
+            ranges = self._calculate_ranges(data, dataset)
+            logger.info(f"Calculated ranges for {dataset}: {ranges}")
+
+            # Get asset paths and create layer URLs
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            layers = self._get_layer_urls(asset_paths)
+            
+            # Update the metadata JSON
+            self._update_metadata_file(
                 region=region,
                 dataset=dataset,
                 date=date,
-                asset_paths=asset_paths,
+                layers=layers,
                 ranges=ranges
             )
             
-            logger.info(f"Updated metadata for {dataset} in {region}")
-
         except Exception as e:
             logger.error(f"Error updating metadata: {str(e)}")
-            logger.exception(e)  # Log full traceback
+            logger.exception(e)
             raise
 
-    def update_global_metadata(self, region: str, dataset: str, date: datetime, 
-                             asset_paths, ranges: Dict[str, Dict[str, Any]]) -> None:
-        """Update global metadata file with new dataset information."""
+    def _calculate_ranges(self, data: xr.DataArray | xr.Dataset, dataset: str) -> Dict[str, Dict[str, Any]]:
+        """Calculate ranges based on dataset type and unit precision settings."""
         try:
-            # Get layers
-            layers = {}
-            for layer_type in ['image', 'data', 'contours']:
-                path = getattr(asset_paths, layer_type, None)
-                if path and path.exists():
-                    layers[layer_type] = self.get_full_url(
-                        path.relative_to(self.path_manager.base_dir)
-                    )
+            dataset_config = self.get_dataset_config(dataset)  # Use the static method
+            unit_precision = dataset_config.get('unit_precision', {})
+            dataset_type = dataset_config['type']
+            ranges = {}
 
-            # Validate ranges
-            if not ranges:
-                logger.warning(f"No ranges provided for {dataset} in {region}")
-                ranges = {}
-            
+            # Handle different dataset types
+            if dataset_type in ['sst', 'potential_temperature']:
+                ranges = self._get_temperature_ranges(data, dataset_config, unit_precision)
+            elif dataset_type == 'currents':
+                ranges = self._get_current_ranges(data, dataset_config, unit_precision)
+            elif dataset_type == 'waves':
+                ranges = self._get_wave_ranges(data, unit_precision)
+            elif dataset_type == 'chlorophyll':
+                ranges = self._get_chlorophyll_ranges(data, unit_precision)
+
+            return ranges
+
+        except Exception as e:
+            logger.error(f"Error calculating ranges: {str(e)}")
+            return {}
+
+    def _get_layer_urls(self, asset_paths) -> Dict[str, str]:
+        """Create layer URLs for front-end access."""
+        layers = {}
+        for layer_type in ['image', 'data', 'contours']:
+            path = getattr(asset_paths, layer_type, None)
+            if path and path.exists():
+                layers[layer_type] = self.get_full_url(
+                    path.relative_to(self.path_manager.base_dir)
+                )
+        return layers
+
+    def _update_metadata_file(self, region: str, dataset: str, date: datetime, 
+                            layers: Dict[str, str], ranges: Dict[str, Dict[str, Any]]):
+        """Update the metadata JSON file with new dataset information."""
+        try:
             # Create date entry
             date_entry = {
                 "date": date.strftime('%Y%m%d'),
                 "layers": layers,
-                "ranges": ranges or {}
+                "ranges": ranges
             }
 
-            # Update metadata file
+            # Load or create metadata file
             metadata_path = self.path_manager.get_metadata_path()
             if metadata_path.exists():
                 with open(metadata_path) as f:
@@ -106,12 +132,13 @@ class MetadataAssembler:
             # Find or create dataset entry
             dataset_entry = next((d for d in region_entry["datasets"] if d["id"] == dataset), None)
             if not dataset_entry:
+                dataset_config = SOURCES[dataset]
                 dataset_entry = {
                     "id": dataset,
-                    "category": SOURCES[dataset]["type"],
-                    "name": SOURCES[dataset]["name"],
-                    "supportedLayers": SOURCES[dataset]["supportedLayers"],
-                    "metadata": SOURCES[dataset]["metadata"],
+                    "category": dataset_config["type"],
+                    "name": dataset_config["name"],
+                    "supportedLayers": dataset_config["supportedLayers"],
+                    "metadata": dataset_config["metadata"],
                     "dates": []
                 }
                 region_entry["datasets"].append(dataset_entry)
@@ -128,133 +155,98 @@ class MetadataAssembler:
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
 
-            logger.info(f"Updated metadata for {dataset} in {region}")
-
         except Exception as e:
-            logger.error(f"Error updating global metadata: {str(e)}")
-            logger.exception(e)
+            logger.error(f"Error updating metadata file: {str(e)}")
             raise
 
-    def _get_current_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
-        """Get standardized ranges for current data from DataArray."""
-        try:
-            # Get u and v components from dataset config
-            u_var, v_var = SOURCES[dataset]['variables']
-            
-            # Calculate speed and direction from u/v components
-            speed = np.sqrt(data[u_var]**2 + data[v_var]**2)
-            direction = np.degrees(np.arctan2(data[v_var], data[u_var])) % 360
-            
-            # Get valid values only
-            valid_speeds = speed.values[~np.isnan(speed.values)]
-            valid_directions = direction.values[~np.isnan(direction.values)]
-            
-            if len(valid_speeds) == 0 or len(valid_directions) == 0:
-                logger.warning("No valid current data found")
-                return {}
-            
-            return {
-                "speed": {
-                    "min": round(float(np.min(valid_speeds)), 2),
-                    "max": round(float(np.max(valid_speeds)), 2),
-                    "unit": "m/s"
-                },
-                "direction": {
-                    "min": round(float(np.min(valid_directions)), 1),
-                    "max": round(float(np.max(valid_directions)), 1),
-                    "unit": "degrees"
-                }
-            }
-        except Exception as e:
-            logger.error(f"Error calculating current ranges: {str(e)}")
+    def _get_temperature_ranges(self, data: xr.DataArray | xr.Dataset, config: Dict, unit_precision: Dict) -> Dict:
+        """Get temperature ranges with proper unit conversion."""
+        if isinstance(data, xr.Dataset):
+            temp_var = next(var for var in config['variables'] 
+                          if 'sst' in var.lower() or 'temperature' in var.lower())
+            data = data[temp_var]
+
+        source_unit = config.get('source_unit', 'C')
+        if source_unit == 'K':
+            data = (data - 273.15) * 9/5 + 32
+        elif source_unit == 'C':
+            data = data * 9/5 + 32
+
+        valid_data = data.values[~np.isnan(data.values)]
+        if len(valid_data) == 0:
             return {}
 
-    def _get_sst_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
-        """Get standardized ranges for SST data from DataArray."""
-        try:
-            # Handle Dataset vs DataArray
-            if isinstance(data, xr.Dataset):
-                variables = SOURCES[dataset]['variables']
-                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
-                data = data[sst_var]
-            
-            logger.info(f"Calculating SST ranges for {dataset}")
-            
-            # Convert to Fahrenheit using source unit from settings
-            source_unit = SOURCES[dataset].get('source_unit', 'C')
-            
-            if source_unit == 'K':
-                data = (data - 273.15) * 9/5 + 32  # Kelvin to Fahrenheit
-            else:
-                data = data * 9/5 + 32  # Celsius to Fahrenheit
-            
-            valid_data = data.values[~np.isnan(data.values)]
-            logger.info(f"Found {len(valid_data)} valid data points")
-            
-            if len(valid_data) == 0:
-                logger.warning("No valid SST data found")
-                return {}
-            
-            min_temp = float(np.min(valid_data))
-            max_temp = float(np.max(valid_data))
-            logger.info(f"Temperature range (F): {min_temp:.2f} to {max_temp:.2f}")
-            
-            return {
-                "temperature": {
-                    "min": round(min_temp, 2),
-                    "max": round(max_temp, 2),
-                    "unit": "fahrenheit"
-                }
+        precision = unit_precision['temperature']['precision']
+        return {
+            "temperature": {
+                "min": round(float(np.min(valid_data)), precision),
+                "max": round(float(np.max(valid_data)), precision),
+                "unit": unit_precision['temperature']['unit']
             }
-        except Exception as e:
-            logger.error(f"Error calculating SST ranges: {str(e)}")
-            logger.exception(e)  # Log full traceback
+        }
+
+    def _get_current_ranges(self, data: xr.Dataset, config: Dict, unit_precision: Dict) -> Dict:
+        """Get current speed and direction ranges."""
+        u_var, v_var = config['variables']
+        speed = np.sqrt(data[u_var]**2 + data[v_var]**2)
+        direction = np.degrees(np.arctan2(data[v_var], data[u_var])) % 360
+
+        ranges = {}
+        valid_speeds = speed.values[~np.isnan(speed.values)]
+        valid_directions = direction.values[~np.isnan(direction.values)]
+
+        if len(valid_speeds) > 0:
+            speed_precision = unit_precision['speed']['precision']
+            ranges['speed'] = {
+                'min': round(float(np.min(valid_speeds)), speed_precision),
+                'max': round(float(np.max(valid_speeds)), speed_precision),
+                'unit': unit_precision['speed']['unit']
+            }
+
+        if len(valid_directions) > 0:
+            dir_precision = unit_precision['direction']['precision']
+            ranges['direction'] = {
+                'min': round(float(np.min(valid_directions)), dir_precision),
+                'max': round(float(np.max(valid_directions)), dir_precision),
+                'unit': unit_precision['direction']['unit']
+            }
+
+        return ranges
+
+    def _get_wave_ranges(self, data: xr.Dataset, unit_precision: Dict) -> Dict:
+        """Get wave measurement ranges."""
+        ranges = {}
+        for var_name, measure in [
+            ('VHM0', 'height'),
+            ('VMDR', 'direction'),
+            ('VTM10', 'mean_period'),
+            ('VTPK', 'peak_period')
+        ]:
+            if var_name in data and measure in unit_precision:
+                valid_data = data[var_name].values[~np.isnan(data[var_name].values)]
+                if len(valid_data) > 0:
+                    precision = unit_precision[measure]['precision']
+                    ranges[measure] = {
+                        'min': round(float(np.min(valid_data)), precision),
+                        'max': round(float(np.max(valid_data)), precision),
+                        'unit': unit_precision[measure]['unit']
+                    }
+        return ranges
+
+    def _get_chlorophyll_ranges(self, data: xr.DataArray | xr.Dataset, unit_precision: Dict) -> Dict:
+        """Get chlorophyll concentration ranges."""
+        if isinstance(data, xr.Dataset):
+            data = data[data.variables[0]]
+
+        valid_data = data.values[~np.isnan(data.values)]
+        if len(valid_data) == 0:
             return {}
 
-    def _get_waves_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
-        """Get standardized ranges for waves data from DataArray."""
-        try:
-            height = data['VHM0']
-            direction = data['VMDR']
-            mean_period = data['VTM10']
-            peak_period = data['VTPK']
-            
-            return {
-                "height": {
-                    "min": round(float(height.min()), 2),
-                    "max": round(float(height.max()), 2),
-                    "unit": "m"
-                },
-                "mean_period": {
-                    "min": round(float(mean_period.min()), 1),
-                    "max": round(float(mean_period.max()), 1),
-                    "unit": "seconds"
-                },
-                "direction": {
-                    "min": round(float(direction.min()), 1),
-                    "max": round(float(direction.max()), 1),
-                    "unit": "degrees"
-                }
+        precision = unit_precision['concentration']['precision']
+        return {
+            "concentration": {
+                "min": round(float(np.min(valid_data)), precision),
+                "max": round(float(np.max(valid_data)), precision),
+                "unit": unit_precision['concentration']['unit']
             }
-        except Exception as e:
-            logger.error(f"Error calculating wave ranges: {str(e)}")
-            return {}
-
-    def _get_chlorophyll_ranges_from_data(self, data: xr.DataArray, dataset: str) -> Dict:
-        """Get standardized ranges for chlorophyll data from DataArray."""
-        try:
-            valid_data = data.values[~np.isnan(data.values)]
-            if len(valid_data) == 0:
-                logger.warning("No valid chlorophyll data found")
-                return {}
-            
-            return {
-                "concentration": {
-                    "min": round(float(np.min(valid_data)), 4),
-                    "max": round(float(np.max(valid_data)), 4),
-                    "unit": "mg/m³"
-                }
-            }
-        except Exception as e:
-            logger.error(f"Error calculating chlorophyll ranges: {str(e)}")
-            return {}
+        }

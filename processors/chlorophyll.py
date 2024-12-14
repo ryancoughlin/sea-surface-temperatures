@@ -21,7 +21,6 @@ class ChlorophyllProcessor(BaseImageProcessor):
             
             # Get valid data for ranges
             valid_data = data.values[~np.isnan(data.values)]
-            logger.info(f"[RANGES] Image data min/max: {valid_data.min():.4f} to {valid_data.max():.4f}")
             
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'

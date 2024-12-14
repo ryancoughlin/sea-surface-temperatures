@@ -49,7 +49,7 @@ class CMEMSService:
                 start_datetime=adjusted_date.strftime("%Y-%m-%dT00:00:00"),
                 end_datetime=adjusted_date.strftime("%Y-%m-%dT23:59:59"),
                 output_filename=str(output_path),
-                force_download=True  # Keep this to ensure fresh data when cache is invalid
+               # force_download=True
             )
             
             # Check if download completed

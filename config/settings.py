@@ -23,6 +23,13 @@ SOURCES = {
         "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
         "variables": ["sea_surface_temperature", "sst_gradient_magnitude"],
         "lag_days": 2,
+        "source_unit": "C",
+        "unit_precision": {
+            "temperature": {
+                "unit": "fahrenheit",
+                "precision": 1
+            }
+        },
         "color_scale": [
             '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
             '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
@@ -40,7 +47,7 @@ SOURCES = {
             "frequency": "Daily",
             "resolution": "1 mile",
             "capture": "blends day and night",
-            "description": "Sea surface temperature from NOAA's ACSPO L3S product.",
+            "description": "Sea surface temperature from NOAA's ACSPO L3S product."
         }
     },
     "CMEMS_Global_Currents_Daily": {
@@ -51,13 +58,23 @@ SOURCES = {
         "variables": ["uo", "vo"],
         "type": "currents",
         "lag_days": 1,
+        "unit_precision": {
+            "speed": {
+                "unit": "m/s",
+                "precision": 3
+            },
+            "direction": {
+                "unit": "degrees",
+                "precision": 1
+            }
+        },
         "supportedLayers": ["image", "data"],
         "color_scale": ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033'],
         "metadata": {
             "cloud-free": "Yes",
             "frequency": "Daily",
             "resolution": "5 miles",
-            "description": "Ocean surface currents calculated from model outputs.",
+            "description": "Ocean surface currents calculated from model outputs."
         }
     },
     "BLENDEDsstDNDaily": {
@@ -69,6 +86,12 @@ SOURCES = {
         "variables": ["analysed_sst"],
         "lag_days": 2,
         "source_unit": "C",
+        "unit_precision": {
+            "temperature": {
+                "unit": "fahrenheit",
+                "precision": 1
+            }
+        },
         "supportedLayers": ["image", "data", "contours"],
         "color_scale": [
             '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
@@ -97,6 +120,12 @@ SOURCES = {
         "lag_days": 2,
         "altitude": "[0:1:0]",
         "type": "chlorophyll",
+        "unit_precision": {
+            "concentration": {
+                "unit": "mg/m³",
+                "precision": 4
+            }
+        },
         "supportedLayers": ["image", "data", "contours"],
         "color_scale": [
             '#B1C2D8', '#A3B9D3', '#96B1CF', '#88A8CA', '#7AA0C5',
@@ -111,7 +140,7 @@ SOURCES = {
             "cloud-free": "No",
             "frequency": "Daily",
             "resolution": "2.5 miles",
-            "description": "Chlorophyll-a concentration derived from VIIRS.",
+            "description": "Chlorophyll-a concentration derived from VIIRS."
         }
     },
     "CMEMS_Global_Waves_Daily": {
@@ -128,6 +157,24 @@ SOURCES = {
         ],
         "type": "waves",
         "lag_days": 1,
+        "unit_precision": {
+            "height": {
+                "unit": "m",
+                "precision": 2
+            },
+            "direction": {
+                "unit": "degrees",
+                "precision": 1
+            },
+            "mean_period": {
+                "unit": "seconds",
+                "precision": 1
+            },
+            "peak_period": {
+                "unit": "seconds",
+                "precision": 1
+            }
+        },
         "supportedLayers": ["image", "data", "extrude", "vectors"],
         "color_scale": [
             '#053061', '#0a3666', '#0f3d6c', '#164270', '#1c4785', '#234d91',
@@ -145,7 +192,7 @@ SOURCES = {
             "cloud-free": "Yes",
             "frequency": "3-hourly",
             "resolution": "5 miles",
-            "description": "Global wave analysis including height, period, and direction.",
+            "description": "Global wave analysis including height, period, and direction."
         }
     }
 }

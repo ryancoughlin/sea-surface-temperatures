@@ -37,7 +37,6 @@ class CurrentsProcessor(BaseImageProcessor):
             # Calculate dynamic ranges using percentiles
             vmin = float(np.percentile(valid_data, 1))
             vmax = float(np.percentile(valid_data, 99))
-            logger.info(f"Current magnitude range: {vmin:.4f} to {vmax:.4f}")
             
             # Calculate threshold for significant currents (5th percentile)
             magnitude_threshold = float(np.percentile(valid_data, 5))

@@ -1,8 +1,40 @@
 import numpy as np
 import xarray as xr
-from typing import Tuple
-from scipy.ndimage import zoom
-from scipy.interpolate import griddata
+import logging
+from typing import Tuple, Union, List
+
+from config.settings import SOURCES
+
+logger = logging.getLogger(__name__)
+
+def extract_variables(data: Union[xr.Dataset, xr.DataArray], dataset: str) -> Tuple[Union[xr.Dataset, xr.DataArray], List[str]]:
+    """Extract variables from dataset based on configuration.
+    
+    Args:
+        data: Input dataset or dataarray
+        dataset: Dataset identifier
+        
+    Returns:
+        Tuple of (processed data, list of variable names)
+    """
+    dataset_config = SOURCES[dataset]
+    variables = dataset_config['variables']
+
+    if isinstance(data, xr.Dataset):
+        if isinstance(variables, list) and len(variables) > 1:
+            # Multiple variables (e.g. currents with u,v)
+            processed_data = xr.Dataset({
+                var: data[var] for var in variables
+            })
+            logger.info(f"Loaded variables: {', '.join(variables)}")
+            return processed_data, variables
+        else:
+            # Single variable
+            var_name = variables[0] if isinstance(variables, list) else variables
+            processed_data = data[var_name]
+            logger.info(f"Loaded variable: {var_name}")
+            return processed_data, [var_name]
+    return data, variables if isinstance(variables, list) else [variables]
 
 def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.DataArray:
     """Convert temperature data to Fahrenheit.

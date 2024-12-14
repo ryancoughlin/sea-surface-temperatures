@@ -20,6 +20,7 @@ from config.settings import SOURCES
 from utils.path_manager import PathManager
 from processors.data_cleaners.land_masker import LandMasker
 from processors.cache_manager import CacheManager
+from utils.data_utils import extract_variables
 
 logger = logging.getLogger(__name__)
 
@@ -177,9 +178,9 @@ class ProcessingManager:
         try:
             # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            dataset_type = SOURCES[dataset]['type']
-            variables = SOURCES[dataset]['variables']
-            source = SOURCES[dataset].get('source', '')
+            dataset_config = self.metadata_assembler.get_dataset_config(dataset)
+            dataset_type = dataset_config['type']
+            source = dataset_config.get('source', '')
             
             # Special handling for PODAAC data which has multiple hourly files
             if source == 'podaac':
@@ -222,25 +223,13 @@ class ProcessingManager:
             raise ProcessingError("processing", str(e), 
                                 {"dataset": dataset, "region": region_id}) from e
 
-    def _extract_datetime_from_filename(self, filename: str) -> Optional[datetime]:
-        """Extract datetime from GOES16 SST filename format."""
-        # Expected format: YYYYMMDDHHMMSS-OSISAF-L3C_GHRSST...
-        match = re.match(r'(\d{8})(\d{6})', filename)
-        if match:
-            date_str, time_str = match.groups()
-            try:
-                return datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
-            except ValueError:
-                return None
-        return None
-
     async def _process_single_netcdf(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, skip_geojson: bool = False):
         """Process a single netCDF file."""
         try:
             # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            dataset_type = SOURCES[dataset]['type']
-            variables = SOURCES[dataset]['variables']
+            dataset_config = self.metadata_assembler.get_dataset_config(dataset)
+            dataset_type = dataset_config['type']
             
             # Check if we already have processed data for this date/time
             if all(path.exists() for path in [asset_paths.data, asset_paths.image]):
@@ -258,18 +247,9 @@ class ProcessingManager:
             # Load and process data
             logger.info(f"   ├── 📊 Processing {dataset_type} data")
             with self.managed_netcdf(netcdf_path) as ds:
-                # Load all required variables from dataset
-                if isinstance(variables, list) and len(variables) > 1:
-                    # Multiple variables (e.g. currents with u,v)
-                    raw_data = xr.Dataset({
-                        var: ds[var] for var in variables
-                    })
-                    logger.info(f"   ├── 📥 Loaded variables: {', '.join(variables)}")
-                else:
-                    # Single variable
-                    var_name = variables[0] if isinstance(variables, list) else variables
-                    raw_data = ds[var_name]
-                    logger.info(f"   ├── 📥 Loaded variable: {var_name}")
+                # Extract variables using data_utils
+                raw_data, variables = extract_variables(ds, dataset)
+                logger.info(f"   ├── 📥 Loaded data for processing")
                 
                 # Preprocess data
                 processed_data = self.data_preprocessor.preprocess_dataset(
@@ -338,6 +318,18 @@ class ProcessingManager:
             logger.error(f"   └── ❌ Processing failed: {str(e)}")
             raise ProcessingError("processing", str(e), 
                                 {"dataset": dataset, "region": region_id}) from e
+
+    def _extract_datetime_from_filename(self, filename: str) -> Optional[datetime]:
+        """Extract datetime from GOES16 SST filename format."""
+        # Expected format: YYYYMMDDHHMMSS-OSISAF-L3C_GHRSST...
+        match = re.match(r'(\d{8})(\d{6})', filename)
+        if match:
+            date_str, time_str = match.groups()
+            try:
+                return datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
+            except ValueError:
+                return None
+        return None
 
     def _handle_error(self, e: Exception, dataset: str, region_id: str) -> Dict:
         """Unified error handler"""
