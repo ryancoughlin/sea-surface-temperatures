@@ -117,27 +117,6 @@ class ProcessingManager:
             if ds:
                 ds.close()
 
-    def _extract_time_from_file(self, file_path: Path) -> Optional[datetime]:
-        """Extract time from PODAAC filename or metadata"""
-        try:
-            # First try to get from filename
-            # Expected format: GOES16_SST_OSISAF_L3C_YYYYMMDD_HH.nc
-            match = re.search(r'(\d{8})_(\d{2})\.nc$', file_path.name)
-            if match:
-                date_str, hour_str = match.groups()
-                return datetime.strptime(f"{date_str}{hour_str}", '%Y%m%d%H')
-            
-            # If not in filename, try to read from NetCDF metadata
-            ds = xr.open_dataset(file_path)
-            if 'time' in ds.dims:
-                return pd.to_datetime(ds.time.values[0])
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error extracting time from file: {str(e)}")
-            return None
-
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Optional[Path]:
         """Get data from cache or download"""
         # Check cache first
