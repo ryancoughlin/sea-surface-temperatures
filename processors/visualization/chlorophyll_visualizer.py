@@ -5,7 +5,7 @@ import xarray as xr
 import cartopy.crs as ccrs
 import matplotlib.colors as mcolors
 from pathlib import Path
-from .base_processor import BaseImageProcessor
+from .base_visualizer import BaseVisualizer
 from config.settings import SOURCES
 from typing import Dict, Optional, Tuple
 from matplotlib.colors import LinearSegmentedColormap
@@ -13,7 +13,7 @@ import cartopy.feature as cfeature
 
 logger = logging.getLogger(__name__)
 
-class ChlorophyllProcessor(BaseImageProcessor):
+class ChlorophyllVisualizer(BaseVisualizer):
     def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate chlorophyll visualization."""
         try:

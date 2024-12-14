@@ -11,10 +11,10 @@ import pandas as pd
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
-from processors.metadata_assembler import MetadataAssembler
+from processors.data.data_assembler import DataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
-from processors.processor_factory import ProcessorFactory
-from processors.data_preprocessor import DataPreprocessor
+from processors.visualization.visualizer_factory import VisualizerFactory
+from processors.data.data_preprocessor import DataPreprocessor
 from processors.cleanup_manager import CleanupManager
 from config.settings import SOURCES
 from utils.path_manager import PathManager
@@ -32,20 +32,20 @@ class ProcessingError(Exception):
         self.context = context
         super().__init__(f"{step}: {error}")
 
-class ProcessingManager:
+class ProcessingOrchestrator:
     """Coordinates data processing workflow"""
     
-    def __init__(self, path_manager: PathManager, metadata_assembler: MetadataAssembler):
+    def __init__(self, path_manager: PathManager, data_assembler: DataAssembler):
         self.path_manager = path_manager
-        self.metadata_assembler = metadata_assembler
+        self.data_assembler = data_assembler
         self.session = None
         self.erddap_service = None
         self.cmems_service = None
         self.podaac_service = None
         
         # Initialize services and managers
-        self.processor_factory = ProcessorFactory(path_manager)
-        self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, metadata_assembler)
+        self.visualizer_factory = VisualizerFactory(path_manager)
+        self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, data_assembler)
         self.data_preprocessor = DataPreprocessor()
         self.cache_manager = CacheManager()
         self.cleanup_manager = CleanupManager(path_manager)
@@ -157,7 +157,7 @@ class ProcessingManager:
         try:
             # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            dataset_config = self.metadata_assembler.get_dataset_config(dataset)
+            dataset_config = self.data_assembler.get_dataset_config(dataset)
             dataset_type = dataset_config['type']
             source = dataset_config.get('source', '')
             
@@ -207,7 +207,7 @@ class ProcessingManager:
         try:
             # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            dataset_config = self.metadata_assembler.get_dataset_config(dataset)
+            dataset_config = self.data_assembler.get_dataset_config(dataset)
             dataset_type = dataset_config['type']
             
             # Check if we already have processed data for this date/time
@@ -264,7 +264,7 @@ class ProcessingManager:
 
             # Image
             logger.info(f"   ├── 🖼️  Generating image")
-            processor = self.processor_factory.create(dataset_type)
+            processor = self.visualizer_factory.create(dataset_type)
             image_path, additional_layers = processor.generate_image(
                 data=processed_data,
                 region=region_id,
@@ -275,7 +275,7 @@ class ProcessingManager:
             
             # Update metadata
             logger.info(f"   ├── 📝 Updating metadata")
-            self.metadata_assembler.assemble_metadata(
+            self.data_assembler.assemble_metadata(
                 data=processed_data,
                 dataset=dataset,
                 region=region_id,

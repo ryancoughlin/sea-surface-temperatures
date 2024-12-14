@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import xarray as xr
 import cartopy.crs as ccrs
-from .base_processor import BaseImageProcessor
+from .base_visualizer import BaseVisualizer
 from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Tuple, Optional, Dict, NamedTuple
@@ -13,7 +13,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 logger = logging.getLogger(__name__)
 
-class CurrentsProcessor(BaseImageProcessor):
+class CurrentsVisualizer(BaseVisualizer):
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
         """Generate currents visualization using preprocessed data."""
         try:

@@ -7,6 +7,8 @@ from .chlorophyll_contour_converter import ChlorophyllContourConverter
 from .waves_converter import WavesGeoJSONConverter
 from .sst_contour_converter import SSTContourConverter
 from config.settings import SOURCES
+from processors.data.data_assembler import DataAssembler
+from utils.path_manager import PathManager
 
 
 class ConverterType:
@@ -14,9 +16,9 @@ class ConverterType:
     CONTOUR = 'contour'
 
 class GeoJSONConverterFactory:
-    def __init__(self, path_manager, metadata_assembler=None):
+    def __init__(self, path_manager: PathManager, data_assembler: Optional[DataAssembler] = None):
         self.path_manager = path_manager
-        self.metadata_assembler = metadata_assembler
+        self.data_assembler = data_assembler
         self._converters: Dict[str, Dict[str, Type[BaseGeoJSONConverter]]] = {
             ConverterType.DATA: {
                 'sst': SSTGeoJSONConverter,
@@ -53,4 +55,4 @@ class GeoJSONConverterFactory:
                 f"converter_type: {converter_type}"
             )
             
-        return converter_class(self.path_manager, self.metadata_assembler)
+        return converter_class(self.path_manager, self.data_assembler)

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import aiohttp
 
-from processors.metadata_assembler import MetadataAssembler
+from processors.metadata_assembler import DataAssembler
 from processors.processing_manager import ProcessingManager
 from utils.path_manager import PathManager
 from config.settings import SOURCES
@@ -32,7 +32,7 @@ def cleanup_metadata():
 class HistoricalDataProcessor:
     def __init__(self):
         self.path_manager = PathManager()
-        self.metadata_assembler = MetadataAssembler(self.path_manager)
+        self.metadata_assembler = DataAssembler(self.path_manager)
         self.processing_manager = ProcessingManager(
             self.path_manager,
             self.metadata_assembler

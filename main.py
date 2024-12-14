@@ -8,8 +8,8 @@ import time
 
 from config.settings import SOURCES
 from config.regions import REGIONS
-from processors.metadata_assembler import MetadataAssembler
-from processors.processing_manager import ProcessingManager
+from processors.data.data_assembler import DataAssembler
+from processors.orchestration.processing_orchestrator import ProcessingOrchestrator
 from processors.processing_config import ProcessingConfig
 from processors.processing_result import ProcessingResult
 from processors.cleanup_manager import CleanupManager
@@ -18,7 +18,7 @@ from utils.path_manager import PathManager
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | 🔄 %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt='%H:%M:%S'
 )
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,8 @@ class DataProcessor:
     def __init__(self, output_dir: str = "output", max_concurrent_tasks: int = 3):
         self.output_dir = Path(output_dir)
         self.path_manager = PathManager()
-        self.metadata_assembler = MetadataAssembler(self.path_manager)
-        self.processing_manager = ProcessingManager(
+        self.metadata_assembler = DataAssembler(self.path_manager)
+        self.processing_manager = ProcessingOrchestrator(
             self.path_manager,
             self.metadata_assembler
         )

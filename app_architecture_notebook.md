@@ -13,7 +13,7 @@
 ## Configuration and Responsibilites
 
 - DataProcessor takes care of preprocessing, process once and use
-- MetadataAssembler responsible for creating the JSON for the front-end API endpoint. Generated to output/metadata.json
+- DataAssembler responsible for creating the JSON for the front-end API endpoint. Generated to output/metadata.json
 - Dataset config lives in config/settings.py.
 - Region config lives in config/regions.py.
 

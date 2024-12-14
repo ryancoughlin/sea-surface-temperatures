@@ -19,8 +19,8 @@ from utils.image_optimizer import ImageOptimizer
 
 logger = logging.getLogger(__name__)
 
-class BaseImageProcessor(ABC):
-    """Base class for all image processors."""
+class BaseVisualizer(ABC):
+    """Base class for all data visualizers."""
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
@@ -131,7 +131,6 @@ class BaseImageProcessor(ABC):
             
         return lon_name, lat_name
 
-    
     def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
         """
         Expands data near coastlines to prevent gaps while preserving original values.

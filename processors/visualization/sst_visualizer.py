@@ -5,7 +5,8 @@ import logging
 import cartopy.crs as ccrs
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
-from .base_processor import BaseImageProcessor
+from .base_visualizer import BaseVisualizer
+
 from config.settings import SOURCES
 from config.regions import REGIONS
 from utils.data_utils import convert_temperature_to_f
@@ -13,7 +14,7 @@ from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-class SSTProcessor(BaseImageProcessor):
+class SSTVisualizer(BaseVisualizer):
     def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
         """Generate SST visualization."""
         try:

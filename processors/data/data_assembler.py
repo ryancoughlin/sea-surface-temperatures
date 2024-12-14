@@ -12,7 +12,7 @@ from utils.data_utils import convert_temperature_to_f, extract_variables
 
 logger = logging.getLogger(__name__)
 
-class MetadataAssembler:
+class DataAssembler:
     """Assembles metadata JSON for the front-end API endpoint."""
     
     def __init__(self, path_manager):

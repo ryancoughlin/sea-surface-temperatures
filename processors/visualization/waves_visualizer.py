@@ -5,14 +5,14 @@ import numpy as np
 import logging
 import cartopy.crs as ccrs
 from matplotlib.colors import LinearSegmentedColormap
-from .base_processor import BaseImageProcessor
+from .base_visualizer import BaseVisualizer
 from config.settings import SOURCES
 from config.regions import REGIONS
 from typing import Tuple, Optional, Dict
 
 logger = logging.getLogger(__name__)
 
-class WavesProcessor(BaseImageProcessor):
+class WavesVisualizer(BaseVisualizer):
     """Processor for generating wave height visualizations."""
     
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
