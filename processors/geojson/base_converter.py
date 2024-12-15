@@ -8,6 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from utils.path_manager import PathManager
 from datetime import datetime
 from config.settings import SOURCES
+from utils.data_utils import get_coordinate_names
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,7 @@ class BaseGeoJSONConverter(ABC):
     
     def get_coordinate_names(self, data: xr.DataArray) -> tuple:
         """Get standardized coordinate names."""
-        lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-        lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
-        return lon_name, lat_name
+        return get_coordinate_names(data)
 
     def _reduce_dimensions(self, data: Union[xr.DataArray, xr.Dataset], 
                          dims_to_reduce: List[str] = ['time', 'depth']) -> Union[xr.DataArray, xr.Dataset]:

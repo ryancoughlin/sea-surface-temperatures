@@ -150,3 +150,34 @@ def interpolate_dataset(ds: xr.Dataset, factor: int = 1.4, method: str = 'linear
         method=method,
         kwargs={'fill_value': None}
     )
+
+def get_coordinate_names(dataset) -> tuple[str, str]:
+    """
+    Get standardized longitude and latitude coordinate names from a dataset.
+    
+    Args:
+        dataset: xarray Dataset or DataArray with coordinates
+        
+    Returns:
+        tuple[str, str]: (longitude_name, latitude_name)
+        
+    Raises:
+        ValueError: If coordinate names cannot be identified
+    """
+    lon_patterns = ['lon', 'longitude', 'x']
+    lat_patterns = ['lat', 'latitude', 'y']
+    
+    lon_name = None
+    lat_name = None
+    
+    for var in dataset.coords:
+        var_lower = var.lower()
+        if any(pattern in var_lower for pattern in lon_patterns):
+            lon_name = var
+        elif any(pattern in var_lower for pattern in lat_patterns):
+            lat_name = var
+            
+    if not lon_name or not lat_name:
+        raise ValueError("Could not identify coordinate variables")
+        
+    return lon_name, lat_name

@@ -16,6 +16,7 @@ import numpy as np
 import xarray as xr
 import scipy.ndimage
 from utils.image_optimizer import ImageOptimizer
+from utils.data_utils import get_coordinate_names
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +28,13 @@ class BaseVisualizer(ABC):
         self.image_optimizer = ImageOptimizer()
 
     @abstractmethod
-    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
-        """
-        Generate visualization and any additional layers.
-        Args:
-            data: Input data as xarray DataArray
-            region: Region identifier
-            dataset: Dataset identifier
-            date: Processing date
-        Returns:
-            Tuple[Path, Optional[Dict]]: (image_path, additional_layers)
-        """
+    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
+        """Generate visualization and any additional layers."""
         raise NotImplementedError
+
+    def get_coordinate_names(self, dataset):
+        """Get the longitude and latitude variable names from the dataset."""
+        return get_coordinate_names(dataset)
 
     def generate_image_path(self, region: str, dataset: str, date: datetime) -> Path:
         """Generate standardized path for image storage."""
@@ -109,28 +105,6 @@ class BaseVisualizer(ABC):
         
         return fig, ax
 
-    def get_coordinate_names(self, dataset):
-        """Get the longitude and latitude variable names from the dataset."""
-        # Common coordinate name patterns
-        lon_patterns = ['lon', 'longitude', 'x']
-        lat_patterns = ['lat', 'latitude', 'y']
-        
-        # Find coordinate names
-        lon_name = None
-        lat_name = None
-        
-        for var in dataset.coords:
-            var_lower = var.lower()
-            if any(pattern in var_lower for pattern in lon_patterns):
-                lon_name = var
-            elif any(pattern in var_lower for pattern in lat_patterns):
-                lat_name = var
-                
-        if not lon_name or not lat_name:
-            raise ValueError("Could not identify coordinate variables")
-            
-        return lon_name, lat_name
-
     def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
         """
         Expands data near coastlines to prevent gaps while preserving original values.
@@ -171,3 +145,4 @@ class BaseVisualizer(ABC):
                     valid_mask[y, x] = True
         
         return expanded_data
+
