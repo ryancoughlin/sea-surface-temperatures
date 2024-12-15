@@ -62,31 +62,35 @@ class ERDDAPService:
         logger.info(f"   └── Dataset: {dataset}")
         logger.info(f"   └── Region: {region}")
         
-        output_path = self.path_manager.get_data_path(date, dataset, region)
-        if output_path.exists():
-            logger.info("   └── ♻️  Using cached data")
-            return output_path
-
-        for attempt in range(self.max_retries):
-            try:
-                logger.info(f"   └── 🔄 Download attempt {attempt + 1}/{self.max_retries}")
-                url = self.build_url(date, dataset, region)
-                logger.info(f"Downloading ERDDAP data for {dataset}")
-
-                async with self.session.get(
-                    url,
-                    headers=self.headers,
-                    timeout=self.timeout,
-                    ssl=True
-                ) as response:
-                    response.raise_for_status()
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    
-                    with open(output_path, 'wb') as f:
-                        async for chunk in response.content.iter_chunked(8192):
-                            f.write(chunk)
-                            
-                logger.info("   └── ✅ Download complete")
+        try:
+            # Get the proper path for the download
+            output_path = self.path_manager.get_data_path(date, dataset, region)
+            if output_path.exists():
+                logger.info("   └── ♻️  Using existing file")
                 return output_path
-            except Exception as e:
-                logger.error(f"   └── ⚠️  Attempt {attempt + 1} failed: {str(e)}")
+
+            for attempt in range(self.max_retries):
+                try:
+                    logger.info(f"   └── 🔄 Download attempt {attempt + 1}/{self.max_retries}")
+                    url = self.build_url(date, dataset, region)
+                    logger.info(f"Downloading ERDDAP data for {dataset}")
+
+                    async with self.session.get(
+                        url,
+                        headers=self.headers,
+                        timeout=self.timeout,
+                        ssl=True
+                    ) as response:
+                        response.raise_for_status()
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        with open(output_path, 'wb') as f:
+                            async for chunk in response.content.iter_chunked(8192):
+                                f.write(chunk)
+                            
+                    logger.info("   └── ✅ Download complete")
+                    return output_path
+                except Exception as e:
+                    logger.error(f"   └── ⚠️  Attempt {attempt + 1} failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"   └── ⚠️  Error getting local file path: {str(e)}")

@@ -2,9 +2,9 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import NamedTuple, Optional
 from config.settings import SOURCES
-import re
 import shutil
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,11 @@ class AssetPaths(NamedTuple):
     contours: Optional[Path]
 
 class PathManager:
-    """Manages all data operations: paths, caching, and cleanup"""
+    """Manages file system operations including:
+    - Local file storage for downloaded data
+    - Output directory structure for processed results
+    - Cleanup of old files (>5 days)
+    """
     
     BASE_DIR = Path(__file__).parent.parent
 
@@ -22,36 +26,19 @@ class PathManager:
         self.base_dir = self.BASE_DIR
         self.data_dir = self.base_dir / "data"
         self.output_dir = self.base_dir / "output"
-        self.downloaded_data_dir = self.base_dir / "downloaded_data"
         self.ensure_directories()
 
     def ensure_directories(self):
         """Ensure all required directories exist"""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.downloaded_data_dir.mkdir(parents=True, exist_ok=True)
 
     def get_data_path(self, date: datetime, dataset: str, region: str) -> Path:
-        """Get path for downloaded/cached data file"""
+        """Get path for data file"""
         dataset_id = SOURCES[dataset]['dataset_id']
         region_name = region.lower().replace(" ", "_")
         date_str = date.strftime('%Y%m%d_%H')
-        
-        # First check for exact match
-        base_path = self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
-        if base_path.exists():
-            logger.info(f"Found exact cache match at {base_path}")
-            return base_path
-            
-        # Then check for files with timestamps
-        pattern = f"{dataset_id}_{region_name}_{date_str}*.nc"
-        matches = list(self.data_dir.glob(pattern))
-        if matches:
-            logger.info(f"Found cache match at {matches[0]}")
-            return matches[0]
-            
-        # If no existing file found, return base path for new file
-        return base_path
+        return self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
         """Get asset paths for the given dataset."""
@@ -69,23 +56,23 @@ class PathManager:
         """Get path to the global metadata file."""
         return self.output_dir / "metadata.json"
 
-    def get_cached_file(self, dataset: str, region: str, date: datetime) -> Optional[Path]:
-        """Get cached file if it exists"""
+    def find_local_file(self, dataset: str, region: str, date: datetime) -> Optional[Path]:
+        """Check if a local copy of the file exists"""
         path = self.get_data_path(date, dataset, region)
         if path.exists():
-            logger.info(f"Using cached file: {path.name}")
+            logger.info(f"Using existing local file: {path.name}")
             return path
         return None
 
-    def save_to_cache(self, source_path: Path, dataset: str, region: str, date: datetime) -> Path:
-        """Save downloaded data to cache"""
-        cache_path = self.get_data_path(date, dataset, region)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
+    def store_local_copy(self, source_path: Path, dataset: str, region: str, date: datetime) -> Path:
+        """Store a local copy of downloaded data"""
+        local_path = self.get_data_path(date, dataset, region)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Copy instead of move to preserve original
-        shutil.copy2(source_path, cache_path)
-        logger.info(f"Saved to cache: {cache_path.name}")
-        return cache_path
+        shutil.copy2(source_path, local_path)
+        logger.info(f"Stored local copy at: {local_path.name}")
+        return local_path
 
     def cleanup_old_data(self, keep_days: int = 5):
         """Remove data older than specified number of days"""
@@ -129,10 +116,3 @@ class PathManager:
         except Exception as e:
             logger.error(f"Error during data cleanup: {str(e)}")
             raise
-
-    def clear_cache(self):
-        """Clear all cached files"""
-        if self.data_dir.exists():
-            shutil.rmtree(self.data_dir)
-            self.data_dir.mkdir(parents=True)
-            logger.info("Cache cleared")

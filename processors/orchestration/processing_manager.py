@@ -119,13 +119,13 @@ class ProcessingManager:
                 ds.close()
 
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Optional[Path]:
-        """Get data from cache or download"""
-        # Check cache first
-        cached_file = self.path_manager.get_cached_file(dataset, region_id, date)
-        if cached_file:
-            return cached_file
+        """Get data from local storage or download"""
+        # Check local storage first
+        local_file = self.path_manager.find_local_file(dataset, region_id, date)
+        if local_file:
+            return local_file
             
-        # If not in cache, download
+        # If not in local storage, download
         source_type = SOURCES[dataset].get('source_type')
         logger.info(f"   ├── 📥 Downloading from {source_type}")
         
@@ -133,9 +133,9 @@ class ProcessingManager:
             service = self._get_service(source_type)
             downloaded_path = await service.save_data(date, dataset, region_id)
                 
-            # Save to cache if download successful
+            # Save a local copy if download successful
             if downloaded_path:
-                return self.path_manager.save_to_cache(downloaded_path, dataset, region_id, date)
+                return self.path_manager.store_local_copy(downloaded_path, dataset, region_id, date)
             return None
                 
         except asyncio.CancelledError:
@@ -153,19 +153,6 @@ class ProcessingManager:
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
             dataset_config = self.data_assembler.get_dataset_config(dataset)
             dataset_type = dataset_config['type']
-            
-            # Check if we already have processed data for this date/time
-            if all(path.exists() for path in [asset_paths.data, asset_paths.image]):
-                logger.info(f"   ├── ✅ Found cached data for {dataset} at {date}")
-                return {
-                    'status': 'success',
-                    'dataset': dataset,
-                    'region': region_id,
-                    'paths': {
-                        'data': str(asset_paths.data),
-                        'image': str(asset_paths.image)
-                    }
-                }
             
             # Load and process data
             logger.info(f"   ├── 📊 Processing {dataset_type} data")

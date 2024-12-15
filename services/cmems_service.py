@@ -6,7 +6,6 @@ import copernicusmarine
 import os
 from config.settings import SOURCES
 from config.regions import REGIONS
-from processors.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -14,18 +13,17 @@ class CMEMSService:
     def __init__(self, session, path_manager):
         self.session = session
         self.path_manager = path_manager
-        self.cache_manager = CacheManager(path_manager.data_dir)
         
     async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
         logger.info(f"📥 CMEMS Download:")
         logger.info(f"   └── Dataset: {dataset}")
         logger.info(f"   └── Region: {region}")
         
-        # Check cache first using cache manager
-        cached_file = self.cache_manager.get_cached_file(dataset, region, date)
-        if cached_file:
-            logger.info("   └── ♻️  Using cached data")
-            return cached_file
+        # Check for existing file
+        local_file = self.path_manager.find_local_file(dataset, region, date)
+        if local_file:
+            logger.info("   └── ♻️  Using existing file")
+            return local_file
             
         logger.info("   └── 🔄 Starting download request...")
         config = SOURCES[dataset]
@@ -36,8 +34,8 @@ class CMEMSService:
         adjusted_date = date - timedelta(days=lag_days)
         
         try:
-            # Get the proper cache path for the download
-            output_path = self.cache_manager.get_cache_path(dataset, region, date)
+            # Get the proper path for the download
+            output_path = self.path_manager.get_data_path(date, dataset, region)
             
             copernicusmarine.subset(
                 dataset_id=config['dataset_id'],
