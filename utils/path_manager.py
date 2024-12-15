@@ -14,6 +14,8 @@ class AssetPaths(NamedTuple):
     contours: Optional[Path]
 
 class PathManager:
+    """Manages all data operations: paths, caching, and cleanup"""
+    
     BASE_DIR = Path(__file__).parent.parent
 
     def __init__(self):
@@ -21,6 +23,7 @@ class PathManager:
         self.data_dir = self.base_dir / "data"
         self.output_dir = self.base_dir / "output"
         self.downloaded_data_dir = self.base_dir / "downloaded_data"
+        self.ensure_directories()
 
     def ensure_directories(self):
         """Ensure all required directories exist"""
@@ -29,7 +32,7 @@ class PathManager:
         self.downloaded_data_dir.mkdir(parents=True, exist_ok=True)
 
     def get_data_path(self, date: datetime, dataset: str, region: str) -> Path:
-        # Get the dataset_id from SOURCES config
+        """Get path for downloaded/cached data file"""
         dataset_id = SOURCES[dataset]['dataset_id']
         region_name = region.lower().replace(" ", "_")
         date_str = date.strftime('%Y%m%d_%H')
@@ -66,6 +69,24 @@ class PathManager:
         """Get path to the global metadata file."""
         return self.output_dir / "metadata.json"
 
+    def get_cached_file(self, dataset: str, region: str, date: datetime) -> Optional[Path]:
+        """Get cached file if it exists"""
+        path = self.get_data_path(date, dataset, region)
+        if path.exists():
+            logger.info(f"Using cached file: {path.name}")
+            return path
+        return None
+
+    def save_to_cache(self, source_path: Path, dataset: str, region: str, date: datetime) -> Path:
+        """Save downloaded data to cache"""
+        cache_path = self.get_data_path(date, dataset, region)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Copy instead of move to preserve original
+        shutil.copy2(source_path, cache_path)
+        logger.info(f"Saved to cache: {cache_path.name}")
+        return cache_path
+
     def cleanup_old_data(self, keep_days: int = 5):
         """Remove data older than specified number of days"""
         try:
@@ -74,7 +95,6 @@ class PathManager:
             # Clean data directory
             if self.data_dir.exists():
                 for file in self.data_dir.glob("*.nc"):
-                    # Extract date from filename (format: dataset_region_YYYYMMDD.nc)
                     match = re.search(r'_(\d{8})\.nc$', file.name)
                     if match:
                         file_date = datetime.strptime(match.group(1), '%Y%m%d')
@@ -109,3 +129,10 @@ class PathManager:
         except Exception as e:
             logger.error(f"Error during data cleanup: {str(e)}")
             raise
+
+    def clear_cache(self):
+        """Clear all cached files"""
+        if self.data_dir.exists():
+            shutil.rmtree(self.data_dir)
+            self.data_dir.mkdir(parents=True)
+            logger.info("Cache cleared")

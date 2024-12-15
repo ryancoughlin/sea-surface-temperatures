@@ -7,7 +7,6 @@ import logging
 import asyncio
 import xarray as xr
 import re
-import pandas as pd
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
@@ -15,11 +14,8 @@ from processors.data.data_assembler import DataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.visualization.visualizer_factory import VisualizerFactory
 from processors.data.data_preprocessor import DataPreprocessor
-from processors.cleanup_manager import CleanupManager
 from config.settings import SOURCES
 from utils.path_manager import PathManager
-from processors.data_cleaners.land_masker import LandMasker
-from processors.cache_manager import CacheManager
 from utils.data_utils import extract_variables
 
 logger = logging.getLogger(__name__)
@@ -41,23 +37,28 @@ class ProcessingManager:
         self.session = None
         self.erddap_service = None
         self.cmems_service = None
-        self.podaac_service = None
         
-        # Initialize services and managers
+        # Initialize factories
         self.visualizer_factory = VisualizerFactory(path_manager)
         self.geojson_converter_factory = GeoJSONConverterFactory(path_manager, data_assembler)
         self.data_preprocessor = DataPreprocessor()
-        self.cache_manager = CacheManager()
-        self.cleanup_manager = CleanupManager(path_manager)
-        self.logger = logging.getLogger(__name__)
-        
-        self.land_masker = LandMasker()
         
     async def initialize(self, session: aiohttp.ClientSession):
         """Initialize services with session"""
         self.session = session
-        self.erddap_service = ERDDAPService(session, self.path_manager)
-        self.cmems_service = CMEMSService(session, self.path_manager)
+        
+    def _get_service(self, source_type: str):
+        """Get or initialize service on demand"""
+        if source_type == 'erddap':
+            if not self.erddap_service:
+                self.erddap_service = ERDDAPService(self.session, self.path_manager)
+            return self.erddap_service
+        elif source_type == 'cmems':
+            if not self.cmems_service:
+                self.cmems_service = CMEMSService(self.session, self.path_manager)
+            return self.cmems_service
+        else:
+            raise ValueError(f"Unknown source type: {source_type}")
         
     async def process_datasets(self, date: datetime, region_id: str, datasets: List[str], skip_geojson: bool = False) -> List[dict]:
         """Process multiple datasets for a region"""
@@ -120,9 +121,8 @@ class ProcessingManager:
     async def _get_data(self, date: datetime, dataset: str, region_id: str, cache_path: Path) -> Optional[Path]:
         """Get data from cache or download"""
         # Check cache first
-        cached_file = self.cache_manager.get_cached_file(dataset, region_id, date)
+        cached_file = self.path_manager.get_cached_file(dataset, region_id, date)
         if cached_file:
-            logger.info(f"   ├── ✅ Using cached file: {cached_file.name}")
             return cached_file
             
         # If not in cache, download
@@ -130,18 +130,12 @@ class ProcessingManager:
         logger.info(f"   ├── 📥 Downloading from {source_type}")
         
         try:
-            if source_type == 'cmems':
-                downloaded_path = await self.cmems_service.save_data(date, dataset, region_id)
-            elif source_type == 'erddap':
-                downloaded_path = await self.erddap_service.save_data(date, dataset, region_id)
-            else:
-                logger.error(f"   └── ❌ Unknown source type: {source_type}")
-                raise ProcessingError("download", f"Unknown source type: {source_type}",
-                                   {"dataset": dataset, "region": region_id})
+            service = self._get_service(source_type)
+            downloaded_path = await service.save_data(date, dataset, region_id)
                 
             # Save to cache if download successful
             if downloaded_path:
-                return self.cache_manager.save_to_cache(downloaded_path, dataset, region_id, date)
+                return self.path_manager.save_to_cache(downloaded_path, dataset, region_id, date)
             return None
                 
         except asyncio.CancelledError:
@@ -154,56 +148,6 @@ class ProcessingManager:
 
     async def _process_netcdf_data(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, skip_geojson: bool = False):
         """Process the downloaded netCDF data."""
-        try:
-            # Get asset paths and dataset type
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-            dataset_config = self.data_assembler.get_dataset_config(dataset)
-            dataset_type = dataset_config['type']
-            source = dataset_config.get('source', '')
-            
-            # Special handling for PODAAC data which has multiple hourly files
-            if source == 'podaac':
-                results = []
-                for file_path in [netcdf_path] if isinstance(netcdf_path, Path) else netcdf_path:
-                    file_date = self._extract_datetime_from_filename(file_path.name)
-                    if not file_date:
-                        logger.warning(f"Could not extract date from {file_path.name}")
-                        continue
-                        
-                    result = await self._process_single_netcdf(
-                        file_path, region_id, dataset, file_date, skip_geojson
-                    )
-                    if result['status'] == 'success':
-                        results.append(result)
-                
-                if not results:
-                    logger.error("   └── ❌ No files processed successfully")
-                    return {
-                        'status': 'error',
-                        'error': 'No files processed successfully',
-                        'region': region_id,
-                        'dataset': dataset
-                    }
-                
-                logger.info(f"   └── ✅ Processed {len(results)} files successfully")
-                return {
-                    'status': 'success',
-                    'processed_files': len(results),
-                    'results': results,
-                    'region': region_id,
-                    'dataset': dataset
-                }
-            
-            # Standard processing for non-PODAAC data
-            return await self._process_single_netcdf(netcdf_path, region_id, dataset, date, skip_geojson)
-            
-        except Exception as e:
-            logger.error(f"   └── ❌ Processing failed: {str(e)}")
-            raise ProcessingError("processing", str(e), 
-                                {"dataset": dataset, "region": region_id}) from e
-
-    async def _process_single_netcdf(self, netcdf_path: Path, region_id: str, dataset: str, date: datetime, skip_geojson: bool = False):
-        """Process a single netCDF file."""
         try:
             # Get asset paths and dataset type
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
@@ -297,37 +241,3 @@ class ProcessingManager:
             logger.error(f"   └── ❌ Processing failed: {str(e)}")
             raise ProcessingError("processing", str(e), 
                                 {"dataset": dataset, "region": region_id}) from e
-
-    def _extract_datetime_from_filename(self, filename: str) -> Optional[datetime]:
-        """Extract datetime from GOES16 SST filename format."""
-        # Expected format: YYYYMMDDHHMMSS-OSISAF-L3C_GHRSST...
-        match = re.match(r'(\d{8})(\d{6})', filename)
-        if match:
-            date_str, time_str = match.groups()
-            try:
-                return datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
-            except ValueError:
-                return None
-        return None
-
-    def _handle_error(self, e: Exception, dataset: str, region_id: str) -> Dict:
-        """Unified error handler"""
-        if isinstance(e, ProcessingError):
-            error_type = e.step
-            error_msg = e.error
-            context = e.context
-        else:
-            error_type = e.__class__.__name__
-            error_msg = str(e)
-            context = {"dataset": dataset, "region": region_id}
-
-        logger.error(f"Error processing {dataset} for {region_id}")
-        logger.error(f"Type: {error_type}")
-        logger.error(f"Error: {error_msg}")
-
-        return {
-            'status': 'error',
-            'error': error_msg,
-            'error_type': error_type,
-            **context
-        }
