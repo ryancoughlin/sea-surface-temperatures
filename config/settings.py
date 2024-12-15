@@ -14,6 +14,13 @@ IMAGE_SETTINGS = {
     "dpi": 150,
 }
 
+UNIT_TRANSFORMS = {
+    "K_to_F": lambda x: (x - 273.15) * 9/5 + 32,
+    "C_to_F": lambda x: x * 9/5 + 32,
+    "m/s_to_knots": lambda x: x * 1.944,
+    "m_to_ft": lambda x: x * 3.28084
+}
+
 SOURCES = {
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
@@ -21,15 +28,18 @@ SOURCES = {
         "name": "LEO ACSPO SST L3S NRT C Daily",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
-        "variables": ["sea_surface_temperature", "sst_gradient_magnitude"],
-        "lag_days": 2,
-        "source_unit": "C",
-        "unit_precision": {
-            "temperature": {
-                "unit": "fahrenheit",
-                "precision": 1
+        "variables": {
+            "sea_surface_temperature": {
+                "type": "temperature",
+                "source_unit": "C",
+                "target_unit": "fahrenheit",
+            },
+            "sst_gradient_magnitude": {
+                "type": "gradient",
+                "unit": "C/km",
             }
         },
+        "lag_days": 2,
         "color_scale": [
             '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
             '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
@@ -53,21 +63,19 @@ SOURCES = {
     "CMEMS_Global_Currents_Daily": {
         "source_type": "cmems",
         "name": "CMEMS Global Daily Mean Ocean Currents",
-        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
         "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
-        "variables": ["uo", "vo"],
+        "variables": {
+            "uo": {
+                "type": "current",
+                "unit": "m/s",
+            },
+            "vo": {
+                "type": "current",
+                "unit": "m/s",
+            },
+        },
         "type": "currents",
         "lag_days": 1,
-        "unit_precision": {
-            "speed": {
-                "unit": "m/s",
-                "precision": 3
-            },
-            "direction": {
-                "unit": "degrees",
-                "precision": 1
-            }
-        },
         "supportedLayers": ["image", "data"],
         "color_scale": ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033'],
         "metadata": {
@@ -83,15 +91,14 @@ SOURCES = {
         "name": "NOAA Geo-polar Blended SST Analysis Day+Night",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwBLENDEDsstDNDaily",
-        "variables": ["analysed_sst"],
-        "lag_days": 2,
-        "source_unit": "C",
-        "unit_precision": {
-            "temperature": {
-                "unit": "fahrenheit",
-                "precision": 1
+        "variables": {
+            "analysed_sst": {
+                "type": "temperature",
+                "source_unit": "C",
+                "target_unit": "fahrenheit",
             }
         },
+        "lag_days": 2,
         "supportedLayers": ["image", "data", "contours"],
         "color_scale": [
             '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
@@ -116,16 +123,15 @@ SOURCES = {
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
         "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
-        "variables": ["chlor_a"],
+        "variables": {
+            "chlor_a": {
+                "type": "chlorophyll",
+                "unit": "mg/m³",
+            }
+        },
         "lag_days": 2,
         "altitude": "[0:1:0]",
         "type": "chlorophyll",
-        "unit_precision": {
-            "concentration": {
-                "unit": "mg/m³",
-                "precision": 4
-            }
-        },
         "supportedLayers": ["image", "data", "contours"],
         "color_scale": [
             '#B1C2D8', '#A3B9D3', '#96B1CF', '#88A8CA', '#7AA0C5',
@@ -145,36 +151,20 @@ SOURCES = {
     },
     "CMEMS_Global_Waves_Daily": {
         "source_type": "cmems",
-        "name": "CMEMS Global Wave Analysis and Forecast",
-        "base_url": "https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
-        "dataset_id": "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
-        "variables": [
-            "VHM0",    # Significant wave height
-            "VMDR",    # Mean wave direction
-            "VTM10",   # Mean wave period
-            "VTPK",    # Peak wave period
-            "VPED"     # Wave energy period
-        ],
         "type": "waves",
-        "lag_days": 1,
-        "unit_precision": {
-            "height": {
+        "name": "CMEMS Global Wave Analysis and Forecast",
+        "dataset_id": "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i",
+        "variables": {
+            "VHM0": {
+                "type": "wave_height",
                 "unit": "m",
-                "precision": 2
             },
-            "direction": {
+            "VMDR": {
+                "type": "wave_direction",
                 "unit": "degrees",
-                "precision": 1
             },
-            "mean_period": {
-                "unit": "seconds",
-                "precision": 1
-            },
-            "peak_period": {
-                "unit": "seconds",
-                "precision": 1
-            }
         },
+        "lag_days": 1,
         "supportedLayers": ["image", "data", "extrude", "vectors"],
         "color_scale": [
             '#053061', '#0a3666', '#0f3d6c', '#164270', '#1c4785', '#234d91',

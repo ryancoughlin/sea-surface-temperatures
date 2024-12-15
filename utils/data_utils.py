@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 import logging
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Dict
 
 from config.settings import SOURCES
 
@@ -19,22 +19,23 @@ def extract_variables(data: Union[xr.Dataset, xr.DataArray], dataset: str) -> Tu
     """
     dataset_config = SOURCES[dataset]
     variables = dataset_config['variables']
+    var_names = list(variables.keys())
 
     if isinstance(data, xr.Dataset):
-        if isinstance(variables, list) and len(variables) > 1:
-            # Multiple variables (e.g. currents with u,v)
+        if len(var_names) > 1:
+            # Multiple variables
             processed_data = xr.Dataset({
-                var: data[var] for var in variables
+                var: data[var] for var in var_names if var in data
             })
-            logger.info(f"Loaded variables: {', '.join(variables)}")
-            return processed_data, variables
+            logger.info(f"Loaded variables: {', '.join(var_names)}")
+            return processed_data, var_names
         else:
             # Single variable
-            var_name = variables[0] if isinstance(variables, list) else variables
+            var_name = var_names[0]
             processed_data = data[var_name]
             logger.info(f"Loaded variable: {var_name}")
             return processed_data, [var_name]
-    return data, variables if isinstance(variables, list) else [variables]
+    return data, var_names
 
 def convert_temperature_to_f(data: xr.DataArray, source_unit: str = None) -> xr.DataArray:
     """Convert temperature data to Fahrenheit.

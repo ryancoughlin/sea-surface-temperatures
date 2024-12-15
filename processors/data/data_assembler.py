@@ -6,9 +6,8 @@ import xarray as xr
 import numpy as np
 from typing import Dict, Any
 
-from config.settings import SOURCES, SERVER_URL
-from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f, extract_variables
+from config.settings import SOURCES, SERVER_URL, UNIT_TRANSFORMS
+from utils.data_utils import extract_variables
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +23,7 @@ class DataAssembler:
 
     @staticmethod
     def get_dataset_config(dataset: str) -> Dict:
-        """Get dataset configuration with validation.
-        
-        Args:
-            dataset: Dataset identifier from settings
-            
-        Returns:
-            Dict containing dataset configuration
-            
-        Raises:
-            ValueError: If dataset not found in settings
-        """
+        """Get dataset configuration with validation."""
         if dataset not in SOURCES:
             raise ValueError(f"Dataset {dataset} not found in SOURCES")
         return SOURCES[dataset]
@@ -44,7 +33,7 @@ class DataAssembler:
         try:
             # Calculate ranges for the dataset
             ranges = self._calculate_ranges(data, dataset)
-            logger.info(f"Calculated ranges for {dataset}: {ranges}")
+            logger.info(f"Calculated ranges for {dataset}")
 
             # Get asset paths and create layer URLs
             asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
@@ -61,26 +50,39 @@ class DataAssembler:
             
         except Exception as e:
             logger.error(f"Error updating metadata: {str(e)}")
-            logger.exception(e)
             raise
 
     def _calculate_ranges(self, data: xr.DataArray | xr.Dataset, dataset: str) -> Dict[str, Dict[str, Any]]:
-        """Calculate ranges based on dataset type and unit precision settings."""
+        """Calculate ranges for all variables in a dataset with unit conversions."""
         try:
-            dataset_config = self.get_dataset_config(dataset)  # Use the static method
-            unit_precision = dataset_config.get('unit_precision', {})
-            dataset_type = dataset_config['type']
+            dataset_config = self.get_dataset_config(dataset)
             ranges = {}
 
-            # Handle different dataset types
-            if dataset_type in ['sst', 'potential_temperature']:
-                ranges = self._get_temperature_ranges(data, dataset_config, unit_precision)
-            elif dataset_type == 'currents':
-                ranges = self._get_current_ranges(data, dataset_config, unit_precision)
-            elif dataset_type == 'waves':
-                ranges = self._get_wave_ranges(data, unit_precision)
-            elif dataset_type == 'chlorophyll':
-                ranges = self._get_chlorophyll_ranges(data, unit_precision)
+            for var_name, var_config in dataset_config["variables"].items():
+                # Get the data array
+                if isinstance(data, xr.Dataset):
+                    if var_name not in data:
+                        continue
+                    values = data[var_name]
+                else:
+                    values = data
+
+                # Handle unit conversions if needed
+                if "source_unit" in var_config and "target_unit" in var_config:
+                    transform_key = f"{var_config['source_unit']}_to_{var_config['target_unit']}"
+                    if transform_key in UNIT_TRANSFORMS:
+                        values = UNIT_TRANSFORMS[transform_key](values)
+
+                # Calculate min/max for valid values
+                valid_values = values.values[~np.isnan(values.values)]
+                if len(valid_values) == 0:
+                    continue
+
+                ranges[var_name] = {
+                    "min": float(np.min(valid_values)),
+                    "max": float(np.max(valid_values)),
+                    "unit": var_config.get("target_unit") or var_config.get("unit")
+                }
 
             return ranges
 
@@ -123,8 +125,6 @@ class DataAssembler:
             if not region_entry:
                 region_entry = {
                     "id": region,
-                    "name": REGIONS[region]["name"],
-                    "bounds": REGIONS[region]["bounds"],
                     "datasets": []
                 }
                 metadata["regions"].append(region_entry)
@@ -135,8 +135,8 @@ class DataAssembler:
                 dataset_config = SOURCES[dataset]
                 dataset_entry = {
                     "id": dataset,
-                    "category": dataset_config["type"],
                     "name": dataset_config["name"],
+                    "type": dataset_config["type"],
                     "supportedLayers": dataset_config["supportedLayers"],
                     "metadata": dataset_config["metadata"],
                     "dates": []
@@ -158,95 +158,3 @@ class DataAssembler:
         except Exception as e:
             logger.error(f"Error updating metadata file: {str(e)}")
             raise
-
-    def _get_temperature_ranges(self, data: xr.DataArray | xr.Dataset, config: Dict, unit_precision: Dict) -> Dict:
-        """Get temperature ranges with proper unit conversion."""
-        if isinstance(data, xr.Dataset):
-            temp_var = next(var for var in config['variables'] 
-                          if 'sst' in var.lower() or 'temperature' in var.lower())
-            data = data[temp_var]
-
-        source_unit = config.get('source_unit', 'C')
-        if source_unit == 'K':
-            data = (data - 273.15) * 9/5 + 32
-        elif source_unit == 'C':
-            data = data * 9/5 + 32
-
-        valid_data = data.values[~np.isnan(data.values)]
-        if len(valid_data) == 0:
-            return {}
-
-        precision = unit_precision['temperature']['precision']
-        return {
-            "temperature": {
-                "min": round(float(np.min(valid_data)), precision),
-                "max": round(float(np.max(valid_data)), precision),
-                "unit": unit_precision['temperature']['unit']
-            }
-        }
-
-    def _get_current_ranges(self, data: xr.Dataset, config: Dict, unit_precision: Dict) -> Dict:
-        """Get current speed and direction ranges."""
-        u_var, v_var = config['variables']
-        speed = np.sqrt(data[u_var]**2 + data[v_var]**2)
-        direction = np.degrees(np.arctan2(data[v_var], data[u_var])) % 360
-
-        ranges = {}
-        valid_speeds = speed.values[~np.isnan(speed.values)]
-        valid_directions = direction.values[~np.isnan(direction.values)]
-
-        if len(valid_speeds) > 0:
-            speed_precision = unit_precision['speed']['precision']
-            ranges['speed'] = {
-                'min': round(float(np.min(valid_speeds)), speed_precision),
-                'max': round(float(np.max(valid_speeds)), speed_precision),
-                'unit': unit_precision['speed']['unit']
-            }
-
-        if len(valid_directions) > 0:
-            dir_precision = unit_precision['direction']['precision']
-            ranges['direction'] = {
-                'min': round(float(np.min(valid_directions)), dir_precision),
-                'max': round(float(np.max(valid_directions)), dir_precision),
-                'unit': unit_precision['direction']['unit']
-            }
-
-        return ranges
-
-    def _get_wave_ranges(self, data: xr.Dataset, unit_precision: Dict) -> Dict:
-        """Get wave measurement ranges."""
-        ranges = {}
-        for var_name, measure in [
-            ('VHM0', 'height'),
-            ('VMDR', 'direction'),
-            ('VTM10', 'mean_period'),
-            ('VTPK', 'peak_period')
-        ]:
-            if var_name in data and measure in unit_precision:
-                valid_data = data[var_name].values[~np.isnan(data[var_name].values)]
-                if len(valid_data) > 0:
-                    precision = unit_precision[measure]['precision']
-                    ranges[measure] = {
-                        'min': round(float(np.min(valid_data)), precision),
-                        'max': round(float(np.max(valid_data)), precision),
-                        'unit': unit_precision[measure]['unit']
-                    }
-        return ranges
-
-    def _get_chlorophyll_ranges(self, data: xr.DataArray | xr.Dataset, unit_precision: Dict) -> Dict:
-        """Get chlorophyll concentration ranges."""
-        if isinstance(data, xr.Dataset):
-            data = data[data.variables[0]]
-
-        valid_data = data.values[~np.isnan(data.values)]
-        if len(valid_data) == 0:
-            return {}
-
-        precision = unit_precision['concentration']['precision']
-        return {
-            "concentration": {
-                "min": round(float(np.min(valid_data)), precision),
-                "max": round(float(np.max(valid_data)), precision),
-                "unit": unit_precision['concentration']['unit']
-            }
-        }
