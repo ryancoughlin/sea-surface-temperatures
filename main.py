@@ -9,7 +9,7 @@ import time
 from config.settings import SOURCES
 from config.regions import REGIONS
 from processors.data.data_assembler import DataAssembler
-from processors.orchestration.processing_orchestrator import ProcessingOrchestrator
+from processors.orchestration.processing_orchestrator import ProcessingManager
 from processors.processing_config import ProcessingConfig
 from processors.processing_result import ProcessingResult
 from processors.cleanup_manager import CleanupManager
@@ -29,7 +29,7 @@ class DataProcessor:
         self.output_dir = Path(output_dir)
         self.path_manager = PathManager()
         self.metadata_assembler = DataAssembler(self.path_manager)
-        self.processing_manager = ProcessingOrchestrator(
+        self.processing_manager = ProcessingManager(
             self.path_manager,
             self.metadata_assembler
         )

@@ -32,7 +32,7 @@ class ProcessingError(Exception):
         self.context = context
         super().__init__(f"{step}: {error}")
 
-class ProcessingOrchestrator:
+class ProcessingManager:
     """Coordinates data processing workflow"""
     
     def __init__(self, path_manager: PathManager, data_assembler: DataAssembler):
