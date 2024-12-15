@@ -9,7 +9,7 @@ import time
 from config.settings import SOURCES
 from config.regions import REGIONS
 from processors.data.data_assembler import DataAssembler
-from processors.orchestration.processing_orchestrator import ProcessingManager
+from processors.orchestration.processing_manager import ProcessingManager
 from processors.processing_config import ProcessingConfig
 from processors.processing_result import ProcessingResult
 from processors.cleanup_manager import CleanupManager
