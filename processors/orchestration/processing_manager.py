@@ -73,48 +73,38 @@ class ProcessingManager:
 
     async def _get_data(self, date: datetime, dataset: str, region_id: str) -> Optional[Path]:
         """Get data file from local storage or download"""
-        # Check local storage first
         local_file = self.path_manager.find_local_file(dataset, region_id, date)
         if local_file:
+            logger.info(f"♻️  Using cached data for {dataset}")
             return local_file
             
-        # Get source configuration
         source_config = SOURCES[dataset]
         source_type = source_config.get('source_type')
         
-        # Handle regular single-source datasets
         if source_type not in self.services:
             raise ValueError(f"Unknown source type: {source_type}")
             
-        logger.info(f"   ├── 📥 Downloading from {source_type}")
         try:
             downloaded_path = await self.services[source_type].save_data(date, dataset, region_id)
             return downloaded_path
         except Exception as e:
-            logger.error(f"   └── ❌ Download failed: {str(e)}")
+            logger.error(f"📥 Download failed for {dataset}: {str(e)}")
             return None
 
     async def process_dataset(self, date: datetime, region_id: str, dataset: str, skip_geojson: bool = False) -> dict:
         """Process single dataset for a region"""
-        logger.info(f"📦 Processing {dataset} for {region_id}")
-        logger.info(f"Pipeline start - Dataset: {dataset}, Region: {region_id}, Date: {date}")
+        logger.info(f"🔄 Processing {dataset} for {region_id}")
         
         try:
             source_config = SOURCES[dataset]
             source_type = source_config.get('source_type')
-            logger.info(f"   ├── Source type: {source_type}")
-            logger.info(f"   ├── Config: {source_config}")
             
             # Get the data file(s)
             if source_type == 'combined_view':
-                logger.info(f"   ├── 📥 Processing combined view from multiple sources")
                 combined_data = {}
                 
                 # Process each source dataset
                 for source_name, source_info in source_config['source_datasets'].items():
-                    logger.info(f"   ├── Processing {source_name} component")
-                    logger.info(f"   │   ├── Source info: {source_info}")
-                    
                     # Download using appropriate service
                     downloaded_path = await self.services[source_info['source_type']].save_data(
                         date=date,
@@ -124,7 +114,6 @@ class ProcessingManager:
                     )
                     
                     if not downloaded_path:
-                        logger.error(f"   │   └── Failed to download data for {source_name}")
                         return {
                             'status': 'error',
                             'error': f'Failed to download {source_name} data',
@@ -137,8 +126,6 @@ class ProcessingManager:
                         raw_data, variables = extract_variables(ds, source_info['dataset_id'])
                         combined_data[source_name] = raw_data
                 
-                # Process the combined dataset
-                logger.info("   ├── 📦 Processing combined data")
                 processed_data = standardize_dataset(
                     data=combined_data,
                     dataset=dataset,
@@ -150,8 +137,6 @@ class ProcessingManager:
                 if not netcdf_path:
                     return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
 
-                # Process the data
-                logger.info("   ├── 🔧 Processing data")
                 with self._open_netcdf(netcdf_path) as ds:
                     raw_data, variables = extract_variables(ds, dataset)
                     processed_data = standardize_dataset(
@@ -161,7 +146,6 @@ class ProcessingManager:
                     )
 
             # Generate outputs
-            logger.info(f"   ├── Generating outputs for processed data type: {type(processed_data)}")
             result = await self._generate_outputs(
                 processed_data=processed_data,
                 dataset=dataset,
@@ -170,11 +154,11 @@ class ProcessingManager:
                 skip_geojson=skip_geojson
             )
             
-            logger.info("   └── ✅ Processing completed successfully")
+            logger.info(f"✅ Completed {dataset} for {region_id}")
             return result
             
         except Exception as e:
-            logger.error(f"   └── ❌ Error processing {dataset} for {region_id}: {str(e)}")
+            logger.error(f"❌ Failed {dataset} for {region_id}: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e),
@@ -184,10 +168,8 @@ class ProcessingManager:
 
     async def _generate_outputs(self, processed_data, dataset: str, region_id: str, date: datetime, skip_geojson: bool) -> dict:
         """Generate all output files"""
-        # Get asset paths from PathManager for converters
         asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
         
-        # Convert to dictionary format for metadata
         paths = {
             'data': str(asset_paths.data),
             'image': str(asset_paths.image),
@@ -197,7 +179,6 @@ class ProcessingManager:
         
         dataset_config = SOURCES[dataset]
         
-        # Generate GeoJSON if needed
         if not skip_geojson:
             paths.update(self._generate_geojson_layers(
                 data=processed_data,
@@ -205,22 +186,19 @@ class ProcessingManager:
                 dataset_type=dataset_config['type'],
                 region_id=region_id,
                 date=date,
-                asset_paths=asset_paths  # Pass the dataclass version
+                asset_paths=asset_paths
             ))
 
-        # Generate image
-        logger.info(f"   ├── 🖼️  Generating image")
         processor = self.visualizer_factory.create(dataset_config['type'])
         image_path = processor.save_image(
             data=processed_data,
             region=region_id,
             dataset=dataset,
             date=date,
-            asset_paths=asset_paths  # Pass the dataclass version
+            asset_paths=asset_paths
         )
         paths['image'] = str(image_path)
 
-        # Update metadata with string paths
         self.data_assembler.update_metadata(
             dataset=dataset,
             region=region_id,
@@ -241,8 +219,7 @@ class ProcessingManager:
         paths = {}
         
         # Generate base data layer
-        logger.info(f"   ├── 🗺️  Generating GeoJSON")
-        logger.info(f"   ├── Input data type: {type(data)}")
+        logger.info(f"🗺️  Generating data layer")
         
         geojson_converter = self.geojson_converter_factory.create(dataset, 'data')
         data_path = geojson_converter.convert(
@@ -255,8 +232,8 @@ class ProcessingManager:
         
         # Generate additional layers based on dataset type
         if dataset_type in ['sst', 'chlorophyll', 'water_movement']:
-            logger.info(f"   ├── 📈 Generating contours")
-            contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
+            logger.info(f"📈 Generating contours")
+            contour_converter = self.geojson_converter_factory.create(dataset, 'contours')
             contour_path = contour_converter.convert(
                 data=data,
                 region=region_id,
@@ -266,7 +243,7 @@ class ProcessingManager:
             paths['contours'] = str(contour_path)
             
             if dataset_type == 'water_movement':
-                logger.info(f"   ├── 🎯 Generating features")
+                logger.info(f"🎯 Generating features")
                 features_converter = self.geojson_converter_factory.create(dataset, 'features')
                 features_path = features_converter.convert(
                     data=data,
