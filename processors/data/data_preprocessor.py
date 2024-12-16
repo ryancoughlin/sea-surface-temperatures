@@ -5,7 +5,7 @@ from processors.data_cleaners.land_masker import LandMasker
 from config.settings import SOURCES
 import numpy as np
 from typing import Union, Dict
-from .dataset_standardizer import standardize_dataset
+from .data_utils import standardize_dataset
 
 logger = logging.getLogger(__name__)
 

@@ -1,28 +1,22 @@
 from typing import Dict, Type
 from .base_visualizer import BaseVisualizer
-from .sst_visualizer import SSTVisualizer
-from .currents_visualizer import CurrentsVisualizer
-from .chlorophyll_visualizer import ChlorophyllVisualizer
-from .waves_visualizer import WavesVisualizer
-from .ocean_dynamics_visualizer import OceanDynamicsVisualizer
 from utils.path_manager import PathManager
-from config.settings import SOURCES
+from ..factory_config import PROCESSOR_MAPPING
+import logging
+
+logger = logging.getLogger(__name__)
 
 class VisualizerFactory:
     """Factory for creating appropriate visualizers based on data type."""
     
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
-        self.visualizers = {
-            'sst': SSTVisualizer(path_manager),
-            'currents': CurrentsVisualizer(path_manager),
-            'waves': WavesVisualizer(path_manager),
-            'chlorophyll': ChlorophyllVisualizer(path_manager),
-            'water_movement': OceanDynamicsVisualizer(path_manager)
-        }
-    
+
     def create(self, dataset_type: str) -> BaseVisualizer:
         """Create a visualizer instance for the given dataset type."""
-        if dataset_type not in self.visualizers:
+        if dataset_type not in PROCESSOR_MAPPING:
             raise ValueError(f"Visualizer type {dataset_type} not supported")
-        return self.visualizers[dataset_type]
+            
+        logger.info(f"Creating visualizer for {dataset_type}")
+        visualizer_class = PROCESSOR_MAPPING[dataset_type]['visualizer']
+        return visualizer_class(self.path_manager)

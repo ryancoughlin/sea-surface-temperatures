@@ -58,22 +58,20 @@ class ERDDAPService:
         return base + ','.join(var_parts)
 
     async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
-        logger.info(f"📥 ERDDAP Download:")
-        logger.info(f"   └── Dataset: {dataset}")
-        logger.info(f"   └── Region: {region}")
-        
         try:
-            # Get the proper path for the download
             output_path = self.path_manager.get_data_path(date, dataset, region)
             if output_path.exists():
-                logger.info("   └── ♻️  Using existing file")
+                logger.info(f"[ERDDAP] Using cached data for {dataset} ({region})")
                 return output_path
 
             for attempt in range(self.max_retries):
                 try:
-                    logger.info(f"   └── 🔄 Download attempt {attempt + 1}/{self.max_retries}")
+                    if attempt > 0:
+                        logger.info(f"[ERDDAP] Retry {attempt + 1}/{self.max_retries} for {dataset}")
+                    else:
+                        logger.info(f"[ERDDAP] Downloading {dataset} for {region}")
+                        
                     url = self.build_url(date, dataset, region)
-                    logger.info(f"Downloading ERDDAP data for {dataset}")
 
                     async with self.session.get(
                         url,
@@ -88,9 +86,13 @@ class ERDDAPService:
                             async for chunk in response.content.iter_chunked(8192):
                                 f.write(chunk)
                             
-                    logger.info("   └── ✅ Download complete")
+                    logger.info(f"[ERDDAP] Successfully downloaded {dataset} ({output_path.stat().st_size / 1024 / 1024:.1f}MB)")
                     return output_path
                 except Exception as e:
-                    logger.error(f"   └── ⚠️  Attempt {attempt + 1} failed: {str(e)}")
+                    if attempt == self.max_retries - 1:
+                        logger.error(f"[ERDDAP] All download attempts failed for {dataset}: {str(e)}")
+                        raise
+                    await asyncio.sleep(self.retry_delay)
         except Exception as e:
-            logger.error(f"   └── ⚠️  Error getting local file path: {str(e)}")
+            logger.error(f"[ERDDAP] Failed to process {dataset}: {str(e)}")
+            raise
