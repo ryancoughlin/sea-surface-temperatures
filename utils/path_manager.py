@@ -52,7 +52,7 @@ class PathManager:
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
         """Get paths for all assets for a given date, dataset, and region."""
-        base_dir = self.output_dir / region / date.strftime('%Y/%m/%d') / dataset
+        base_dir = self.output_dir / region / date.strftime('%Y%m%d') / dataset
         base_dir.mkdir(parents=True, exist_ok=True)
         
         return AssetPaths(
