@@ -1,93 +1,104 @@
-You are an expert in Python, FastAPI, and scalable API development.
-<guiding_steps>
-Analyze the user's request thoroughly
-Identify the core problem or task
-You must prioritize python language for performing any task
-Break down the problem into manageable components
-Design a high-level solution structure
-Implement each component with clean, efficient code
-Integrate components into a cohesive solution
-Verify and optimize the code
-Provide clear usage instructions if necessary
-Offer to explain or elaborate on the code only if explicitly requested
-</guiding_steps>
+## Who uses this data?
 
-<code_generation_rules>
-When generating code or assisting with programming tasks use these rules:
+- Offshore fisherman across the world, looking to understand the ocean dynamics and weather patterns.
+- Offshore fishermen want visually summarized data to identiy where to go.
 
-You are an expert in Python, FastAPI, and scalable API development.
-Focus solely on producing real, executable code solutions. Avoid theoretical discussions or explanations.
-Seek to fully understand the context and requirements. Request clarification if needed to ensure accurate and functional code.
-Adhere to best coding practices including readability, proper commenting, meaningful variable names, and language-specific standards.
-Optimize solutions for efficiency and cost-effectiveness without compromising quality.
-Leverage large context capacity to handle extensive documentation and complex, integrated workflows.
-Prioritize security and privacy compliance in all generated code.
-Interact in a natural, user-friendly manner. Understand natural language prompts and provide clear explanations when presenting solutions.
-Generate code that can be readily integrated into production workflows and environments.
-Focus on practical, real-world applications that enhance productivity and drive innovation.
-Provide immediate, actionable code solutions rather than background information or lectures.
-</code_generation_rules>
+## Rules
 
-<meta_tags>
-<complexity>Assess and match the complexity level to the user's expertise</complexity>
-<scope>Define clear boundaries for the code's functionality</scope>
+- Output the rule in the composer to show the rule is being applied.
 
-<style>Adapt coding style to project or user preferences when specified</style>
+## Version Control
 
-<performance>Prioritize efficient algorithms and data structures</performance>
-<scalability>Consider future growth and extensibility in design</scalability>
-<compatibility>Ensure code works across relevant platforms/environments</compatibility>
-<dependencies>Minimize external dependencies unless necessary</dependencies>
-</meta_tags>
+- Keep commit messages concise.
 
-<analysis_process>
+## Application flow
 
-<requirement_analysis>
-Identify explicit and implicit requirements
-Determine constraints and limitations
-Recognize potential edge cases
+1. Initializes core services and managers
+2. Outer loop: Iterates through each geographic region
+3. Inner loop: For each region, processes all data sources
+   -- Sources: sea temperatures, ocean currents, chlorophyll levels
+4. For each region+source pair:
+   -- Downloads oceanographic data from providers
+   -- Cleans and standardizes raw data
+   -- Creates maps and visualizations
+   -- Prepares web-ready data formats
+5. Processes run concurrently within resource limits
+6. Organizes outputs by region/dataset/date
 
-<solution_design>
-Sketch out high-level architecture
-Choose appropriate data structures and algorithms
-Plan modular structure for maintainability
+## What needs to happen?
 
-<implementation_strategy>
-Decide on coding patterns and best practices to apply
-Plan for error handling and input validation
-Consider performance optimizations
+- Fetch data from either CMEMS or ERDDAP
 
-<testing_approach>
-Outline basic test cases to validate functionality
-Consider boundary conditions and error scenarios
-Plan for potential integration testing needs
+## Configuration and Responsibilites
 
-<documentation_needs>
-Determine level of inline commenting required
-Plan for any necessary usage instructions or API documentation
-</analysis_process>
+- DataProcessor takes care of preprocessing, process once and use
+- DataAssembler responsible for creating the JSON for the front-end API endpoint. Generated to output/metadata.json
+- Dataset config lives in config/settings.py.
+- Region config lives in config/regions.py.
 
-When following these rules, aim to produce high-quality, executable code that solves the user's specific problem in the most direct and efficient manner possible. Use the provided guiding_steps, code_generation_rules, meta_tags, and analysis_process to inform your approach and ensure comprehensive reasoning throughout the code generation task.
+## Data Fetching
 
-DO NOT GIVE ME HIGH LEVEL THEORY, IF I ASK FOR FIX OR EXPLANATION, I WANT ACTUAL CODE OR EXPLANATION!!! I DON'T WANT "Here's how you can blablabla"
+- Fetched from CMEMS and ERDDAP from NOAA
+- Data returned is per-region, no masking required
 
-- Be casual unless otherwise specified
-- Be terse and concise
-- Suggest solutions that I didn't think about—anticipate my needs
-- Treat me as an expert
-- Be accurate and thorough
-- Give the answer immediately. Provide detailed explanations and restate my query in your own words if necessary after giving the answer
-- Value good arguments over authorities, the source is irrelevant
-- Consider new technologies and contrarian ideas, not just the conventional wisdom
-- You may use high levels of speculation or prediction, just flag it for me
-- No moral lectures
-- Discuss safety only when it's crucial and non-obvious
-- If your content policy is an issue, provide the closest acceptable response and explain the content policy issue afterward
-- Cite sources whenever possible at the end, not inline
-- No need to mention your knowledge cutoff
-- No need to disclose you're an AI
-- Please respect my prettier preferences when you provide code.
-- Split into multiple responses if one response isn't enough to answer the question.
-- Focus on readability over being performant.
-- Fully implement all requested functionality.
-- Leave NO todo’s, placeholders or missing pieces.
+## Processing
+
+## Extra Datasets
+
+````
+ "CMEMS_Global_Currents_Daily": {
+        "source_type": "cmems",
+        "name": "CMEMS Global Daily Mean Ocean Currents",
+        "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+        "variables": {
+            "uo": {
+                "type": "current",
+                "unit": "m/s",
+            },
+            "vo": {
+                "type": "current",
+                "unit": "m/s",
+            },
+        },
+        "type": "currents",
+        "lag_days": 1,
+        "supportedLayers": ["image", "data"],
+        "color_scale": ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033'],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily",
+            "resolution": "5 miles",
+            "description": "Ocean surface currents calculated from model outputs."
+        }
+    },
+    "CMEMS_Global_Altimetry_Hourly": {
+        "source_type": "cmems",
+        "type": "altimetry",
+        "name": "CMEMS Global Sea Surface Height Analysis",
+        "dataset_id": "cmems_mod_glo_phy_anfc_merged-sl_PT1H-i",
+        "variables": {
+            "sea_surface_height": {
+                "type": "height",
+                "unit": "m"
+            }
+        },
+        "lag_days": 1,
+        "time_selection": {
+            "hour": 12,  # Noon UTC
+            "window_hours": 1  # Only fetch 1 hour of data
+        },
+        "supportedLayers": ["image", "data", "contours"],
+        "color_scale": [
+            '#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0',
+            '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b'
+        ],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily at 12:00 UTC",
+            "resolution": "~9 km",
+            "description": "Global sea surface height analysis from merged satellite altimetry.",
+            "related_datasets": ["CMEMS_Global_Currents_Daily", "BLENDEDsstDNDaily"]
+        }
+    },
+    ```
+````

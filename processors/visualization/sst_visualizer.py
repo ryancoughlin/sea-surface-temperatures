@@ -15,13 +15,9 @@ from typing import Dict, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 class SSTVisualizer(BaseVisualizer):
-    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate SST visualization."""
         try:
-            # Get paths and create directories
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            asset_paths.image.parent.mkdir(parents=True, exist_ok=True)
-
             # Handle Dataset vs DataArray
             if isinstance(data, xr.Dataset):
                 variables = SOURCES[dataset]['variables']
@@ -77,8 +73,7 @@ class SSTVisualizer(BaseVisualizer):
                 zorder=1
             )
             
-            image_path = self.save_image(fig, region, dataset, date)
-            return image_path, None
+            return fig, None
             
         except Exception as e:
             logger.error(f"Error processing SST data: {str(e)}")

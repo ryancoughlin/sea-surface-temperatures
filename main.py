@@ -2,12 +2,11 @@ import asyncio
 import logging
 from datetime import datetime
 import aiohttp
+from pathlib import Path
 
 from config.settings import SOURCES
 from config.regions import REGIONS
 from processors.orchestration.processing_manager import ProcessingManager
-from processors.data.data_assembler import DataAssembler
-from utils.path_manager import PathManager
 
 # Simple logging setup
 logging.basicConfig(
@@ -23,9 +22,8 @@ async def main():
         logger.info("Starting oceanographic data processing")
         
         # Initialize core dependencies
-        path_manager = PathManager()
-        data_assembler = DataAssembler(path_manager)
-        processing_manager = ProcessingManager(path_manager, data_assembler)
+        base_dir = Path(__file__).parent
+        processing_manager = ProcessingManager(base_dir)
         
         # Process datasets sequentially
         async with aiohttp.ClientSession() as session:

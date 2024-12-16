@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class OceanDynamicsVisualizer(BaseVisualizer):
     """Visualizer for combined ocean dynamics data (sea surface height and currents)."""
     
-    def generate_image(self, data: Dict, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: Dict, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate visualization combining sea surface height and currents."""
         try:
             # Extract data components
@@ -111,7 +111,7 @@ class OceanDynamicsVisualizer(BaseVisualizer):
             # Add title
             plt.title(f'Ocean Dynamics - {date.strftime("%Y-%m-%d")}', pad=10)
             
-            return self.save_image(fig, region, dataset, date), None
+            return fig, None
             
         except Exception as e:
             logger.error(f"Error generating ocean dynamics visualization: {str(e)}")

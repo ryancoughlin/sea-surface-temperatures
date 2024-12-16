@@ -41,11 +41,18 @@ class BaseVisualizer(ABC):
         path = self.path_manager.get_asset_paths(date, dataset, region)
         return path.image
 
-    def save_image(self, fig, region: str, dataset: str, date: datetime) -> Path:
+    def save_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime, asset_paths=None) -> Path:
         """Save figure with optimization."""
         try:
-            path = self.path_manager.get_asset_paths(date, dataset, region)
-            path.image.parent.mkdir(parents=True, exist_ok=True)
+            # Generate the visualization
+            fig, _ = self.generate_image(data, region, dataset, date)
+            
+            # Get paths
+            if asset_paths is None:
+                asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            
+            # Ensure directory exists
+            asset_paths.image.parent.mkdir(parents=True, exist_ok=True)
             
             # Save to BytesIO first to avoid PIL fileno error
             buf = BytesIO()
@@ -59,13 +66,13 @@ class BaseVisualizer(ABC):
             
             # Write buffer to file
             buf.seek(0)
-            with open(path.image, 'wb') as f:
+            with open(asset_paths.image, 'wb') as f:
                 f.write(buf.getvalue())
             
             # Optimize the saved image
-            self.image_optimizer.optimize_png(path.image)
+            self.image_optimizer.optimize_png(asset_paths.image)
             
-            return path.image
+            return asset_paths.image
             
         except Exception as e:
             logger.error(f"Error saving image: {str(e)}")

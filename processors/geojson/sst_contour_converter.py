@@ -7,6 +7,7 @@ from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from config.regions import REGIONS
 import xarray as xr
+from typing import Union, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +72,13 @@ class SSTContourConverter(BaseGeoJSONConverter):
         
         return path_length
 
-    def convert(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: Union[xr.DataArray, xr.Dataset, Dict], region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to contour GeoJSON format."""
         try:
+            # Handle standardized data format
+            if isinstance(data, dict) and 'data' in data:
+                data = data['data']
+            
             # Extract temperature data from dataset if needed
             if isinstance(data, xr.Dataset):
                 variables = SOURCES[dataset]['variables']

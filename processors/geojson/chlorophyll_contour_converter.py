@@ -7,6 +7,7 @@ from config.settings import SOURCES
 import datetime
 from scipy.ndimage import gaussian_filter
 import matplotlib.pyplot as plt
+from typing import Union, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -48,22 +49,48 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                 "description": "Productivity boundary"
             }
 
-    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: Union[xr.DataArray, xr.Dataset, Dict], region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data focusing on bloom identification."""
         try:
+            # Handle standardized data format
+            if isinstance(data, dict) and 'data' in data:
+                data = data['data']
+            
+            # If we have a Dataset, get the first data variable
+            if isinstance(data, xr.Dataset):
+                data = data[list(data.data_vars)[0]]
+            
+            # Ensure we have a DataArray
+            if not isinstance(data, xr.DataArray):
+                raise ValueError(f"Expected xarray.DataArray, got {type(data)}")
+            
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
             lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
             
+            # Convert to numpy array and ensure float type
+            data_values = data.values.astype(np.float64)
+            
             # Log data ranges before smoothing
-            valid_data = data.values[~np.isnan(data.values)]
+            valid_mask = ~np.isnan(data_values)
+            valid_data = data_values[valid_mask]
+            
+            if len(valid_data) == 0:
+                logger.warning("No valid data points found for contours")
+                return self.save_empty_geojson(date, dataset, region)
+                
             logger.info(f"[RANGES] Contour data min/max before smoothing: {valid_data.min():.4f} to {valid_data.max():.4f}")
             
             # Smooth data to focus on significant features
-            smoothed_data = gaussian_filter(data.values, sigma=1.5)
+            smoothed_data = gaussian_filter(data_values, sigma=1.5)
             
             # Calculate levels
             levels = self._calculate_contour_levels(smoothed_data)
+            
+            if len(levels) == 0:
+                logger.warning("No valid contour levels calculated")
+                return self.save_empty_geojson(date, dataset, region)
+                
             percentiles = {
                 'p75': levels[0],
                 'p90': levels[1],
@@ -75,8 +102,8 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))
             contour_set = ax.contour(
-                data[lon_name],
-                data[lat_name],
+                data[lon_name].values,
+                data[lat_name].values,
                 smoothed_data,
                 levels=levels
             )

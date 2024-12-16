@@ -14,7 +14,7 @@ from matplotlib.colors import LinearSegmentedColormap
 logger = logging.getLogger(__name__)
 
 class CurrentsVisualizer(BaseVisualizer):
-    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate currents visualization using preprocessed data."""
         try:
             # Get velocity components
@@ -99,7 +99,7 @@ class CurrentsVisualizer(BaseVisualizer):
                 zorder=2
             )
             
-            return self.save_image(fig, region, dataset, date), None
+            return fig, None
             
         except Exception as e:
             logger.error(f"Error processing currents data: {str(e)}")
