@@ -62,25 +62,10 @@ class ProcessingManager:
 
     @contextmanager
     def _open_netcdf(self, path: Path):
-        """Open and manage NetCDF dataset with consistent engine selection."""
+        """Open and manage NetCDF dataset using netcdf4 engine."""
         ds = None
         try:
-            # Try different engines in order of preference
-            engines = ['netcdf4', 'h5netcdf', 'scipy']
-            last_error = None
-            
-            for engine in engines:
-                try:
-                    ds = xr.open_dataset(path, engine=engine, decode_times=True)
-                    logger.info(f"Successfully opened NetCDF with {engine} engine")
-                    break
-                except Exception as e:
-                    last_error = e
-                    continue
-                    
-            if ds is None:
-                raise ValueError(f"Failed to open NetCDF with any engine. Last error: {last_error}")
-                
+            ds = xr.open_dataset(path, engine='netcdf4', decode_times=True)
             yield ds
         finally:
             if ds:
