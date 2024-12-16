@@ -20,7 +20,7 @@ class CMEMSService:
         
         Args:
             date: The date to download data for
-            dataset: The dataset ID
+            dataset: The dataset ID or name
             region: The region to download data for
             variables: Optional dictionary of variables. If not provided, will look up in SOURCES
         """
@@ -39,11 +39,15 @@ class CMEMSService:
             bounds = REGIONS[region]['bounds']
             
             # Get variables either from passed dict or SOURCES
+            source_config = SOURCES[dataset]
             if variables is None:
-                variables = SOURCES[dataset]['variables']
+                variables = source_config['variables']
+            
+            # Use dataset_id from config if available, otherwise use dataset name
+            dataset_id = source_config.get('dataset_id', dataset)
             
             logger.info(f"   └── Download parameters:")
-            logger.info(f"      └── Dataset ID: {dataset}")
+            logger.info(f"      └── Dataset ID: {dataset_id}")
             logger.info(f"      └── Variables: {list(variables.keys())}")
             logger.info(f"      └── Bounds: {bounds}")
             logger.info(f"      └── Date: {date}")
@@ -51,7 +55,7 @@ class CMEMSService:
             
             try:
                 copernicusmarine.subset(
-                    dataset_id=dataset,
+                    dataset_id=dataset_id,
                     variables=list(variables.keys()),
                     minimum_longitude=bounds[0][0],
                     maximum_longitude=bounds[1][0],

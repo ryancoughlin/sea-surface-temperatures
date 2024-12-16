@@ -14,13 +14,31 @@ import cartopy.feature as cfeature
 logger = logging.getLogger(__name__)
 
 class ChlorophyllVisualizer(BaseVisualizer):
-    def generate_image(self, data: xr.DataArray, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate chlorophyll visualization."""
         try:
             logger.info(f"Processing chlorophyll data for {region}")
             
+            # Handle Dataset vs DataArray
+            if isinstance(data, xr.Dataset):
+                variables = SOURCES[dataset]['variables']
+                chl_var = next(var for var, config in variables.items() if config['type'] == 'chlorophyll')
+                data = data[chl_var]
+            
+            # Force 2D data
+            if 'time' in data.dims:
+                data = data.isel(time=0)
+            if 'depth' in data.dims:
+                data = data.isel(depth=0)
+            
+            # Convert to float64 to ensure numpy compatibility
+            data = data.astype(np.float64)
+            
             # Get valid data for ranges
             valid_data = data.values[~np.isnan(data.values)]
+            
+            if len(valid_data) == 0:
+                raise ValueError("No valid chlorophyll data points found")
             
             # Get coordinate names
             lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
@@ -40,7 +58,7 @@ class ChlorophyllVisualizer(BaseVisualizer):
             vmin = float(valid_data.min())
             vmax = float(valid_data.max())
             
-            norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+            norm = mcolors.LogNorm(vmin=max(vmin, 0.01), vmax=vmax)  # Ensure positive values for log scale
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
@@ -59,9 +77,7 @@ class ChlorophyllVisualizer(BaseVisualizer):
             land = cfeature.NaturalEarthFeature('physical', 'land', '10m')
             ax.add_feature(land, facecolor='#B1C2D8', zorder=2)
             
-            # Use base class's save_image method
-            image_path = self.save_image(fig, region, dataset, date)
-            return image_path, None
+            return fig, None
             
         except Exception as e:
             logger.error(f"Error processing chlorophyll data: {str(e)}")

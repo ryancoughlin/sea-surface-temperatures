@@ -4,7 +4,7 @@ import logging
 import xarray as xr
 import numpy as np
 import json
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 from utils.path_manager import PathManager
 from datetime import datetime
 from config.settings import SOURCES
@@ -21,8 +21,18 @@ class BaseGeoJSONConverter(ABC):
         self.logger = logging.getLogger(__name__)
     
     @abstractmethod
-    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
-        """Convert data to GeoJSON format."""
+    def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
+        """Convert data to GeoJSON format.
+        
+        Args:
+            data: Input data as xarray Dataset/DataArray
+            region: Region identifier
+            dataset: Dataset identifier
+            date: Processing date
+            
+        Returns:
+            Path to generated GeoJSON file
+        """
         pass
     
     def get_coordinate_names(self, data: xr.DataArray) -> tuple:
@@ -168,3 +178,16 @@ class BaseGeoJSONConverter(ABC):
                 **metadata
             }
         }
+
+    def save_empty_geojson(self, date: datetime, dataset: str, region: str) -> Path:
+        """Save an empty GeoJSON when no features can be generated."""
+        empty_geojson = self.create_standardized_geojson(
+            features=[],
+            date=date,
+            dataset=dataset,
+            ranges={},
+            metadata={"status": "no_features_generated"}
+        )
+        
+        asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+        return self.save_geojson(empty_geojson, asset_paths.contours)

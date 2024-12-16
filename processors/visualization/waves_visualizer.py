@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class WavesVisualizer(BaseVisualizer):
     """Processor for generating wave height visualizations."""
     
-    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: str) -> Tuple[Path, Optional[Dict]]:
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate wave height visualization in feet."""
         try:
             # Get wave height data
@@ -72,8 +72,7 @@ class WavesVisualizer(BaseVisualizer):
                 extend='both'
             )
             
-            image_path = self.save_image(fig, region, dataset, date)
-            return image_path, None
+            return fig, None
             
         except Exception as e:
             logger.error(f"Error processing wave data: {str(e)}")

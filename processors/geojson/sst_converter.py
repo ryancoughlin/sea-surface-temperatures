@@ -2,7 +2,7 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Union
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 from utils.data_utils import convert_temperature_to_f
@@ -11,9 +11,11 @@ import xarray as xr
 logger = logging.getLogger(__name__)
 
 class SSTGeoJSONConverter(BaseGeoJSONConverter):
-    def convert(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
+            logger.info(f"Converting SST data type: {type(data)}")
+            
             # Handle Dataset vs DataArray and extract SST data
             if isinstance(data, xr.Dataset):
                 # Get the main SST variable

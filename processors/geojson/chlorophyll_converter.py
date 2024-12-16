@@ -5,72 +5,68 @@ import logging
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 import datetime
+from typing import Union, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
     """Converts chlorophyll data to GeoJSON for basic data display."""
     
-    def convert(self, data: xr.DataArray, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
-            # Get coordinate names
-            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
+            logger.info(f"Converting chlorophyll data type: {type(data)}")
             
-            # Create features from valid data points
-            features = []
-            valid_values = []
+            # Handle Dataset vs DataArray and extract chlorophyll data
+            if isinstance(data, xr.Dataset):
+                # Get the main chlorophyll variable
+                variables = SOURCES[dataset]['variables']
+                chl_var = next(var for var, config in variables.items() if config['type'] == 'chlorophyll')
+                logger.info(f"Using chlorophyll variable: {chl_var}")
+                chl_data = data[chl_var]
+            else:
+                chl_data = data
             
-            for i in range(len(data[lat_name])):
-                for j in range(len(data[lon_name])):
-                    value = float(data.values[i, j])
-                    if not np.isnan(value):
-                        valid_values.append(value)
-                        feature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [
-                                    float(data[lon_name][j]),
-                                    float(data[lat_name][i])
-                                ]
-                            },
-                            "properties": {
-                                "concentration": value,
-                                "unit": "mg/m³"
-                            }
-                        }
-                        features.append(feature)
+            # Reduce dimensions (time, depth)
+            chl_data = self._reduce_dimensions(chl_data)
             
-            if len(valid_values) == 0:
-                logger.warning("No valid chlorophyll data found")
-                empty_geojson = {"type": "FeatureCollection", "features": []}
-                return self.save_geojson(
-                    empty_geojson,
-                    self.path_manager.get_asset_paths(date, dataset, region).data
-                )
+            # Get coordinates
+            lon_name, lat_name = self.get_coordinate_names(chl_data)
+            logger.info(f"Using coordinates: lon={lon_name}, lat={lat_name}")
             
-            data_min = float(min(valid_values))
-            data_max = float(max(valid_values))
-            logger.info(f"[RANGES] GeoJSON data min/max: {data_min:.4f} to {data_max:.4f}")
+            # Prepare data for feature generation
+            lats = chl_data[lat_name].values
+            lons = chl_data[lon_name].values
+            chl_values = chl_data.values
             
-            ranges = {
-                "concentration": {
-                    "min": data_min,
-                    "max": data_max,
+            def property_generator(i: int, j: int) -> Optional[Dict]:
+                value = float(chl_values[i, j])
+                if np.isnan(value):
+                    return None
+                    
+                return {
+                    "concentration": round(value, 4),
                     "unit": "mg/m³"
                 }
-            }
             
+            # Generate features using base class utility
+            features = self._generate_features(lats, lons, property_generator)
+            logger.info(f"Generated {len(features)} features")
+            
+            # Calculate ranges using base class utility
+            data_dict = {
+                "concentration": (chl_values, "mg/m³")
+            }
+            ranges = self._calculate_ranges(data_dict)
+            
+            # Update metadata
             metadata = {
-                "valid_range": {
-                    "min": data_min,
-                    "max": data_max
-                }
+                "source": dataset,
+                "variables": list(SOURCES[dataset]['variables']),
+                "unit": "mg/m³",
+                "valid_range": ranges["concentration"]
             }
             
-            # Create and save GeoJSON
             geojson = self.create_standardized_geojson(
                 features=features,
                 date=date,
@@ -79,11 +75,9 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                 metadata=metadata
             )
             
-            return self.save_geojson(
-                geojson,
-                self.path_manager.get_asset_paths(date, dataset, region).data
-            )
+            output_path = self.path_manager.get_asset_paths(date, dataset, region).data
+            return self.save_geojson(geojson, output_path)
             
         except Exception as e:
-            logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}")
+            logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}", exc_info=True)
             raise
