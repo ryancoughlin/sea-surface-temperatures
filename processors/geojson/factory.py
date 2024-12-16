@@ -6,6 +6,8 @@ from .chlorophyll_converter import ChlorophyllGeoJSONConverter
 from .chlorophyll_contour_converter import ChlorophyllContourConverter
 from .waves_converter import WavesGeoJSONConverter
 from .sst_contour_converter import SSTContourConverter
+from .ocean_dynamics_converter import OceanDynamicsGeoJSONConverter, OceanDynamicsContourConverter
+from .ocean_features_converter import OceanFeaturesConverter
 from config.settings import SOURCES
 from processors.data.data_assembler import DataAssembler
 from utils.path_manager import PathManager
@@ -14,6 +16,7 @@ from utils.path_manager import PathManager
 class ConverterType:
     DATA = 'data'
     CONTOUR = 'contour'
+    FEATURES = 'features'
 
 class GeoJSONConverterFactory:
     def __init__(self, path_manager: PathManager, data_assembler: Optional[DataAssembler] = None):
@@ -24,11 +27,16 @@ class GeoJSONConverterFactory:
                 'sst': SSTGeoJSONConverter,
                 'currents': CurrentsGeoJSONConverter,
                 'waves': WavesGeoJSONConverter,
-                'chlorophyll': ChlorophyllGeoJSONConverter
+                'chlorophyll': ChlorophyllGeoJSONConverter,
+                'water_movement': OceanDynamicsGeoJSONConverter
             },
             ConverterType.CONTOUR: {
                 'sst': SSTContourConverter,
-                'chlorophyll': ChlorophyllContourConverter
+                'chlorophyll': ChlorophyllContourConverter,
+                'water_movement': OceanDynamicsContourConverter
+            },
+            ConverterType.FEATURES: {
+                'water_movement': OceanFeaturesConverter
             }
         }
     
@@ -38,7 +46,7 @@ class GeoJSONConverterFactory:
         
         Args:
             dataset: The dataset identifier
-            converter_type: Type of converter (data or contour)
+            converter_type: Type of converter (data, contour, or features)
             
         Returns:
             BaseGeoJSONConverter: The appropriate converter instance

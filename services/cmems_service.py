@@ -14,54 +14,71 @@ class CMEMSService:
         self.session = session
         self.path_manager = path_manager
         
-    async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
+    async def save_data(self, date: datetime, dataset: str, region: str, variables: dict = None) -> Path:
+        """
+        Download data from CMEMS service
+        
+        Args:
+            date: The date to download data for
+            dataset: The dataset ID
+            region: The region to download data for
+            variables: Optional dictionary of variables. If not provided, will look up in SOURCES
+        """
         logger.info(f"📥 CMEMS Download:")
         logger.info(f"   └── Dataset: {dataset}")
         logger.info(f"   └── Region: {region}")
         
-        # Check for existing file
-        local_file = self.path_manager.find_local_file(dataset, region, date)
-        if local_file:
-            logger.info("   └── ♻️  Using existing file")
-            return local_file
-            
-        logger.info("   └── 🔄 Starting download request...")
-        config = SOURCES[dataset]
-        bounds = REGIONS[region]['bounds']
-        
-        # Adjust date for lag days
-        lag_days = config.get('lag_days', 0)
-        adjusted_date = date - timedelta(days=lag_days)
-        
         try:
             # Get the proper path for the download
             output_path = self.path_manager.get_data_path(date, dataset, region)
-            
-            copernicusmarine.subset(
-                dataset_id=config['dataset_id'],
-                variables=config['variables'],
-                minimum_longitude=bounds[0][0],
-                maximum_longitude=bounds[1][0],
-                minimum_latitude=bounds[0][1],
-                maximum_latitude=bounds[1][1],
-                start_datetime=adjusted_date.strftime("%Y-%m-%dT00:00:00"),
-                end_datetime=adjusted_date.strftime("%Y-%m-%dT23:59:59"),
-                output_filename=str(output_path),
-               force_download=True
-            )
-            
-            # Check if download completed
-            if not output_path.exists():
-                raise ProcessingError("download", "Download failed - no output file created", 
-                                    {"path": str(output_path)})
-                                    
-            logger.info("   └── ✅ Download complete")
-            logger.info(f"      └── File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
-            return output_path
-            
-        except Exception as e:
-            logger.error(f"   └── 💥 Download failed: {str(e)}")
-            logger.error(f"   └── Error type: {type(e).__name__}")
             if output_path.exists():
-                output_path.unlink()
+                logger.info("   └── ♻️  Using existing file")
+                return output_path
+
+            logger.info("   └── 🔄 Starting download request...")
+            bounds = REGIONS[region]['bounds']
+            
+            # Get variables either from passed dict or SOURCES
+            if variables is None:
+                variables = SOURCES[dataset]['variables']
+            
+            logger.info(f"   └── Download parameters:")
+            logger.info(f"      └── Dataset ID: {dataset}")
+            logger.info(f"      └── Variables: {list(variables.keys())}")
+            logger.info(f"      └── Bounds: {bounds}")
+            logger.info(f"      └── Date: {date}")
+            logger.info(f"      └── Output path: {output_path}")
+            
+            try:
+                copernicusmarine.subset(
+                    dataset_id=dataset,
+                    variables=list(variables.keys()),
+                    minimum_longitude=bounds[0][0],
+                    maximum_longitude=bounds[1][0],
+                    minimum_latitude=bounds[0][1],
+                    maximum_latitude=bounds[1][1],
+                    start_datetime=date.strftime("%Y-%m-%dT00:00:00"),
+                    end_datetime=date.strftime("%Y-%m-%dT23:59:59"),
+                    output_filename=str(output_path),
+                    force_download=True
+                )
+                
+                # Check if download completed
+                if not output_path.exists():
+                    raise ProcessingError("download", "Download failed - no output file created", 
+                                        {"path": str(output_path)})
+                                        
+                logger.info("   └── ✅ Download complete")
+                logger.info(f"      └── File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+                return output_path
+                
+            except Exception as e:
+                logger.error(f"   └── 💥 Download failed: {str(e)}")
+                logger.error(f"   └── Error type: {type(e).__name__}")
+                if output_path.exists():
+                    output_path.unlink()
+                raise
+                
+        except Exception as e:
+            logger.error(f"   └── ⚠️  Error getting local file path: {str(e)}")
             raise

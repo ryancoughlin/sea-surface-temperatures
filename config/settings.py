@@ -22,6 +22,45 @@ UNIT_TRANSFORMS = {
 }
 
 SOURCES = {
+    "Ocean_Dynamics_Combined": {
+        "source_type": "combined_view",
+        "type": "water_movement",
+        "name": "Ocean Dynamics (Currents and Eddies)",
+        "source_datasets": {
+            "altimetry": {
+                "source_type": "cmems",
+                "dataset_id": "cmems_mod_glo_phy_anfc_merged-sl_PT1H-i",
+                "variables": {
+                    "sea_surface_height": {
+                        "type": "height",
+                        "unit": "m"
+                    }
+                }
+            },
+            "currents": {
+                "source_type": "cmems",
+                "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
+                "variables": {
+                    "uo": {
+                        "type": "current",
+                        "unit": "m/s"
+                    },
+                    "vo": {
+                        "type": "current",
+                        "unit": "m/s"
+                    }
+                }
+            }
+        },
+        "supportedLayers": ["image", "data", "contours"],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily",
+            "resolution": "~9 km",
+            "description": "Combined visualization of currents and detected eddies using altimetry and current data.",
+            "processing_note": "Processes noon UTC altimetry data with daily currents."
+        }
+    },
     "LEOACSPOSSTL3SnrtCDaily": {
         "source_type": "erddap",
         "type": "sst",
@@ -51,38 +90,13 @@ SOURCES = {
             '#f74d17'
         ],
         "stride": None,
-        "supportedLayers": ["image", "data", "contours"],
+        "supportedLayers": ["image", "data", "contours", "features"],
         "metadata": {
             "cloud-free": "No",
             "frequency": "Daily",
             "resolution": "1 mile",
             "capture": "blends day and night",
             "description": "Sea surface temperature from NOAA's ACSPO L3S product."
-        }
-    },
-    "CMEMS_Global_Currents_Daily": {
-        "source_type": "cmems",
-        "name": "CMEMS Global Daily Mean Ocean Currents",
-        "dataset_id": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m",
-        "variables": {
-            "uo": {
-                "type": "current",
-                "unit": "m/s",
-            },
-            "vo": {
-                "type": "current",
-                "unit": "m/s",
-            },
-        },
-        "type": "currents",
-        "lag_days": 1,
-        "supportedLayers": ["image", "data"],
-        "color_scale": ['#B1C2D8', '#89CFF0', '#4682B4', '#0047AB', '#00008B', '#000033'],
-        "metadata": {
-            "cloud-free": "Yes",
-            "frequency": "Daily",
-            "resolution": "5 miles",
-            "description": "Ocean surface currents calculated from model outputs."
         }
     },
     "BLENDEDsstDNDaily": {

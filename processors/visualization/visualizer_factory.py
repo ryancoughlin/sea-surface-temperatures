@@ -4,6 +4,7 @@ from .sst_visualizer import SSTVisualizer
 from .currents_visualizer import CurrentsVisualizer
 from .chlorophyll_visualizer import ChlorophyllVisualizer
 from .waves_visualizer import WavesVisualizer
+from .ocean_dynamics_visualizer import OceanDynamicsVisualizer
 from utils.path_manager import PathManager
 from config.settings import SOURCES
 
@@ -16,7 +17,8 @@ class VisualizerFactory:
             'sst': SSTVisualizer(path_manager),
             'currents': CurrentsVisualizer(path_manager),
             'waves': WavesVisualizer(path_manager),
-            'chlorophyll': ChlorophyllVisualizer(path_manager)
+            'chlorophyll': ChlorophyllVisualizer(path_manager),
+            'water_movement': OceanDynamicsVisualizer(path_manager)
         }
     
     def create(self, dataset_type: str) -> BaseVisualizer:

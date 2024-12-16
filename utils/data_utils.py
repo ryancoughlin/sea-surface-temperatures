@@ -17,7 +17,23 @@ def extract_variables(data: Union[xr.Dataset, xr.DataArray], dataset: str) -> Tu
     Returns:
         Tuple of (processed data, list of variable names)
     """
-    dataset_config = SOURCES[dataset]
+    # First try to get config directly
+    dataset_config = SOURCES.get(dataset)
+    
+    # If not found, check if it's a component of a combined dataset
+    if not dataset_config:
+        for source_config in SOURCES.values():
+            if source_config.get('source_type') == 'combined_view':
+                for component_info in source_config['source_datasets'].values():
+                    if component_info['dataset_id'] == dataset:
+                        dataset_config = {'variables': component_info['variables']}
+                        break
+                if dataset_config:
+                    break
+    
+    if not dataset_config:
+        raise ValueError(f"Dataset {dataset} not found in configuration")
+        
     variables = dataset_config['variables']
     var_names = list(variables.keys())
 
