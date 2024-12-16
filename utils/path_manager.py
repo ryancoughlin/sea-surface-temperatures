@@ -5,13 +5,17 @@ from config.settings import SOURCES
 import shutil
 import logging
 import re
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-class AssetPaths(NamedTuple):
-    image: Path
+@dataclass
+class AssetPaths:
+    """Container for asset paths."""
     data: Path
-    contours: Optional[Path]
+    image: Path
+    contours: Path
+    features: Path
 
 class PathManager:
     """Manages file system operations including:
@@ -35,21 +39,27 @@ class PathManager:
 
     def get_data_path(self, date: datetime, dataset: str, region: str) -> Path:
         """Get path for data file"""
-        dataset_id = SOURCES[dataset]['dataset_id']
+        # For regular datasets, get dataset_id from SOURCES
+        if dataset in SOURCES:
+            dataset_id = SOURCES[dataset]['dataset_id']
+        else:
+            # For source datasets, use the dataset string directly as it's already a dataset_id
+            dataset_id = dataset
+        
         region_name = region.lower().replace(" ", "_")
         date_str = date.strftime('%Y%m%d_%H')
         return self.data_dir / f"{dataset_id}_{region_name}_{date_str}.nc"
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
-        """Get asset paths for the given dataset."""
-        date_str = date.strftime('%Y%m%d')
-        dataset_dir = self.output_dir / region / dataset / date_str
-        dataset_dir.mkdir(parents=True, exist_ok=True)
+        """Get paths for all assets for a given date, dataset, and region."""
+        base_dir = self.output_dir / region / date.strftime('%Y/%m/%d') / dataset
+        base_dir.mkdir(parents=True, exist_ok=True)
         
         return AssetPaths(
-            image=dataset_dir / "image.png",
-            data=dataset_dir / "data.json",
-            contours=dataset_dir / "contours.json" if "contours" in SOURCES[dataset]["supportedLayers"] else None
+            data=base_dir / 'data.json',
+            image=base_dir / 'image.png',
+            contours=base_dir / 'contours.json',
+            features=base_dir / 'features.json'
         )
 
     def get_metadata_path(self) -> Path:

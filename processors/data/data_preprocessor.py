@@ -4,7 +4,7 @@ from pathlib import Path
 from processors.data_cleaners.land_masker import LandMasker
 from config.settings import SOURCES
 import numpy as np
-from typing import Union
+from typing import Union, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -14,18 +14,47 @@ class DataPreprocessor:
     def __init__(self):
         self.land_masker = LandMasker()
         
-    def preprocess_dataset(self, data: Union[xr.DataArray, xr.Dataset], dataset: str, region: str) -> Union[xr.DataArray, xr.Dataset]:
+    def preprocess_dataset(self, data: Union[xr.DataArray, xr.Dataset, Dict], dataset: str, region: str) -> Union[xr.DataArray, xr.Dataset, Dict]:
         """
         Preprocess dataset with standard operations
         Args:
-            data: Input xarray DataArray or Dataset
+            data: Input xarray DataArray, Dataset, or combined data dictionary
             dataset: Dataset identifier
             region: Region identifier (used for logging)
         Returns:
-            Preprocessed xarray DataArray or Dataset
+            Preprocessed xarray DataArray, Dataset, or combined data dictionary
         """
-        dataset_type = SOURCES[dataset]['type']
-        variables = SOURCES[dataset]['variables']
+        dataset_config = SOURCES[dataset]
+        dataset_type = dataset_config['type']
+        
+        # Handle combined data
+        if isinstance(data, dict) and dataset_config.get('source_type') == 'combined_view':
+            processed_data = {}
+            for source_name, source_data in data.items():
+                source_config = dataset_config['source_datasets'][source_name]
+                source_type = dataset_config['type']  # Use parent dataset type
+                
+                if isinstance(source_data['data'], xr.Dataset):
+                    processed = self._preprocess_multi_variable(
+                        source_data['data'],
+                        source_data['variables'],
+                        source_type
+                    )
+                else:
+                    processed = self._preprocess_single_variable(
+                        source_data['data'],
+                        source_type
+                    )
+                
+                processed_data[source_name] = {
+                    'data': processed,
+                    'variables': source_data['variables'],
+                    'config': source_data['config']
+                }
+            return processed_data
+        
+        # Handle regular datasets
+        variables = dataset_config['variables']
         
         # Handle multi-variable datasets
         if isinstance(data, xr.Dataset):

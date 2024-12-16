@@ -65,21 +65,73 @@ class ProcessingManager:
         logger.info(f"📦 Processing {dataset} for {region_id}")
         
         try:
-            # Get the data file
-            netcdf_path = await self._get_data(date, dataset, region_id)
-            if not netcdf_path:
-                return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
-
-            # Process the data
-            logger.info("   ├── 🔧 Processing data")
-            with self._open_netcdf(netcdf_path) as ds:
-                # Extract and process data
-                raw_data, variables = extract_variables(ds, dataset)
+            source_config = SOURCES[dataset]
+            source_type = source_config.get('source_type')
+            logger.info(f"   ├── Source type: {source_type}")
+            logger.info(f"   ├── Config: {source_config}")
+            
+            # Get the data file(s)
+            if source_type == 'combined_view':
+                logger.info(f"   ├── 📥 Processing combined view from multiple sources")
+                combined_data = {}
+                
+                # Process each source dataset
+                for source_name, source_info in source_config['source_datasets'].items():
+                    logger.info(f"   ├── Processing {source_name} component")
+                    logger.info(f"   │   ├── Source info: {source_info}")
+                    
+                    # Download using CMEMS service
+                    downloaded_path = await self.services[source_info['source_type']].save_data(
+                        date=date,
+                        dataset=source_info['dataset_id'],
+                        region=region_id,
+                        variables=source_info['variables']
+                    )
+                    
+                    if not downloaded_path:
+                        logger.error(f"   │   └── Failed to download data for {source_name}")
+                        return {
+                            'status': 'error',
+                            'error': f'Failed to download {source_name} data',
+                            'dataset': dataset,
+                            'region': region_id
+                        }
+                    
+                    logger.info(f"   │   ├── Downloaded to: {downloaded_path}")
+                        
+                    # Load and extract variables
+                    with self._open_netcdf(downloaded_path) as ds:
+                        logger.info(f"   │   ├── NetCDF variables: {list(ds.variables.keys())}")
+                        raw_data, variables = extract_variables(ds, source_info['dataset_id'])
+                        logger.info(f"   │   ├── Extracted variables: {variables}")
+                        combined_data[source_name] = {
+                            'data': raw_data,
+                            'variables': variables,
+                            'config': source_info
+                        }
+                
+                # Process the combined dataset
+                logger.info("   ├── 🔧 Processing combined data")
                 processed_data = self.data_preprocessor.preprocess_dataset(
-                    data=raw_data,
+                    data=combined_data,
                     dataset=dataset,
                     region=region_id
                 )
+            else:
+                # Handle regular single-source datasets
+                netcdf_path = await self._get_data(date, dataset, region_id)
+                if not netcdf_path:
+                    return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
+
+                # Process the data
+                logger.info("   ├── 🔧 Processing data")
+                with self._open_netcdf(netcdf_path) as ds:
+                    raw_data, variables = extract_variables(ds, dataset)
+                    processed_data = self.data_preprocessor.preprocess_dataset(
+                        data=raw_data,
+                        dataset=dataset,
+                        region=region_id
+                    )
 
             # Generate outputs
             result = await self._generate_outputs(
@@ -120,8 +172,11 @@ class ProcessingManager:
         if local_file:
             return local_file
             
-        # Download if not found locally
-        source_type = SOURCES[dataset].get('source_type')
+        # Get source configuration
+        source_config = SOURCES[dataset]
+        source_type = source_config.get('source_type')
+        
+        # Handle regular single-source datasets
         if source_type not in self.services:
             raise ValueError(f"Unknown source type: {source_type}")
             
@@ -138,6 +193,13 @@ class ProcessingManager:
         asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
         dataset_type = self.data_assembler.get_dataset_config(dataset)['type']
         
+        paths = {
+            'data': str(asset_paths.data),
+            'image': str(asset_paths.image),
+            'contours': None,
+            'features': None
+        }
+        
         # Generate GeoJSON if needed
         if not skip_geojson:
             logger.info(f"   ├── 🗺️  Generating GeoJSON")
@@ -148,17 +210,31 @@ class ProcessingManager:
                 dataset=dataset,
                 date=date
             )
+            paths['data'] = str(data_path)
             
             # Generate contours for supported types
-            if dataset_type in ['sst', 'chlorophyll']:
+            if dataset_type in ['sst', 'chlorophyll', 'water_movement']:
                 logger.info(f"   ├── 📈 Generating contours")
                 contour_converter = self.geojson_converter_factory.create(dataset, 'contour')
-                contour_converter.convert(
+                contour_path = contour_converter.convert(
                     data=processed_data,
                     region=region_id,
                     dataset=dataset,
                     date=date
                 )
+                paths['contours'] = str(contour_path)
+            
+            # Generate features for water_movement
+            if dataset_type == 'water_movement':
+                logger.info(f"   ├── 🎯 Generating features")
+                features_converter = self.geojson_converter_factory.create(dataset, 'features')
+                features_path = features_converter.convert(
+                    data=processed_data,
+                    region=region_id,
+                    dataset=dataset,
+                    date=date
+                )
+                paths['features'] = str(features_path)
 
         # Generate image
         logger.info(f"   ├── 🖼️  Generating image")
@@ -169,6 +245,7 @@ class ProcessingManager:
             dataset=dataset,
             date=date
         )
+        paths['image'] = str(image_path)
 
         # Update metadata
         self.data_assembler.assemble_metadata(
@@ -182,8 +259,5 @@ class ProcessingManager:
             'status': 'success',
             'dataset': dataset,
             'region': region_id,
-            'paths': {
-                'data': str(asset_paths.data),
-                'image': str(image_path)
-            }
+            'paths': paths
         }
