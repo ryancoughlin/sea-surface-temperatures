@@ -73,10 +73,6 @@ class ChlorophyllVisualizer(BaseVisualizer):
                 zorder=1
             )
             
-            # Add land mask
-            land = cfeature.NaturalEarthFeature('physical', 'land', '10m')
-            ax.add_feature(land, facecolor='#B1C2D8', zorder=2)
-            
             return fig, None
             
         except Exception as e:
