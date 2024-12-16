@@ -12,7 +12,7 @@ from services.cmems_service import CMEMSService
 from processors.data.data_assembler import DataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.visualization.visualizer_factory import VisualizerFactory
-from processors.data.standardize import standardize_dataset
+from processors.data.data_utils import standardize_dataset
 from config.settings import SOURCES
 from utils.path_manager import PathManager
 from utils.data_utils import extract_variables
@@ -59,13 +59,6 @@ class ProcessingManager:
                     'region': region_id
                 })
         return results
-
-    def _ensure_dataset(self, data: Union[xr.Dataset, xr.DataArray]) -> xr.Dataset:
-        """Ensure data is in Dataset format."""
-        if isinstance(data, xr.DataArray):
-            logger.info(f"Converting DataArray '{data.name}' to Dataset")
-            return data.to_dataset()
-        return data
 
     @contextmanager
     def _open_netcdf(self, path: Path):
@@ -157,7 +150,6 @@ class ProcessingManager:
                     # Load and extract variables
                     with self._open_netcdf(downloaded_path) as ds:
                         raw_data, variables = extract_variables(ds, source_info['dataset_id'])
-                        raw_data = self._ensure_dataset(raw_data)
                         combined_data[source_name] = raw_data
                 
                 # Process the combined dataset
@@ -177,7 +169,6 @@ class ProcessingManager:
                 logger.info("   ├── 🔧 Processing data")
                 with self._open_netcdf(netcdf_path) as ds:
                     raw_data, variables = extract_variables(ds, dataset)
-                    raw_data = self._ensure_dataset(raw_data)
                     processed_data = standardize_dataset(
                         data=raw_data,
                         dataset=dataset,

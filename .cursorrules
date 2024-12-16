@@ -25,23 +25,9 @@
 5. Processes run concurrently within resource limits
 6. Organizes outputs by region/dataset/date
 
-## What needs to happen?
+## Misc.
 
-- Fetch data from either CMEMS or ERDDAP
-
-## Configuration and Responsibilites
-
-- DataProcessor takes care of preprocessing, process once and use
-- DataAssembler responsible for creating the JSON for the front-end API endpoint. Generated to output/metadata.json
-- Dataset config lives in config/settings.py.
-- Region config lives in config/regions.py.
-
-## Data Fetching
-
-- Fetched from CMEMS and ERDDAP from NOAA
-- Data returned is per-region, no masking required
-
-## Processing
+- Do not write tests or include it in responses.
 
 ## Extra Datasets
 
