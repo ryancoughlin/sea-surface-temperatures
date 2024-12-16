@@ -28,14 +28,18 @@ class DataAssembler:
             'features': base_dir / 'features.json'
         }
 
-    def update_metadata(self, dataset: str, region: str, date: datetime, paths: Dict[str, str]):
+    def update_metadata(self, dataset: str, region: str, date: datetime, paths: Dict[str, str], ranges: Dict = None):
         """Update metadata JSON with new dataset information."""
         try:
-            # Create date entry with paths
+            # Create date entry with paths and ranges
             date_entry = {
                 "date": date.strftime('%Y%m%d'),
                 "layers": self._get_layer_urls(paths)
             }
+            
+            # Add ranges if provided
+            if ranges:
+                date_entry["ranges"] = ranges
             
             # Load or create metadata file
             metadata_path = self.output_dir / "metadata.json"

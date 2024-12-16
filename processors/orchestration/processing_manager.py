@@ -6,6 +6,7 @@ import aiohttp
 import logging
 import asyncio
 import xarray as xr
+import numpy as np
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
@@ -179,6 +180,17 @@ class ProcessingManager:
         
         dataset_config = SOURCES[dataset]
         
+        # Calculate data ranges for metadata
+        ranges = {}
+        if isinstance(processed_data, dict):
+            # Handle combined datasets
+            for component_name, component_data in processed_data.items():
+                if isinstance(component_data, (xr.Dataset, xr.DataArray)):
+                    ranges[component_name] = self._calculate_data_ranges(component_data)
+        else:
+            # Handle single datasets
+            ranges = self._calculate_data_ranges(processed_data)
+        
         if not skip_geojson:
             paths.update(self._generate_geojson_layers(
                 data=processed_data,
@@ -203,15 +215,43 @@ class ProcessingManager:
             dataset=dataset,
             region=region_id,
             date=date,
-            paths=paths
+            paths=paths,
+            ranges=ranges  # Add ranges to metadata
         )
 
         return {
             'status': 'success',
             'dataset': dataset,
             'region': region_id,
-            'paths': paths
+            'paths': paths,
+            'ranges': ranges
         }
+
+    def _calculate_data_ranges(self, data: Union[xr.Dataset, xr.DataArray]) -> Dict:
+        """Calculate min/max ranges for all variables in the dataset."""
+        ranges = {}
+        
+        if isinstance(data, xr.Dataset):
+            for var_name, var_data in data.data_vars.items():
+                valid_data = var_data.values[~np.isnan(var_data.values)]
+                if len(valid_data) > 0:
+                    ranges[var_name] = {
+                        'min': float(np.min(valid_data)),
+                        'max': float(np.max(valid_data)),
+                        'unit': var_data.attrs.get('units', '')
+                    }
+                    logger.info(f"[RANGES] {var_name} min/max: {ranges[var_name]['min']:.4f} to {ranges[var_name]['max']:.4f}")
+        elif isinstance(data, xr.DataArray):
+            valid_data = data.values[~np.isnan(data.values)]
+            if len(valid_data) > 0:
+                ranges[data.name or 'data'] = {
+                    'min': float(np.min(valid_data)),
+                    'max': float(np.max(valid_data)),
+                    'unit': data.attrs.get('units', '')
+                }
+                logger.info(f"[RANGES] {data.name or 'data'} min/max: {ranges[data.name or 'data']['min']:.4f} to {ranges[data.name or 'data']['max']:.4f}")
+        
+        return ranges
 
     def _generate_geojson_layers(self, data, dataset: str, dataset_type: str, 
                                region_id: str, date: datetime, asset_paths) -> Dict[str, str]:
