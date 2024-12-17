@@ -69,12 +69,3 @@ class DataPreprocessor:
                     data[var] = data[var].isel({dim: 0})
                     
         return data
-    
-    def _log_data_ranges(self, data: xr.Dataset):
-        """Log data ranges for monitoring"""
-        for var in data.data_vars:
-            valid_data = data[var].values[~np.isnan(data[var].values)]
-            if len(valid_data) > 0:
-                logger.info(f"[RANGES] {var} min/max: {valid_data.min():.4f} to {valid_data.max():.4f}")
-            else:
-                logger.warning(f"No valid data for {var} after preprocessing")

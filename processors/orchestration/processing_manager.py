@@ -16,7 +16,7 @@ from processors.visualization.visualizer_factory import VisualizerFactory
 from processors.data.data_utils import standardize_dataset
 from config.settings import SOURCES
 from utils.path_manager import PathManager
-from utils.data_utils import extract_variables
+from processors.data.data_utils import extract_variables
 
 logger = logging.getLogger(__name__)
 
@@ -102,36 +102,65 @@ class ProcessingManager:
             
             # Get the data file(s)
             if source_type == 'combined_view':
-                combined_data = {}
-                
                 # Process each source dataset
+                datasets_to_merge = []
+                logger.info(f"Processing combined dataset with sources: {list(source_config['source_datasets'].keys())}")
+                
                 for source_name, source_info in source_config['source_datasets'].items():
-                    # Download using appropriate service
-                    downloaded_path = await self.services[source_info['source_type']].save_data(
-                        date=date,
-                        dataset=source_info['dataset_id'],
-                        region=region_id,
-                        variables=source_info['variables']
-                    )
+                    logger.info(f"Processing {source_name} component of {dataset}")
+                    logger.info(f"Source info: {source_info}")
                     
-                    if not downloaded_path:
+                    # Download using appropriate service
+                    try:
+                        downloaded_path = await self.services[source_info['source_type']].save_data(
+                            date=date,
+                            dataset=source_info['dataset_id'],
+                            region=region_id,
+                            variables=list(source_info['variables'].keys())
+                        )
+                        
+                        if not downloaded_path:
+                            raise ValueError(f"No data downloaded for {source_name}")
+                            
+                        # Load and extract variables
+                        with self._open_netcdf(downloaded_path) as ds:
+                            logger.info(f"Loading variables for {source_name}: {list(source_info['variables'].keys())}")
+                            logger.info(f"Available variables in dataset: {list(ds.variables)}")
+                            
+                            # Ensure we get a Dataset from extract_variables
+                            processed_data, _ = extract_variables(ds, source_info['dataset_id'])
+                            if isinstance(processed_data, xr.DataArray):
+                                processed_data = processed_data.to_dataset()
+                            
+                            # Standardize the dataset
+                            processed_data = standardize_dataset(
+                                data=processed_data,
+                                dataset=dataset,
+                                region=region_id
+                            )
+                            
+                            logger.info(f"Processed data variables: {list(processed_data.variables)}")
+                            datasets_to_merge.append(processed_data)
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to process {source_name} component: {str(e)}")
                         return {
                             'status': 'error',
-                            'error': f'Failed to download {source_name} data',
+                            'error': f'Failed to process {source_name} component: {str(e)}',
                             'dataset': dataset,
                             'region': region_id
                         }
-                    
-                    # Load and extract variables
-                    with self._open_netcdf(downloaded_path) as ds:
-                        raw_data, variables = extract_variables(ds, source_info['dataset_id'])
-                        combined_data[source_name] = raw_data
                 
-                processed_data = standardize_dataset(
-                    data=combined_data,
-                    dataset=dataset,
-                    region=region_id
-                )
+                # Merge all datasets into one
+                logger.info(f"Merging {len(datasets_to_merge)} datasets")
+                logger.info(f"Dataset variables to merge: {[list(ds.variables) for ds in datasets_to_merge]}")
+                
+                # Merge standardized datasets
+                combined_data = xr.merge(datasets_to_merge)
+                logger.info(f"Combined data variables: {list(combined_data.variables)}")
+                
+                # No need to standardize again since components were already standardized
+                processed_data = combined_data
             else:
                 # Handle regular single-source datasets
                 netcdf_path = await self._get_data(date, dataset, region_id)
@@ -139,7 +168,7 @@ class ProcessingManager:
                     return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
 
                 with self._open_netcdf(netcdf_path) as ds:
-                    raw_data, variables = extract_variables(ds, dataset)
+                    raw_data, _ = extract_variables(ds, dataset)
                     processed_data = standardize_dataset(
                         data=raw_data,
                         dataset=dataset,

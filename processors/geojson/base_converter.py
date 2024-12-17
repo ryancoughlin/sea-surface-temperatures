@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 from utils.path_manager import PathManager
 from datetime import datetime
 from config.settings import SOURCES
-from utils.data_utils import get_coordinate_names
+from processors.data.data_utils import get_coordinate_names
 
 logger = logging.getLogger(__name__)
 

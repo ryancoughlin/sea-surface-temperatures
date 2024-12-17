@@ -6,7 +6,7 @@ from typing import Optional, Dict, List, Tuple
 from .base_converter import BaseGeoJSONConverter
 import xarray as xr
 from scipy.ndimage import maximum_filter, minimum_filter, gaussian_filter
-
+from config.settings import SOURCES
 logger = logging.getLogger(__name__)
 
 class OceanFeaturesConverter(BaseGeoJSONConverter):
@@ -261,26 +261,30 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
         
         return features
 
-    def convert(self, data: Dict, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert ocean dynamics data to feature GeoJSON format."""
         try:
-            # Extract data components
-            altimetry_data = data['altimetry']['data']
-            currents_data = data['currents']['data']
+            # Get variables based on SOURCES configuration
+            source_config = SOURCES[dataset]
+            altimetry_vars = source_config['source_datasets']['altimetry']['variables']
+            currents_vars = source_config['source_datasets']['currents']['variables']
+            
+            # Get SSH variable name
+            ssh_var = next(var for var in altimetry_vars.keys())
+            
+            # Get current variable names
+            u_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('u'))
+            v_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('v'))
             
             # Get coordinates
-            lon_name, lat_name = self.get_coordinate_names(currents_data)
-            lons = currents_data[lon_name].values
-            lats = currents_data[lat_name].values
+            lon_name, lat_name = self.get_coordinate_names(data)
+            lons = data[lon_name].values
+            lats = data[lat_name].values
             
-            # Extract variables
-            if isinstance(altimetry_data, xr.Dataset):
-                ssh = altimetry_data['sea_surface_height'].values
-            else:
-                ssh = altimetry_data.values
-                
-            u_current = currents_data['uo'].values
-            v_current = currents_data['vo'].values
+            # Extract variables from merged dataset
+            ssh = data[ssh_var].values
+            u_current = data[u_var].values
+            v_current = data[v_var].values
             
             # Initialize features list
             features = []

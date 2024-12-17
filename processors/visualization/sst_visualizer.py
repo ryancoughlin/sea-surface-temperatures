@@ -9,7 +9,7 @@ from .base_visualizer import BaseVisualizer
 
 from config.settings import SOURCES
 from config.regions import REGIONS
-from utils.data_utils import convert_temperature_to_f
+from processors.data.data_utils import convert_temperature_to_f
 from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -36,10 +36,10 @@ class SSTVisualizer(BaseVisualizer):
             # Create colormap from color scale
             cmap = LinearSegmentedColormap.from_list('sst_detailed', SOURCES[dataset]['color_scale'], N=1024)
             
-            # Calculate dynamic ranges from valid data
+            # Calculate min/max from valid data
             valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
-            vmin = float(np.percentile(valid_data, 1))  # 1st percentile
-            vmax = float(np.percentile(valid_data, 99))  # 99th percentile
+            vmin = float(np.min(valid_data))
+            vmax = float(np.max(valid_data))
 
             mesh = ax.pcolormesh(
                 expanded_data['longitude'],
@@ -53,7 +53,6 @@ class SSTVisualizer(BaseVisualizer):
                 rasterized=True,
                 zorder=1
             )
-            
             return fig, None
             
         except Exception as e:

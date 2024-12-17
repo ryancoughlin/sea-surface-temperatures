@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 import scipy.ndimage
 from utils.image_optimizer import ImageOptimizer
-from utils.data_utils import get_coordinate_names
+from processors.data.data_utils import get_coordinate_names
 
 logger = logging.getLogger(__name__)
 

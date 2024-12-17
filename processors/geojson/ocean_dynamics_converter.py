@@ -9,6 +9,7 @@ import xarray as xr
 from scipy.ndimage import maximum_filter, minimum_filter
 import matplotlib.pyplot as plt
 
+
 logger = logging.getLogger(__name__)
 
 def clean_value(value):
@@ -18,90 +19,103 @@ def clean_value(value):
     return float(value)
 
 class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
-    def convert(self, data: Dict, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert ocean dynamics data to GeoJSON format with raw values."""
         try:
             logger.info(f"Starting ocean dynamics conversion for {dataset} in {region}")
             
-            # Extract data components with safer access
-            if not isinstance(data, dict):
-                raise ValueError(f"Expected dict input, got {type(data)}")
-                
-            altimetry = data.get('altimetry')
-            currents = data.get('currents')
+            # Extract variables from merged dataset
+            if not isinstance(data, xr.Dataset):
+                raise ValueError(f"Expected xarray Dataset, got {type(data)}")
             
-            if not altimetry or not currents:
-                raise ValueError(f"Missing required components. Found keys: {list(data.keys())}")
-                
-            if not isinstance(altimetry, dict) or not isinstance(currents, dict):
-                raise ValueError(f"Components must be dicts. Altimetry: {type(altimetry)}, Currents: {type(currents)}")
-                
-            altimetry_data = altimetry.get('data')
-            currents_data = currents.get('data')
+            # Get coordinates
+            lon_name, lat_name = self.get_coordinate_names(data)
+            lons = data[lon_name].values
+            lats = data[lat_name].values
             
-            if altimetry_data is None or currents_data is None:
-                raise ValueError(f"Missing data in components. Altimetry keys: {list(altimetry.keys())}, Currents keys: {list(currents.keys())}")
+            # Extract variables based on SOURCES configuration
+            source_config = SOURCES[dataset]
+            altimetry_vars = source_config['source_datasets']['altimetry']['variables']
+            currents_vars = source_config['source_datasets']['currents']['variables']
             
-            logger.info(f"Successfully extracted data components:")
-            logger.info(f"Altimetry data type: {type(altimetry_data)}")
-            logger.info(f"Currents data type: {type(currents_data)}")
+            # Get SSH data
+            ssh_var = next(var for var in altimetry_vars.keys())
+            ssh = data[ssh_var].values if ssh_var in data else None
             
-            # Get coordinates directly from xarray objects
-            lons = currents_data.longitude.values
-            lats = currents_data.latitude.values
+            # Get current components
+            u_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('u'))
+            v_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('v'))
             
-            # Extract variables
-            if isinstance(altimetry_data, xr.Dataset):
-                ssh = altimetry_data['sea_surface_height'].values
-            else:
-                ssh = altimetry_data.values
-                
-            u_current = currents_data['uo'].values
-            v_current = currents_data['vo'].values
+            u_current = data[u_var].values
+            v_current = data[v_var].values
             
             # Calculate derived fields
             current_magnitude = np.sqrt(u_current**2 + v_current**2)
             current_direction = np.degrees(np.arctan2(v_current, u_current))
-            ssh_dx, ssh_dy = np.gradient(ssh)
-            ssh_gradient = np.sqrt(ssh_dx**2 + ssh_dy**2)
+            
+            # Calculate SSH gradients if SSH data is available
+            if ssh is not None:
+                ssh_dx, ssh_dy = np.gradient(ssh)
+                ssh_gradient = np.sqrt(ssh_dx**2 + ssh_dy**2)
+            else:
+                ssh_gradient = None
             
             # Create features list
             features = []
             valid_values = {
-                'ssh': [],
                 'current_speed': [],
                 'current_direction': [],
                 'u_velocity': [],
-                'v_velocity': [],
-                'ssh_gradient': []
+                'v_velocity': []
             }
+            
+            if ssh is not None:
+                valid_values['ssh'] = []
+                valid_values['ssh_gradient'] = []
             
             # Generate point features
             for i in range(len(lats)):
                 for j in range(len(lons)):
-                    ssh_value = float(ssh[i, j])
                     u_val = float(u_current[i, j])
                     v_val = float(v_current[i, j])
                     
-                    # Skip if any values are NaN
-                    if np.isnan(ssh_value) or np.isnan(u_val) or np.isnan(v_val):
+                    # Skip if current values are NaN
+                    if np.isnan(u_val) or np.isnan(v_val):
                         continue
                         
                     magnitude = float(current_magnitude[i, j])
                     direction = float(current_direction[i, j])
-                    gradient = float(ssh_gradient[i, j])
                     
                     # Store valid values for range calculation
-                    valid_values['ssh'].append(ssh_value)
                     valid_values['current_speed'].append(magnitude)
                     valid_values['current_direction'].append(direction)
                     valid_values['u_velocity'].append(u_val)
                     valid_values['v_velocity'].append(v_val)
-                    valid_values['ssh_gradient'].append(gradient)
                     
-                    # Determine zone type and strength
-                    zone_type = "upwelling" if ssh_value < 0 else "downwelling"
-                    zone_strength = "strong" if abs(ssh_value) > 0.5 else "moderate" if abs(ssh_value) > 0.2 else "weak"
+                    # Create feature properties
+                    properties = {
+                        "current_speed": round(magnitude, 3),
+                        "current_speed_unit": "m/s",
+                        "current_direction": round(direction, 1),
+                        "current_direction_unit": "degrees",
+                        "u_velocity": round(u_val, 3),
+                        "v_velocity": round(v_val, 3),
+                        "velocity_unit": "m/s"
+                    }
+                    
+                    # Add SSH data if available
+                    if ssh is not None:
+                        ssh_value = float(ssh[i, j])
+                        if not np.isnan(ssh_value):
+                            properties["ssh"] = round(ssh_value, 3)
+                            properties["ssh_unit"] = "m"
+                            valid_values['ssh'].append(ssh_value)
+                            
+                            if ssh_gradient is not None:
+                                gradient_value = float(ssh_gradient[i, j])
+                                if not np.isnan(gradient_value):
+                                    properties["ssh_gradient"] = round(gradient_value, 4)
+                                    valid_values['ssh_gradient'].append(gradient_value)
                     
                     # Create feature
                     feature = {
@@ -110,20 +124,7 @@ class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
                             "type": "Point",
                             "coordinates": [float(lons[j]), float(lats[i])]
                         },
-                        "properties": {
-                            "ssh": round(ssh_value, 3),
-                            "ssh_unit": "m",
-                            "current_speed": round(magnitude, 3),
-                            "current_speed_unit": "m/s",
-                            "current_direction": round(direction, 1),
-                            "current_direction_unit": "degrees",
-                            "u_velocity": round(u_val, 3),
-                            "v_velocity": round(v_val, 3),
-                            "velocity_unit": "m/s",
-                            "ssh_gradient": round(gradient, 4),
-                            "zone_type": zone_type,
-                            "zone_strength": zone_strength
-                        }
+                        "properties": properties
                     }
                     features.append(feature)
             
@@ -151,13 +152,10 @@ class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
             # Add metadata
             metadata = {
                 "source": dataset,
-                "components": ["altimetry", "currents"],
                 "variables": {
-                    "altimetry": list(altimetry.get('variables', [])),
-                    "currents": list(currents.get('variables', []))
-                },
-                "zone_types": ["upwelling", "downwelling"],
-                "zone_strengths": ["weak", "moderate", "strong"]
+                    "altimetry": list(altimetry_vars.keys()),
+                    "currents": list(currents_vars.keys())
+                }
             }
             
             # Create standardized GeoJSON
@@ -231,52 +229,34 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
         squared_distances = np.sum(point_differences**2, axis=1)
         return float(np.sum(np.sqrt(squared_distances)))
 
-    def convert(self, data: Dict, region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert SSH data to contour GeoJSON format."""
         try:
             logger.info(f"Starting SSH contour conversion for {dataset} in {region}")
-            logger.info(f"Input data type: {type(data)}")
-            logger.info(f"Input data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
             
-            if isinstance(data, dict):
-                for key in data:
-                    logger.info(f"Data structure for {key}: {type(data[key])}")
-                    if isinstance(data[key], dict):
-                        logger.info(f"Keys in {key}: {list(data[key].keys())}")
-                        if 'data' in data[key]:
-                            logger.info(f"Type of {key}.data: {type(data[key]['data'])}")
-
-            logger.info(f"---------------------- Full data structure: {data}")
+            # Extract SSH data from merged dataset
+            if not isinstance(data, xr.Dataset):
+                raise ValueError(f"Expected xarray Dataset, got {type(data)}")
             
-            # Extract SSH data - now with safer access
-            if not isinstance(data, dict):
-                raise ValueError(f"Expected dict input, got {type(data)}")
-                
-            altimetry = data.get('altimetry')
-            if not altimetry:
-                raise ValueError(f"Missing altimetry component. Found keys: {list(data.keys())}")
-                
-            if not isinstance(altimetry, dict):
-                raise ValueError(f"Altimetry component must be dict, got {type(altimetry)}")
-                
-            altimetry_data = altimetry.get('data')
-            if altimetry_data is None:
-                raise ValueError(f"Missing data in altimetry component. Found keys: {list(altimetry.keys())}")
-                
-            logger.info(f"Successfully extracted altimetry data: {type(altimetry_data)}")
+            # Get coordinates
+            lon_name, lat_name = self.get_coordinate_names(data)
             
-            # Get coordinates from altimetry data
-            lon_name, lat_name = self.get_coordinate_names(altimetry_data)
+            # Get SSH variable name from config
+            source_config = SOURCES[dataset]
+            altimetry_vars = source_config['source_datasets']['altimetry']['variables']
+            ssh_var = next(var for var in altimetry_vars.keys())
             
             # Extract SSH values
-            if isinstance(altimetry_data, xr.Dataset):
-                ssh = altimetry_data['sea_surface_height'].values
-            else:
-                ssh = altimetry_data.values
+            if ssh_var not in data:
+                logger.warning(f"SSH variable {ssh_var} not found in dataset")
+                return self._create_geojson([], date, None, None)
+                
+            ssh = data[ssh_var].values
             
             # Get valid SSH values
             valid_ssh = ssh[~np.isnan(ssh)]
             if len(valid_ssh) == 0:
+                logger.warning("No valid SSH data found")
                 return self._create_geojson([], date, None, None)
             
             min_ssh = float(np.min(valid_ssh))
@@ -295,8 +275,8 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
                     levels = self._generate_levels(min_ssh, max_ssh)
                     fig, ax = plt.subplots(figsize=(10, 10))
                     contour_set = ax.contour(
-                        altimetry_data[lon_name],
-                        altimetry_data[lat_name],
+                        data[lon_name],
+                        data[lat_name],
                         ssh,
                         levels=levels
                     )
