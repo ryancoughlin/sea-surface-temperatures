@@ -5,7 +5,7 @@ import numpy as np
 from typing import Optional, Dict, Tuple, Union
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
-from utils.data_utils import convert_temperature_to_f
+from processors.data.data_utils import convert_temperature_to_f
 import xarray as xr
 
 logger = logging.getLogger(__name__)

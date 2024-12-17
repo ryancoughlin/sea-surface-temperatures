@@ -28,6 +28,7 @@
 ## Misc.
 
 - Do not write tests or include it in responses.
+- Never display labels, colorbars, annotations, or other text with images. Images are displayed over maps.
 
 ## Extra Datasets
 

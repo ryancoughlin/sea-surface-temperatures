@@ -22,10 +22,10 @@ UNIT_TRANSFORMS = {
 }
 
 SOURCES = {
-    "Ocean_Dynamics_Combined": {
+    "Water_Movement_Combined": {
         "source_type": "combined_view",
         "type": "water_movement",
-        "name": "Ocean Dynamics (Currents and Eddies)",
+        "name": "Water Movement (Currents and Eddies)",
         "source_datasets": {
             "altimetry": {
                 "source_type": "cmems",
