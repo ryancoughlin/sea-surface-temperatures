@@ -9,7 +9,6 @@ import xarray as xr
 from scipy.ndimage import maximum_filter, minimum_filter
 import matplotlib.pyplot as plt
 
-
 logger = logging.getLogger(__name__)
 
 def clean_value(value):
