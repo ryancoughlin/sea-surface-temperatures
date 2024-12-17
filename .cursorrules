@@ -29,6 +29,7 @@
 
 - Do not write tests or include it in responses.
 - Never display labels, colorbars, annotations, or other text with images. Images are displayed over maps.
+- Never add comments to code.
 
 ## Extra Datasets
 
