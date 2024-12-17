@@ -32,22 +32,15 @@ class OceanDynamicsVisualizer(BaseVisualizer):
             v_var = next(var for var, cfg in source_config['source_datasets']['currents']['variables'].items() 
                         if cfg['type'] == 'current' and var.startswith('v'))
             
-            # Extract data arrays
-            ssh_data = data[ssh_var]
-            u_data = data[u_var]
-            v_data = data[v_var]
-            
-            # Fill coastal gaps
-            ssh_expanded = self.expand_coastal_data(ssh_data)
-            
             # Create figure with map
             fig, ax = self.create_axes(region)
             
-            # Plot SSH background with smooth interpolation
-            ssh_mesh = ax.pcolormesh(
-                ssh_expanded['longitude'],
-                ssh_expanded['latitude'],
-                ssh_expanded.values,
+            # 1. Plot SSH background
+            ssh_data = self.expand_coastal_data(data[ssh_var])
+            ax.pcolormesh(
+                ssh_data['longitude'],
+                ssh_data['latitude'],
+                ssh_data.values,
                 transform=ccrs.PlateCarree(),
                 cmap=self._create_ssh_colormap(),
                 shading='gouraud',
@@ -56,49 +49,47 @@ class OceanDynamicsVisualizer(BaseVisualizer):
                 zorder=1
             )
             
-            # Calculate target number of arrows based on figure size
-            fig_width, fig_height = fig.get_size_inches()
-            target_arrows = int(min(fig_width, fig_height) * 8)  # 8 arrows per inch
+            # 2. Prepare current data
+            skip = 1  # Reduced skip for more arrows
             
-            # Calculate skip factor to achieve target arrow count
-            nx, ny = len(data['longitude']), len(data['latitude'])
-            skip = max(1, int(np.sqrt((nx * ny) / target_arrows)))
+            # Get coordinates
+            lons = data.longitude.values[::skip]
+            lats = data.latitude.values[::skip]
             
-            # Create evenly spaced grid for arrows
-            lon_slice = slice(skip//2, -1, skip)
-            lat_slice = slice(skip//2, -1, skip)
+            # Create meshgrid
+            lon_mesh, lat_mesh = np.meshgrid(lons, lats)
             
-            # Create coordinate grids for quiver
-            lon_mesh, lat_mesh = np.meshgrid(data['longitude'][lon_slice], 
-                                           data['latitude'][lat_slice])
+            # Get current components and subsample
+            u_plot = data[u_var].values[::skip, ::skip]
+            v_plot = data[v_var].values[::skip, ::skip]
             
-            # Calculate current magnitude for coloring
-            current_mag = np.sqrt(u_data**2 + v_data**2)
+            # Calculate current magnitude for scaling
+            magnitude = np.sqrt(u_plot**2 + v_plot**2)
             
             # Normalize vectors for consistent arrow size
-            u_plot = u_data[lat_slice, lon_slice]
-            v_plot = v_data[lat_slice, lon_slice]
-            mag_plot = current_mag[lat_slice, lon_slice]
+            magnitude_nonzero = np.maximum(magnitude, 1e-10)  # Avoid division by zero
+            u_norm = u_plot / magnitude_nonzero
+            v_norm = v_plot / magnitude_nonzero
             
-            # Only plot arrows where we have valid data
-            valid_mask = ~(np.isnan(u_plot) | np.isnan(v_plot))
-            
-            if valid_mask.any():
-                quiver = ax.quiver(
-                    lon_mesh[valid_mask],
-                    lat_mesh[valid_mask],
-                    u_plot[valid_mask],
-                    v_plot[valid_mask],
-                    mag_plot[valid_mask],
-                    transform=ccrs.PlateCarree(),
-                    cmap='RdBu_r',
-                    scale=30,
-                    width=0.004,
-                    headwidth=4,
-                    headlength=5,
-                    alpha=0.7,
-                    zorder=2
-                )
+            # Plot arrows - smaller fancy arrows with triangle heads
+            ax.quiver(
+                lon_mesh,
+                lat_mesh,
+                u_norm,
+                v_norm,
+                magnitude,
+                transform=ccrs.PlateCarree(),
+                cmap='RdBu_r',
+                scale=60,  # Even smaller arrows
+                scale_units='width',
+                width=0.002,  # Thinner arrows
+                headwidth=5,  # Triangle head shape
+                headlength=5,
+                headaxislength=4.5,
+                alpha=0.7,
+                pivot='middle',
+                zorder=2
+            )
             
             return fig, None
             
