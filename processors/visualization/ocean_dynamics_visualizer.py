@@ -9,6 +9,7 @@ from config.settings import SOURCES
 from typing import Tuple, Optional, Dict
 from datetime import datetime
 from matplotlib.colors import LinearSegmentedColormap
+from scipy.interpolate import griddata
 
 logger = logging.getLogger(__name__)
 
@@ -24,68 +25,74 @@ class OceanDynamicsVisualizer(BaseVisualizer):
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate visualization combining sea surface height and currents."""
         try:
-            # Get variable names from config
             source_config = SOURCES[dataset]
+            
+            # Get SSH data
             ssh_var = next(iter(source_config['source_datasets']['altimetry']['variables']))
+            ssh_data = data[ssh_var]
+            
+            # Get current data
             u_var = next(var for var, cfg in source_config['source_datasets']['currents']['variables'].items() 
                         if cfg['type'] == 'current' and var.startswith('u'))
             v_var = next(var for var, cfg in source_config['source_datasets']['currents']['variables'].items() 
                         if cfg['type'] == 'current' and var.startswith('v'))
             
-            # Create figure with map
+            u_data = data[u_var]
+            v_data = data[v_var]
+            
             fig, ax = self.create_axes(region)
             
-            # 1. Plot SSH background
-            ssh_data = self.expand_coastal_data(data[ssh_var])
-            ax.pcolormesh(
-                ssh_data['longitude'],
-                ssh_data['latitude'],
-                ssh_data.values,
+            # Expand coastal data to reduce gaps
+            ssh_expanded = self.expand_coastal_data(ssh_data)
+            
+            # Calculate ranges from valid data
+            valid_data = ssh_expanded.values[~np.isnan(ssh_expanded.values)]
+            vmin = float(np.percentile(valid_data, 1))
+            vmax = float(np.percentile(valid_data, 99))
+            
+            # Plot SSH with simplified settings matching SST visualizer
+            ssh_plot = ax.pcolormesh(
+                ssh_expanded['longitude'],
+                ssh_expanded['latitude'],
+                ssh_expanded.values,
                 transform=ccrs.PlateCarree(),
                 cmap=self._create_ssh_colormap(),
+                vmin=vmin,
+                vmax=vmax,
                 shading='gouraud',
                 alpha=0.8,
                 rasterized=True,
                 zorder=1
             )
             
-            # 2. Prepare current data
-            skip = 1  # Reduced skip for more arrows
+            # Process current data separately
+            skip = 1
+            u_plot = u_data[::skip, ::skip]
+            v_plot = v_data[::skip, ::skip]
             
-            # Get coordinates
-            lons = data.longitude.values[::skip]
-            lats = data.latitude.values[::skip]
-            
-            # Create meshgrid
-            lon_mesh, lat_mesh = np.meshgrid(lons, lats)
-            
-            # Get current components and subsample
-            u_plot = data[u_var].values[::skip, ::skip]
-            v_plot = data[v_var].values[::skip, ::skip]
-            
-            # Calculate current magnitude for scaling
             magnitude = np.sqrt(u_plot**2 + v_plot**2)
-            
-            # Normalize vectors for consistent arrow size
-            magnitude_nonzero = np.maximum(magnitude, 1e-10)  # Avoid division by zero
+            magnitude_nonzero = np.maximum(magnitude, 1e-10)
             u_norm = u_plot / magnitude_nonzero
             v_norm = v_plot / magnitude_nonzero
             
-            # Plot arrows - smaller fancy arrows with triangle heads
+            quiver_lons = u_data.longitude[::skip]
+            quiver_lats = u_data.latitude[::skip]
+            quiver_lon_mesh, quiver_lat_mesh = np.meshgrid(quiver_lons, quiver_lats)
+            
             ax.quiver(
-                lon_mesh,
-                lat_mesh,
+                quiver_lon_mesh,
+                quiver_lat_mesh,
                 u_norm,
                 v_norm,
                 magnitude,
                 transform=ccrs.PlateCarree(),
                 cmap='RdBu_r',
-                scale=60,  # Even smaller arrows
+                scale=100,
                 scale_units='width',
-                width=0.002,  # Thinner arrows
-                headwidth=5,  # Triangle head shape
-                headlength=5,
-                headaxislength=4.5,
+                width=0.001,
+                headwidth=3.6,
+                headlength=3.6,
+                headaxislength=3.5,
                 alpha=0.7,
                 pivot='middle',
                 zorder=2
