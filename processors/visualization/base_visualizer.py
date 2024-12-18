@@ -10,7 +10,6 @@ from typing import Dict, Optional, Tuple
 from utils.path_manager import PathManager
 from datetime import datetime
 from PIL import Image
-import subprocess
 from io import BytesIO
 import numpy as np
 import xarray as xr

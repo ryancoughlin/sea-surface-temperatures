@@ -12,7 +12,8 @@ from processors.geojson.currents_converter import CurrentsGeoJSONConverter
 from processors.geojson.chlorophyll_converter import ChlorophyllGeoJSONConverter
 from processors.geojson.chlorophyll_contour_converter import ChlorophyllContourConverter
 from processors.geojson.waves_converter import WavesGeoJSONConverter
-from processors.geojson.ocean_dynamics_converter import OceanDynamicsGeoJSONConverter, OceanDynamicsContourConverter
+from processors.geojson.ocean_dynamics_converter import OceanDynamicsGeoJSONConverter
+from processors.geojson.ocean_dynamics_contour_converter import OceanDynamicsContourConverter
 from processors.geojson.ocean_features_converter import OceanFeaturesConverter
 
 # Map dataset types to their processors

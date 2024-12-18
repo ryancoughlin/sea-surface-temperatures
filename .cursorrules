@@ -6,6 +6,7 @@
 ## Rules
 
 - Output the rule in the composer to show the rule is being applied.
+- When writing code, and thinking do not over engineer solutions, keep it simple and functional.
 
 ## Version Control
 
