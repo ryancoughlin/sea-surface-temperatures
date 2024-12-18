@@ -8,15 +8,15 @@ class Region(TypedDict):
 
 REGIONS: Dict[str, Region] = {
     # Atlantic Ocean
-    "gulf_of_maine": {
-        "name": "Gulf of Maine",
-        "group": "Atlantic Ocean",
-        "bounds": [
-            [-71.0, 41.5],  # Southwest corner
-            [-65.5, 45.0]   # Northeast corner
-        ],
-        "center": [43.25, -68.25]
-    },
+    # "gulf_of_maine": {
+    #     "name": "Gulf of Maine",
+    #     "group": "Atlantic Ocean",
+    #     "bounds": [
+    #         [-71.0, 41.5],  # Southwest corner
+    #         [-65.5, 45.0]   # Northeast corner
+    #     ],
+    #     "center": [43.25, -68.25]
+    # },
     # "cape_cod": {
     #     "name": "Cape Cod and Georges Bank",
     #     "group": "Atlantic Ocean",
@@ -26,15 +26,15 @@ REGIONS: Dict[str, Region] = {
     #     ],
     #     "center": [41.5, -68.5]
     # },
-    # "ne_canyons": {
-    #     "name": "Northeast Canyons",
-    #     "group": "Atlantic Ocean",
-    #     "bounds": [
-    #         [-77.0, 36.0],  # Southwest corner
-    #         [-65.0, 42.0]   # Northeast corner
-    #     ],
-    #     "center": [39.0, -71.0]
-    # },
+    "ne_canyons": {
+        "name": "Northeast Canyons",
+        "group": "Atlantic Ocean",
+        "bounds": [
+            [-77.0, 36.0],  # Southwest corner
+            [-65.0, 42.0]   # Northeast corner
+        ],
+        "center": [39.0, -71.0]
+    },
     # "carolinas": {
     #     "name": "Carolinas",
     #     "group": "Atlantic Ocean",
