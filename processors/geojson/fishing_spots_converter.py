@@ -323,6 +323,10 @@ class FishingSpotConverter(BaseGeoJSONConverter):
         global_max = float(np.nanmax(ssh))
         global_min = float(np.nanmin(ssh))
         
+        # Calculate SSH statistics
+        ssh_mean = float(np.nanmean(ssh))
+        ssh_std = float(np.nanstd(ssh))
+        
         maxima = (ssh == max_filtered) & (ssh > np.percentile(ssh[~np.isnan(ssh)], 98))
         max_points = np.where(maxima)
         
