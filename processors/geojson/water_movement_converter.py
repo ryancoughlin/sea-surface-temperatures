@@ -45,33 +45,13 @@ def clean_value(value: Any) -> Optional[float]:
         return None
     return float(value)
 
-class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
-    """Converts ocean dynamics data to GeoJSON format.
-    
-    Processes combined SSH and current data to create GeoJSON features with:
-    - Current speed and direction
-    - Sea surface height
-    - SSH gradients
-    """
+class WaterMovementConverter(BaseGeoJSONConverter):
+    """Converts water movement data (currents, temperatures, etc.) to GeoJSON format."""
     
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
-        """Convert ocean dynamics data to GeoJSON format with raw values.
-        
-        Args:
-            data: Dataset containing SSH and current components
-            region: Geographic region identifier
-            dataset: Source dataset identifier
-            date: Date of the data
-            
-        Returns:
-            Path: Path to the generated GeoJSON file
-            
-        Raises:
-            ValueError: If data format is invalid
-            KeyError: If required variables are missing
-        """
+        """Convert water movement data to GeoJSON format."""
         try:
-            logger.info(f"Starting ocean dynamics conversion for {dataset} in {region}")
+            logger.info(f"Starting water movement conversion for {dataset} in {region}")
             
             if not isinstance(data, xr.Dataset):
                 raise ValueError(f"Expected xarray Dataset, got {type(data)}")
@@ -85,7 +65,7 @@ class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
             features = self._generate_features(variables, lons, lats)
             
             if not features:
-                logger.warning("No valid ocean dynamics data found")
+                logger.warning("No valid water movement data found")
                 return self._save_empty_geojson(date, dataset, region)
             
             # Calculate ranges and create metadata
@@ -102,12 +82,12 @@ class OceanDynamicsGeoJSONConverter(BaseGeoJSONConverter):
             )
             
             output_path = self.path_manager.get_asset_paths(date, dataset, region).data
-            logger.info(f"   └── Saving ocean dynamics GeoJSON to {output_path.name}")
+            logger.info(f"   └── Saving water movement GeoJSON to {output_path.name}")
             
             return self.save_geojson(geojson, output_path)
             
         except Exception as e:
-            logger.error(f"Error converting ocean dynamics data to GeoJSON: {str(e)}")
+            logger.error(f"Error converting water movement data to GeoJSON: {str(e)}")
             raise
             
     def _extract_variables(self, data: xr.Dataset, dataset: str) -> Dict[str, np.ndarray]:

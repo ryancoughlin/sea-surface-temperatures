@@ -9,8 +9,8 @@ from scipy.ndimage import maximum_filter, minimum_filter, gaussian_filter
 from config.settings import SOURCES
 logger = logging.getLogger(__name__)
 
-class OceanFeaturesConverter(BaseGeoJSONConverter):
-    """Detects and converts ocean features (eddies, extrema, etc.) to GeoJSON format."""
+class FishingSpotConverter(BaseGeoJSONConverter):
+    """Detects and converts potential fishing spots to GeoJSON format."""
     
     def _calculate_thresholds(self, ssh: np.ndarray, u_current: np.ndarray, v_current: np.ndarray, 
                                lons: np.ndarray, lats: np.ndarray) -> Dict:
