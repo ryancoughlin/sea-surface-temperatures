@@ -113,42 +113,31 @@ class BaseVisualizer(ABC):
 
     def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
         """
-        Expands data near coastlines to prevent gaps while preserving original values.
+        Expands data near coastlines using efficient rolling window operations.
         
         Args:
             data: Input DataArray
             buffer_size: Number of cells to expand (default 3)
         """
-        # Create a mask of valid (non-NaN) data
-        valid_mask = ~np.isnan(data)
-        
-        # Create a copy of the data for manipulation
         expanded_data = data.copy()
         
-        # Iterate buffer_size times to progressively fill gaps
         for _ in range(buffer_size):
-            # Create a mask of cells to fill (NaN cells adjacent to valid data)
-            kernel = np.array([[0,1,0], [1,1,1], [0,1,0]])
-            adjacent_valid = scipy.ndimage.binary_dilation(valid_mask, kernel) & ~valid_mask
+            # Create rolling window view of the data
+            rolled = expanded_data.rolling(
+                {dim: 3 for dim in expanded_data.dims[-2:]}, 
+                center=True, 
+                min_periods=1
+            )
             
-            if not np.any(adjacent_valid):
+            # Calculate mean of surrounding cells
+            filled = rolled.mean()
+            
+            # Only update NaN values where surrounding cells have data
+            mask = np.isnan(expanded_data) & ~np.isnan(filled)
+            if not np.any(mask):
                 break
             
-            # For each cell to fill, use the mean of valid adjacent cells
-            y_indices, x_indices = np.where(adjacent_valid)
-            for y, x in zip(y_indices, x_indices):
-                # Get values of adjacent cells
-                neighbors = []
-                for dy, dx in [(-1,0), (1,0), (0,-1), (0,1)]:
-                    ny, nx = y + dy, x + dx
-                    if (0 <= ny < data.shape[0] and 
-                        0 <= nx < data.shape[1] and 
-                        not np.isnan(expanded_data[ny, nx])):
-                        neighbors.append(expanded_data[ny, nx])
-                
-                if neighbors:
-                    expanded_data[y, x] = np.mean(neighbors)
-                    valid_mask[y, x] = True
+            expanded_data = xr.where(mask, filled, expanded_data)
         
         return expanded_data
 

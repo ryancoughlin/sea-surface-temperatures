@@ -105,13 +105,17 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                 data[lon_name].values,
                 data[lat_name].values,
                 smoothed_data,
-                levels=levels
+                levels=levels,
+                linestyles='solid',
+                linewidths=1.5,  # Increased for better visibility
+                colors='black'  # Consistent color for all contours
             )
             plt.close(fig)
             
             features = []
             for level_idx, level_value in enumerate(contour_set.levels):
                 for segment in contour_set.allsegs[level_idx]:
+                    # Calculate path length for all features
                     path_length = np.sum(np.sqrt(np.sum(np.diff(segment, axis=0)**2, axis=1)))
                     
                     # Only keep longer segments for blooms
@@ -131,6 +135,7 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                     if not classification['is_bloom'] and level_value < percentiles['p90']:
                         continue
                     
+                    # Create standardized feature
                     feature = {
                         "type": "Feature",
                         "geometry": {
@@ -140,10 +145,12 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                         "properties": {
                             "value": float(level_value),
                             "unit": "mg/m³",
+                            "path_length_nm": round(path_length * 60, 1),  # Convert to nautical miles
+                            "points": len(coords),
+                            "is_closed": False,  # Chlorophyll contours are not typically closed
                             "is_bloom": classification['is_bloom'],
                             "feature_type": classification['type'],
-                            "description": classification['description'],
-                            "length_nm": round(path_length * 60, 1)
+                            "description": classification['description']
                         }
                     }
                     features.append(feature)
