@@ -18,7 +18,7 @@ class OceanDynamicsVisualizer(BaseVisualizer):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.ARROW_DENSITY = 30  # Number of arrows along each dimension
+        self.arrow_spacing = 25  # Number of arrows in smallest dimension
     
     def _create_ssh_colormap(self):
         """Create a diverging colormap for SSH."""
@@ -26,49 +26,10 @@ class OceanDynamicsVisualizer(BaseVisualizer):
                  '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b']
         return LinearSegmentedColormap.from_list('ssh_colormap', colors, N=1024)
     
-    def _downsample_vectors(self, lons: np.ndarray, lats: np.ndarray, 
-                          u: np.ndarray, v: np.ndarray) -> Tuple[np.ndarray, ...]:
-        """Downsample vector data for quiver plots using grid subsampling."""
-        # Log input data structure
-        logger.info(f"Original grid dimensions: {u.shape}")
-        logger.info(f"Longitude range: {lons.min():.3f} to {lons.max():.3f}")
-        logger.info(f"Latitude range: {lats.min():.3f} to {lats.max():.3f}")
-        logger.info(f"Current velocities range - U: {float(u.min()):.3f} to {float(u.max()):.3f}, V: {float(v.min()):.3f} to {float(v.max()):.3f}")
-        
-        # Calculate stride for even sampling
-        lat_stride = max(1, len(lats) // self.ARROW_DENSITY)
-        lon_stride = max(1, len(lons) // self.ARROW_DENSITY)
-        
-        # Subsample the grid using strides
-        ds_lats = lats[::lat_stride]
-        ds_lons = lons[::lon_stride]
-        ds_u = u[::lat_stride, ::lon_stride]
-        ds_v = v[::lat_stride, ::lon_stride]
-        
-        # Log results
-        logger.info(f"Downsampled grid dimensions: {ds_u.shape}")
-        logger.info(f"Points reduced from {u.size} to {ds_u.size}")
-        logger.info(f"Stride sizes - lat: {lat_stride}, lon: {lon_stride}")
-        logger.info(f"Downsampled velocities range - U: {float(ds_u.min()):.3f} to {float(ds_u.max()):.3f}, V: {float(ds_v.min()):.3f} to {float(ds_v.max()):.3f}")
-        
-        return ds_lons, ds_lats, ds_u, ds_v
-    
-    def _normalize_vectors(self, u: np.ndarray, v: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Normalize vectors and calculate magnitudes."""
-        magnitude = np.sqrt(u**2 + v**2)
-        magnitude_nonzero = np.maximum(magnitude, 1e-10)
-        u_norm = u / magnitude_nonzero
-        v_norm = v / magnitude_nonzero
-        return u_norm, v_norm, magnitude
-    
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate visualization combining sea surface height and currents."""
         try:
             source_config = SOURCES[dataset]
-            
-            # Log dataset structure
-            logger.info(f"Dataset variables: {list(data.variables)}")
-            logger.info(f"Dataset dimensions: {data.dims}")
             
             # Get SSH data
             ssh_var = next(iter(source_config['source_datasets']['altimetry']['variables']))
@@ -78,56 +39,68 @@ class OceanDynamicsVisualizer(BaseVisualizer):
             u_data = data['uo'].squeeze()
             v_data = data['vo'].squeeze()
             
-            # Log the raw data structure
-            logger.info(f"Raw current data shapes - U: {u_data.shape}, V: {v_data.shape}")
-            logger.info(f"Raw current ranges - U: {float(u_data.min()):.3f} to {float(u_data.max()):.3f}")
-            logger.info(f"Raw current ranges - V: {float(v_data.min()):.3f} to {float(v_data.max()):.3f}")
-            
+            # Create figure and axes
             fig, ax = self.create_axes(region)
             
-            # Plot SSH first
-            ssh_expanded = self.expand_coastal_data(ssh_data)
-            valid_data = ssh_expanded.values[~np.isnan(ssh_expanded.values)]
-            vmin = float(np.percentile(valid_data, 1))
-            vmax = float(np.percentile(valid_data, 99))
+            # Expand coastal data using base visualizer method
+            expanded_data = self.expand_coastal_data(ssh_data)
             
-            ssh_plot = ax.pcolormesh(
-                ssh_expanded['longitude'],
-                ssh_expanded['latitude'],
-                ssh_expanded.values,
+            # Calculate value range from valid data
+            valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
+            vmin = float(np.nanmin(valid_data))
+            vmax = float(np.nanmax(valid_data))
+            
+            # Plot SSH using exact same approach as SST visualizer
+            mesh = ax.pcolormesh(
+                expanded_data['longitude'],
+                expanded_data['latitude'],
+                expanded_data.values,
                 transform=ccrs.PlateCarree(),
                 cmap=self._create_ssh_colormap(),
+                shading='gouraud',
                 vmin=vmin,
                 vmax=vmax,
-                shading='gouraud',
-                alpha=1,
                 rasterized=True,
                 zorder=1
             )
             
-            # Create meshgrid from raw coordinates
-            lon_mesh, lat_mesh = np.meshgrid(u_data.longitude.values, u_data.latitude.values)
+            # Prepare current vectors
+            nx, ny = len(u_data.longitude), len(u_data.latitude)
+            skip = max(1, min(nx, ny) // self.arrow_spacing)
             
-            # Normalize vectors and get magnitude
-            u_norm, v_norm, magnitude = self._normalize_vectors(u_data.values, v_data.values)
+            # Create coordinate grids for quiver
+            lon_mesh, lat_mesh = np.meshgrid(u_data.longitude[::skip], u_data.latitude[::skip])
             
-            # Plot normalized currents colored by magnitude
+            # Compute magnitude and mask
+            magnitude = np.sqrt(u_data**2 + v_data**2)
+            threshold = float(np.percentile(magnitude.values[~np.isnan(magnitude.values)], 5))
+            mask = magnitude.values > threshold
+            
+            # Prepare masked velocities
+            u_masked = np.where(mask, u_data.values, np.nan)[::skip, ::skip]
+            v_masked = np.where(mask, v_data.values, np.nan)[::skip, ::skip]
+            
+            # Normalize vectors
+            mag_subset = np.sqrt(u_masked**2 + v_masked**2)
+            mag_subset = np.maximum(mag_subset, 1e-10)
+            u_norm = u_masked / mag_subset
+            v_norm = v_masked / mag_subset
+            
+            # Plot arrows
             ax.quiver(
                 lon_mesh,
                 lat_mesh,
                 u_norm,
                 v_norm,
-                magnitude,
                 transform=ccrs.PlateCarree(),
-                cmap='RdBu_r',
-                scale=100,
-                scale_units='width',
-                width=0.001,
-                headwidth=3.6,
-                headlength=3.6,
+                color='white',
+                scale=30,
+                width=0.004,
+                headwidth=4,
+                headlength=4,
                 headaxislength=3.5,
                 alpha=0.7,
-                pivot='middle',
+                pivot='mid',
                 zorder=2
             )
             

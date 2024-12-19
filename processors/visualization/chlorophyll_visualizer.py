@@ -39,10 +39,6 @@ class ChlorophyllVisualizer(BaseVisualizer):
             
             if len(valid_data) == 0:
                 raise ValueError("No valid chlorophyll data points found")
-            
-            # Get coordinate names
-            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
 
             # Apply coastal buffer to fill gaps
             logger.info("Applying coastal buffer to fill data gaps")
@@ -62,8 +58,8 @@ class ChlorophyllVisualizer(BaseVisualizer):
             
             # Plot data with smooth interpolation
             mesh = ax.pcolormesh(
-                buffered_data[lon_name],
-                buffered_data[lat_name],
+                buffered_data["longitude"],
+                buffered_data["latitude"],
                 buffered_data.values,
                 transform=ccrs.PlateCarree(),
                 norm=norm,

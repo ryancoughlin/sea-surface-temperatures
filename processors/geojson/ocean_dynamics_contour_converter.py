@@ -174,7 +174,8 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
                 lons, lats, ssh, 
                 levels=levels,
                 linestyles='solid',
-                linewidths=1
+                linewidths=1.5,  # Increased for better visibility
+                colors='black'  # Consistent color for all contours
             )
             plt.close(fig)
             
@@ -196,7 +197,10 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
                     # Get ocean feature classification
                     feature_info = self._classify_ocean_feature(float(level), thresholds)
                     
-                    # Create geometry
+                    # Calculate path length for all features
+                    path_length = float(LineString(segment).length) * 60  # Convert degrees to nautical miles
+                    
+                    # Create geometry with standardized properties
                     if is_closed:
                         geom = mapping(Polygon(segment))
                         feature_info["feature_type"] = f"{eddy_size}_eddy"
@@ -210,11 +214,12 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
                         "type": "Feature",
                         "geometry": geom,
                         "properties": {
-                            "ssh_value": float(level),
+                            "value": float(level),
                             "unit": "meters",
-                            **feature_info,
-                            "length_nm": float(LineString(segment).length) * 60,  # Convert degrees to nautical miles
-                            "points": len(segment)
+                            "path_length_nm": path_length,
+                            "points": len(segment),
+                            "is_closed": is_closed,
+                            **feature_info
                         }
                     }
                     features.append(feature)
