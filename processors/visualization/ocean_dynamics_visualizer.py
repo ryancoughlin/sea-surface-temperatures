@@ -94,13 +94,14 @@ class OceanDynamicsVisualizer(BaseVisualizer):
                 v_norm,
                 transform=ccrs.PlateCarree(),
                 color='white',
-                scale=30,
-                width=0.004,
-                headwidth=4,
-                headlength=4,
+                scale=100,
+                scale_units='width',
+                width=0.001,
+                headwidth=3.6,
+                headlength=3.6,
                 headaxislength=3.5,
                 alpha=0.7,
-                pivot='mid',
+                pivot='middle',
                 zorder=2
             )
             
