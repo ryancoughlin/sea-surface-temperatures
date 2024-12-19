@@ -14,7 +14,9 @@ def clean_value(value):
         return None
     return float(value)
 
-class OceanDynamicsContourConverter(BaseGeoJSONConverter):
+class WaterMovementContourConverter(BaseGeoJSONConverter):
+    """Creates contour lines showing water movement patterns."""
+    
     def _generate_levels(self, min_ssh: float, max_ssh: float) -> np.ndarray:
         """Generate contour levels based on data statistics."""
         # Calculate mean and range
@@ -41,6 +43,7 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
         return levels
 
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
+        """Convert water movement data to contour GeoJSON format."""
         try:
             # Log input data structure
             logger.info("Dataset variables:")
