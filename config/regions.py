@@ -26,15 +26,15 @@ REGIONS: Dict[str, Region] = {
     #     ],
     #     "center": [41.5, -68.5]
     # },
-    "ne_canyons": {
-        "name": "Northeast Canyons",
-        "group": "Atlantic Ocean",
-        "bounds": [
-            [-77.0, 36.0],  # Southwest corner
-            [-65.0, 42.0]   # Northeast corner
-        ],
-        "center": [39.0, -71.0]
-    },
+    # "ne_canyons": {
+    #     "name": "Northeast Canyons",
+    #     "group": "Atlantic Ocean",
+    #     "bounds": [
+    #         [-77.0, 36.0],  # Southwest corner
+    #         [-65.0, 42.0]   # Northeast corner
+    #     ],
+    #     "center": [39.0, -71.0]
+    # },
     # "carolinas": {
     #     "name": "Carolinas",
     #     "group": "Atlantic Ocean",
@@ -74,16 +74,16 @@ REGIONS: Dict[str, Region] = {
     #     "center": [24.75, -77.0]
     # },
     
-    # # Gulf Coast
-    # "gulf_of_mexico": {
-    #     "name": "Gulf of Mexico",
-    #     "group": "Gulf Coast",
-    #     "bounds": [
-    #         [-98.0, 18.0],  # Southwest corner
-    #         [-80.0, 31.0]   # Northeast corner
-    #     ],
-    #     "center": [24.5, -89.0]
-    # },
+    # Gulf Coast
+    "gulf_of_mexico": {
+        "name": "Gulf of Mexico",
+        "group": "Gulf Coast",
+        "bounds": [
+            [-98.0, 18.0],  # Southwest corner
+            [-80.0, 31.0]   # Northeast corner
+        ],
+        "center": [24.5, -89.0]
+    },
     
     # # Pacific Ocean
     # "southern_alaska": {
