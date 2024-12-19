@@ -12,61 +12,110 @@ logger = logging.getLogger(__name__)
 class OceanFeaturesConverter(BaseGeoJSONConverter):
     """Detects and converts ocean features (eddies, extrema, etc.) to GeoJSON format."""
     
+    def _calculate_thresholds(self, ssh: np.ndarray, u_current: np.ndarray, v_current: np.ndarray, 
+                               lons: np.ndarray, lats: np.ndarray) -> Dict:
+        """Calculate dynamic thresholds based on data characteristics."""
+        # Grid spacing in km
+        grid_spacing = 111.0 * np.mean(np.diff(lons))  # km per grid point
+        
+        # SSH thresholds based on data statistics
+        ssh_std = np.nanstd(ssh)
+        ssh_mean = np.nanmean(ssh)
+        
+        thresholds = {
+            'ssh': {
+                'min_amplitude': ssh_std * 0.5,  # Reduced from 0.7 to 0.5
+                'max_amplitude': ssh_std * 2.0,  # 2x STD for maximum
+                'high_thresh': ssh_mean + (ssh_std * 0.5),  # Reduced from 0.7 to 0.5
+                'low_thresh': ssh_mean - (ssh_std * 0.5)   # Reduced from 0.7 to 0.5
+            },
+            'size': {
+                'min_radius_points': max(2, int(10/grid_spacing)),  # Reduced from 15km to 10km
+                'max_radius_points': int(150/grid_spacing)          # Increased from 100km to 150km
+            },
+            'velocity': {
+                'min_speed': 0.1,  # Reduced from 0.2 to 0.1 m/s
+                'max_speed': 1.5   # Increased from 1.0 to 1.5 m/s
+            }
+        }
+        
+        # Calculate current statistics
+        current_magnitude = np.sqrt(u_current**2 + v_current**2)
+        current_std = np.nanstd(current_magnitude)
+        current_mean = np.nanmean(current_magnitude)
+        
+        # Adjust velocity thresholds based on data
+        thresholds['velocity']['min_speed'] = min(0.1, current_mean * 0.3)  # More lenient speed threshold
+        
+        logger.info(f"[THRESHOLDS] Grid spacing: {grid_spacing:.2f} km/point")
+        logger.info(f"[THRESHOLDS] SSH - Mean: {ssh_mean:.3f}, STD: {ssh_std:.3f}")
+        logger.info(f"[THRESHOLDS] Current - Mean: {current_mean:.3f}, STD: {current_std:.3f}")
+        logger.info(f"[THRESHOLDS] Size - Min: {thresholds['size']['min_radius_points']} points ({10:.1f}km)")
+        logger.info(f"[THRESHOLDS] Size - Max: {thresholds['size']['max_radius_points']} points ({150:.1f}km)")
+        logger.info(f"[THRESHOLDS] Current - Min: {thresholds['velocity']['min_speed']:.2f} m/s")
+        
+        return thresholds
+    
     def _detect_eddies(self, ssh: np.ndarray, u_current: np.ndarray, v_current: np.ndarray,
-                      lons: np.ndarray, lats: np.ndarray, neighborhood_size: int = 10) -> List[Dict]:
-        """Detect eddies using SSH and current data."""
+                      lons: np.ndarray, lats: np.ndarray) -> List[Dict]:
+        """
+        Detect ocean eddies using dynamic thresholds based on data characteristics.
+        """
         features = []
         
-        # Calculate vorticity (curl of velocity field)
-        dvdx = np.gradient(v_current, axis=1)
-        dudy = np.gradient(u_current, axis=0)
+        # Calculate dynamic thresholds
+        thresholds = self._calculate_thresholds(ssh, u_current, v_current, lons, lats)
+        
+        # Replace NaN values with interpolation for smoother detection
+        ssh_filled = ssh.copy()
+        mask = np.isnan(ssh_filled)
+        ssh_filled[mask] = np.interp(np.flatnonzero(mask), 
+                                   np.flatnonzero(~mask), 
+                                   ssh_filled[~mask])
+        
+        # Step 1: Find potential eddy centers
+        ssh_smooth = gaussian_filter(ssh_filled, sigma=1.0)
+        
+        # Find extrema meeting amplitude criteria
+        max_filtered = maximum_filter(ssh_smooth, size=3)
+        min_filtered = minimum_filter(ssh_smooth, size=3)
+        
+        # Identify potential eddy centers using dynamic thresholds
+        ssh_max = (ssh_smooth == max_filtered) & (ssh_smooth > thresholds['ssh']['high_thresh'])
+        ssh_min = (ssh_smooth == min_filtered) & (ssh_smooth < thresholds['ssh']['low_thresh'])
+        
+        max_points = np.where(ssh_max)
+        min_points = np.where(ssh_min)
+        
+        logger.info(f"[EDDY DETECTION] Initial centers - High: {len(max_points[0])}, Low: {len(min_points[0])}")
+        
+        # Calculate speed and vorticity
+        speed = np.sqrt(u_current**2 + v_current**2)
+        dx = np.gradient(lons) * 111000  # meters
+        dy = np.gradient(lats) * 111000
+        dvdx = np.gradient(v_current, dx, axis=1)
+        dudy = np.gradient(u_current, dy, axis=0)
         vorticity = dvdx - dudy
         
-        # Calculate SSH gradients
-        ssh_dx, ssh_dy = np.gradient(ssh)
-        ssh_grad_magnitude = np.sqrt(ssh_dx**2 + ssh_dy**2)
-        
-        # Smooth vorticity field
-        vorticity_smooth = gaussian_filter(vorticity, sigma=1.0)
-        
-        # Thresholds
-        vorticity_threshold = float(np.std(vorticity_smooth) * 1.5)
-        grad_threshold = float(np.percentile(ssh_grad_magnitude[~np.isnan(ssh_grad_magnitude)], 75))
-        
-        # Find local maxima/minima in vorticity field
-        max_filtered = maximum_filter(vorticity_smooth, size=neighborhood_size)
-        min_filtered = minimum_filter(vorticity_smooth, size=neighborhood_size)
-        
-        # Detect cyclonic eddies (negative vorticity)
-        cyclonic_centers = (vorticity_smooth == min_filtered) & (vorticity_smooth < -vorticity_threshold)
-        cyclonic_points = np.where(cyclonic_centers & (ssh_grad_magnitude > grad_threshold))
-        
-        for y, x in zip(*cyclonic_points):
-            if not np.isnan(ssh[y, x]):
-                radius = float(self._estimate_eddy_radius(ssh, x, y))
-                features.append({
-                    'type': 'Feature',
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [float(lons[x]), float(lats[y])]
-                    },
-                    'properties': {
-                        'feature_type': 'cyclonic_eddy',
-                        'ssh': float(ssh[y, x]),
-                        'vorticity': float(vorticity_smooth[y, x]),
-                        'radius_degrees': radius,
-                        'description': 'Cyclonic Eddy (counterclockwise)',
-                        'display_text': 'Cyclonic Eddy'
-                    }
-                })
-        
-        # Detect anticyclonic eddies (positive vorticity)
-        anticyclonic_centers = (vorticity_smooth == max_filtered) & (vorticity_smooth > vorticity_threshold)
-        anticyclonic_points = np.where(anticyclonic_centers & (ssh_grad_magnitude > grad_threshold))
-        
-        for y, x in zip(*anticyclonic_points):
-            if not np.isnan(ssh[y, x]):
-                radius = float(self._estimate_eddy_radius(ssh, x, y))
+        # Process anticyclonic (clockwise) candidates
+        anticyclonic_count = 0
+        for y, x in zip(*max_points):
+            if not (0 <= y < ssh.shape[0] and 0 <= x < ssh.shape[1]):
+                continue
+                
+            radius = self._estimate_fishing_radius(
+                ssh_smooth, speed, x, y,
+                thresholds['size']['min_radius_points'],
+                thresholds['size']['max_radius_points'],
+                min_speed=thresholds['velocity']['min_speed']
+            )
+            
+            if radius and self._validate_fishing_eddy(
+                ssh_smooth, vorticity, speed, x, y, radius,
+                anticyclonic=True,
+                min_speed=thresholds['velocity']['min_speed']
+            ):
+                anticyclonic_count += 1
                 features.append({
                     'type': 'Feature',
                     'geometry': {
@@ -76,36 +125,141 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                     'properties': {
                         'feature_type': 'anticyclonic_eddy',
                         'ssh': float(ssh[y, x]),
-                        'vorticity': float(vorticity_smooth[y, x]),
-                        'radius_degrees': radius,
-                        'description': 'Anticyclonic Eddy (clockwise)',
-                        'display_text': 'Anticyclonic Eddy'
+                        'radius_km': float(radius * 111.0 * np.mean(np.diff(lons))),
+                        'speed_knots': float(np.mean(speed[y-radius:y+radius, x-radius:x+radius]) * 1.944),
+                        'description': 'Clockwise eddy - Good for tuna/mahi',
+                        'display_text': f'Clockwise\n{int(radius * 111.0 * np.mean(np.diff(lons)))}km'
                     }
                 })
         
+        # Process cyclonic candidates with same thresholds
+        cyclonic_count = 0
+        for y, x in zip(*min_points):
+            if not (0 <= y < ssh.shape[0] and 0 <= x < ssh.shape[1]):
+                continue
+                
+            radius = self._estimate_fishing_radius(
+                ssh_smooth, speed, x, y,
+                thresholds['size']['min_radius_points'],
+                thresholds['size']['max_radius_points'],
+                min_speed=thresholds['velocity']['min_speed']
+            )
+            
+            if radius and self._validate_fishing_eddy(
+                ssh_smooth, vorticity, speed, x, y, radius,
+                anticyclonic=False,
+                min_speed=thresholds['velocity']['min_speed']
+            ):
+                cyclonic_count += 1
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [float(lons[x]), float(lats[y])]
+                    },
+                    'properties': {
+                        'feature_type': 'cyclonic_eddy',
+                        'ssh': float(ssh[y, x]),
+                        'radius_km': float(radius * 111.0 * np.mean(np.diff(lons))),
+                        'speed_knots': float(np.mean(speed[y-radius:y+radius, x-radius:x+radius]) * 1.944),
+                        'description': 'Counterclockwise eddy - Good for bait/feeding',
+                        'display_text': f'Counterclockwise\n{int(radius * 111.0 * np.mean(np.diff(lons)))}km'
+                    }
+                })
+        
+        logger.info(f"[EDDY DETECTION] Found {anticyclonic_count} fishable anticyclonic and {cyclonic_count} cyclonic eddies")
         return features
     
-    def _estimate_eddy_radius(self, ssh: np.ndarray, center_x: int, center_y: int, 
-                            max_radius: int = 20) -> float:
-        """Estimate eddy radius by analyzing SSH gradient."""
-        center_value = ssh[center_y, center_x]
+    def _estimate_fishing_radius(self, ssh: np.ndarray, speed: np.ndarray, x: int, y: int, 
+                               min_radius: int, max_radius: int, min_speed: float) -> Optional[int]:
+        """Estimate eddy radius based on fishing-relevant criteria."""
+        center_value = ssh[y, x]
+        best_radius = None
         max_gradient = 0
-        radius = 1
         
-        for r in range(1, min(max_radius, min(ssh.shape) // 2)):
-            y_slice = slice(max(0, center_y - r), min(ssh.shape[0], center_y + r + 1))
-            x_slice = slice(max(0, center_x - r), min(ssh.shape[1], center_x + r + 1))
-            
-            ring = ssh[y_slice, x_slice]
-            gradient = np.abs(ring - center_value).mean()
-            
-            if gradient > max_gradient:
-                max_gradient = gradient
-                radius = r
-            elif gradient < max_gradient * 0.5:  # Gradient dropped significantly
+        for r in range(min_radius, max_radius):
+            if y-r < 0 or y+r >= ssh.shape[0] or x-r < 0 or x+r >= ssh.shape[1]:
                 break
+                
+            # Check SSH gradient
+            ring = ssh[y-r:y+r, x-r:x+r]
+            gradient = np.abs(np.mean(ring) - center_value)
+            
+            # Check current speed
+            ring_speed = speed[y-r:y+r, x-r:x+r]
+            mean_speed = np.mean(ring_speed)
+            
+            if gradient > max_gradient and mean_speed > min_speed:
+                max_gradient = gradient
+                best_radius = r
         
-        return radius
+        return best_radius
+    
+    def _validate_fishing_eddy(self, ssh: np.ndarray, vorticity: np.ndarray, speed: np.ndarray,
+                             x: int, y: int, radius: int, anticyclonic: bool, min_speed: float) -> bool:
+        """Validate eddy based on fishing-relevant criteria."""
+        # Extract region around potential eddy with proper bounds checking
+        y_slice = slice(max(0, y-radius), min(ssh.shape[0], y+radius))
+        x_slice = slice(max(0, x-radius), min(ssh.shape[1], x+radius))
+        
+        region_ssh = ssh[y_slice, x_slice]
+        region_vorticity = vorticity[y_slice, x_slice]
+        region_speed = speed[y_slice, x_slice]
+        
+        # Skip if region is too small
+        if region_ssh.size < 4:  # Reduced from 9 to 4 (2x2 grid)
+            return False
+            
+        # 1. Check current speed using 50th percentile (median)
+        speed_threshold = np.nanpercentile(region_speed, 50)  # Reduced from 75th to 50th percentile
+        if speed_threshold < min_speed:
+            return False
+            
+        # 2. Check rotation coherence with scaled thresholds
+        vort_mean = np.nanmean(region_vorticity)
+        vort_std = np.nanstd(region_vorticity)
+        
+        # Scale threshold based on local variability
+        vort_threshold = vort_std * 0.15  # Reduced from 0.25 to 0.15
+        
+        if anticyclonic:
+            rotation_check = vort_mean < -vort_threshold * 0.5  # Reduced threshold by half
+        else:
+            rotation_check = vort_mean > vort_threshold * 0.5   # Reduced threshold by half
+            
+        if not rotation_check:
+            return False
+            
+        # 3. Check SSH structure relative to local variability
+        ssh_center = ssh[y, x]
+        ssh_edge_mean = np.nanmean(region_ssh[0:1, :])  # Use edge values
+        ssh_gradient = np.abs(ssh_center - ssh_edge_mean)
+        
+        if ssh_gradient < np.nanstd(region_ssh) * 0.3:  # Reduced from 0.5 to 0.3
+            return False
+            
+        # 4. Check shape with more lenient criteria
+        if not self._check_shape(region_ssh):
+            return False
+            
+        return True
+    
+    def _check_shape(self, region: np.ndarray) -> bool:
+        """Check if the region has a roughly circular shape using improved metrics."""
+        if region.size < 4:  # Reduced minimum size
+            return False
+            
+        # Calculate aspect ratio
+        y_size, x_size = region.shape
+        aspect_ratio = max(y_size, x_size) / min(y_size, x_size)
+        
+        # Calculate compactness using the ratio of values within 1.5 std of the mean
+        region_mean = np.nanmean(region)
+        region_std = np.nanstd(region)
+        within_bounds = np.sum(np.abs(region - region_mean) <= 1.5 * region_std)  # Increased from 1.0 to 1.5
+        compactness = within_bounds / region.size
+        
+        return aspect_ratio < 3.0 and compactness > 0.5  # More lenient criteria
     
     def _find_extrema(self, ssh: np.ndarray, lons: np.ndarray, lats: np.ndarray, 
                      neighborhood_size: int = 10) -> List[Dict]:
@@ -286,14 +440,26 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
             u_current = data[u_var].values
             v_current = data[v_var].values
             
+            logger.info(f"[EDDY DETECTION] SSH shape: {ssh.shape}")
+            logger.info(f"[EDDY DETECTION] Current shapes: {u_current.shape}, {v_current.shape}")
+            
+            # Calculate some statistics for debugging
+            logger.info(f"[EDDY DETECTION] SSH range: {np.nanmin(ssh):.3f} to {np.nanmax(ssh):.3f}")
+            logger.info(f"[EDDY DETECTION] U current range: {np.nanmin(u_current):.3f} to {np.nanmax(u_current):.3f}")
+            logger.info(f"[EDDY DETECTION] V current range: {np.nanmin(v_current):.3f} to {np.nanmax(v_current):.3f}")
+            
             # Initialize features list
             features = []
             
-            # Detect eddies
-            features.extend(self._detect_eddies(ssh, u_current, v_current, lons, lats))
+            # Detect eddies with debug info
+            eddy_features = self._detect_eddies(ssh, u_current, v_current, lons, lats)
+            logger.info(f"[EDDY DETECTION] Found {len(eddy_features)} eddies")
+            features.extend(eddy_features)
             
             # Find SSH extrema
-            features.extend(self._find_extrema(ssh, lons, lats))
+            ssh_features = self._find_extrema(ssh, lons, lats)
+            logger.info(f"[EDDY DETECTION] Found {len(ssh_features)} SSH extrema")
+            features.extend(ssh_features)
             
             # Find upwelling/downwelling zones
             features.extend(self._find_upwelling_zones(ssh, lons, lats))
