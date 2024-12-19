@@ -2,255 +2,174 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
-from typing import Optional, Dict, List, Tuple
+import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 import xarray as xr
-import matplotlib.pyplot as plt
-from shapely.geometry import LineString, Polygon, mapping
-from shapely.ops import linemerge
+from shapely.geometry import LineString
 
 logger = logging.getLogger(__name__)
 
+def clean_value(value):
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    return float(value)
+
 class OceanDynamicsContourConverter(BaseGeoJSONConverter):
-    def __init__(self, path_manager, data_assembler):
-        super().__init__(path_manager, data_assembler)
-        # Parameters for feature detection
-        self.ENDPOINT_TOLERANCE = 0.001
-        self.MIN_EDDY_POINTS = 8
-        self.MIN_EDDY_SIZE = 0.1
-        
-        # Relative thresholds (percentiles)
-        self.STRONG_THRESH = 0.2   # Bottom 20% = strong upwelling
-        self.WEAK_THRESH = 0.4     # 20-40% = weak upwelling
-        self.CONVERGENCE_THRESH = 0.6  # Top 40% = convergence
-    
-    def _connect_segments(self, segments: List[np.ndarray]) -> List[np.ndarray]:
-        """Connect segments that share endpoints within tolerance."""
-        if not segments:
-            return []
-            
-        def endpoints_match(seg1, seg2):
-            start1, end1 = seg1[0], seg1[-1]
-            start2, end2 = seg2[0], seg2[-1]
-            return (np.linalg.norm(end1 - start2) < self.ENDPOINT_TOLERANCE or
-                   np.linalg.norm(end1 - end2) < self.ENDPOINT_TOLERANCE or
-                   np.linalg.norm(start1 - start2) < self.ENDPOINT_TOLERANCE or
-                   np.linalg.norm(start1 - end2) < self.ENDPOINT_TOLERANCE)
-        
-        def merge_segments(seg1, seg2):
-            start1, end1 = seg1[0], seg1[-1]
-            start2, end2 = seg2[0], seg2[-1]
-            
-            if np.linalg.norm(end1 - start2) < self.ENDPOINT_TOLERANCE:
-                return np.vstack((seg1, seg2))
-            elif np.linalg.norm(end1 - end2) < self.ENDPOINT_TOLERANCE:
-                return np.vstack((seg1, seg2[::-1]))
-            elif np.linalg.norm(start1 - start2) < self.ENDPOINT_TOLERANCE:
-                return np.vstack((seg1[::-1], seg2))
-            else:  # start1 - end2
-                return np.vstack((seg2, seg1))
-        
-        # Try to connect segments
-        connected = []
-        remaining = segments.copy()
-        
-        while remaining:
-            current = remaining.pop(0)
-            merged = True
-            while merged:
-                merged = False
-                for i, other in enumerate(remaining):
-                    if endpoints_match(current, other):
-                        current = merge_segments(current, other)
-                        remaining.pop(i)
-                        merged = True
-                        break
-            connected.append(current)
-        
-        return connected
-    
-    def _calculate_thresholds(self, ssh_values: np.ndarray) -> Dict[str, float]:
-        """Calculate absolute thresholds based on data distribution."""
-        valid_ssh = ssh_values[~np.isnan(ssh_values)]
-        percentiles = np.percentile(valid_ssh, 
-                                  [self.STRONG_THRESH * 100, 
-                                   self.WEAK_THRESH * 100,
-                                   self.CONVERGENCE_THRESH * 100])
-        
-        return {
-            "strong": float(percentiles[0]),
-            "weak": float(percentiles[1]),
-            "convergence": float(percentiles[2])
-        }
-    
-    def _classify_ocean_feature(self, ssh_value: float, thresholds: Dict[str, float]) -> Dict:
-        """Classify ocean features based on SSH values."""
-        if ssh_value <= thresholds["strong"]:
-            return {
-                "feature_type": "strong_upwelling",
-                "description": "Strong upwelling - Nutrient-rich cold water",
-                "fishing_relevance": "High potential for fish activity"
-            }
-        elif ssh_value <= thresholds["weak"]:
-            return {
-                "feature_type": "weak_upwelling",
-                "description": "Weak upwelling - Mixing zone",
-                "fishing_relevance": "Moderate potential for fish activity"
-            }
-        elif ssh_value >= thresholds["convergence"]:
-            return {
-                "feature_type": "convergence",
-                "description": "Convergence zone - Warm water accumulation",
-                "fishing_relevance": "Check for temperature breaks"
-            }
-        else:
-            return {
-                "feature_type": "transition",
-                "description": "Transition zone",
-                "fishing_relevance": "Monitor for changes"
-            }
-    
-    def _is_closed_contour(self, segment: np.ndarray) -> Tuple[bool, Optional[str]]:
-        """Check if a segment forms a closed contour and classify eddy type."""
-        if len(segment) < self.MIN_EDDY_POINTS:
-            return False, None
-            
-        start, end = segment[0], segment[-1]
-        if np.linalg.norm(start - end) > self.ENDPOINT_TOLERANCE:
-            return False, None
-            
-        # Calculate size
-        lon_range = np.max(segment[:, 0]) - np.min(segment[:, 0])
-        lat_range = np.max(segment[:, 1]) - np.min(segment[:, 1])
-        size = max(lon_range, lat_range)
-        
-        if size < self.MIN_EDDY_SIZE:
-            return False, None
-            
-        # Classify eddy size
-        if size > 0.5:
-            eddy_size = "large"
-        elif size > 0.2:
-            eddy_size = "medium"
-        else:
-            eddy_size = "small"
-            
-        return True, eddy_size
-    
+    def _generate_levels(self, min_ssh: float, max_ssh: float) -> np.ndarray:
+        """Generate fewer contour levels for major SSH trends."""
+        # Fewer levels with larger intervals for major trends
+        base_levels = np.array([
+            -0.4, -0.2, 0.0, 0.2, 0.4
+        ])
+        # Only use levels within our data range
+        levels = base_levels[(base_levels >= min_ssh) & (base_levels <= max_ssh)]
+        logger.info(f"Using {len(levels)} SSH contour levels between {min_ssh:.3f}m and {max_ssh:.3f}m")
+        return levels
+
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         try:
-            logger.info(f"Converting ocean dynamics data for region: {region}")
-            logger.info(f"Dataset: {dataset}")
-            logger.info(f"Date: {date}")
-            logger.info(f"Data variables: {list(data.variables)}")
-            # 1. Get SSH data
+            # Log input data structure
+            logger.info("Dataset variables:")
+            for var in data.variables:
+                logger.info(f"  - {var}: {data[var].shape}")
+
+            # Get SSH data
             ssh = data['sea_surface_height'].values
             lon_name, lat_name = self.get_coordinate_names(data)
             lons = data[lon_name].values
             lats = data[lat_name].values
             
+            # Log data shapes and ranges
+            logger.info(f"Data ranges:")
+            logger.info(f"  Longitude: {np.min(lons):.3f} to {np.max(lons):.3f}")
+            logger.info(f"  Latitude: {np.min(lats):.3f} to {np.max(lats):.3f}")
+            logger.info(f"  SSH shape: {ssh.shape}")
+            
+            # Check for NaN values
+            nan_count = np.isnan(ssh).sum()
+            total_points = ssh.size
+            logger.info(f"NaN analysis:")
+            logger.info(f"  Total points: {total_points}")
+            logger.info(f"  NaN points: {nan_count}")
+            logger.info(f"  Valid points: {total_points - nan_count}")
+            
+            # Get valid SSH range
             valid_ssh = ssh[~np.isnan(ssh)]
             if len(valid_ssh) == 0:
-                return self.save_empty_geojson(date, dataset, region)
+                logger.warning("No valid SSH data points found")
+                return self._create_geojson([], date, None, None)
             
-            min_val = float(np.min(valid_ssh))
-            max_val = float(np.max(valid_ssh))
+            min_ssh = float(np.min(valid_ssh))
+            max_ssh = float(np.max(valid_ssh))
+            logger.info(f"SSH value range: {min_ssh:.3f}m to {max_ssh:.3f}m")
             
-            logger.info(f"Processing SSH data range: {min_val:.3f} to {max_val:.3f}")
+            # Log histogram information
+            hist, bins = np.histogram(valid_ssh, bins=20)
+            logger.info("SSH distribution (20 bins):")
+            for i, (start, end, count) in enumerate(zip(bins[:-1], bins[1:], hist)):
+                logger.info(f"  Bin {i+1}: {start:.3f}m to {end:.3f}m: {count} points")
             
-            # 2. Calculate thresholds based on data distribution
-            thresholds = self._calculate_thresholds(ssh)
-            logger.info(f"Feature thresholds: strong={thresholds['strong']:.3f}, "
-                       f"weak={thresholds['weak']:.3f}, "
-                       f"convergence={thresholds['convergence']:.3f}")
-            
-            # 3. Generate contour levels with more detail
-            num_levels = 12  # Increase number of levels
-            levels = np.linspace(min_val, max_val, num_levels)
-            
-            # 4. Generate contours
-            fig, ax = plt.subplots()
-            contour_set = ax.contour(
-                lons, lats, ssh, 
-                levels=levels,
-                linestyles='solid',
-                linewidth=1.5,
-                colors='black'
-            )
-            plt.close(fig)
-            
-            # 5. Process and convert to GeoJSON features
-            features = []
-            for level_idx, level in enumerate(contour_set.levels):
-                segments = [np.array(seg) for seg in contour_set.allsegs[level_idx] if len(seg) >= 3]
-                if not segments:
-                    continue
+            # Generate contours if we have sufficient data
+            if len(valid_ssh) >= 10 and (max_ssh - min_ssh) >= 0.05:
+                try:
+                    levels = self._generate_levels(min_ssh, max_ssh)
                     
-                logger.info(f"Processing level {level:.3f} with {len(segments)} segments")
-                connected_segments = self._connect_segments(segments)
-                logger.info(f"Connected into {len(connected_segments)} features")
-                
-                for segment in connected_segments:
-                    # Check for eddies
-                    is_closed, eddy_size = self._is_closed_contour(segment)
+                    # Generate contours
+                    fig, ax = plt.subplots(figsize=(10, 10))
+                    try:
+                        contour_set = ax.contour(
+                            lons, lats, ssh,
+                            levels=levels,
+                            linestyles='-',  # Explicit solid line style
+                            linewidths=2.0,  # Thicker lines for major trends
+                            colors='black'
+                        )
+                        logger.info("Successfully created contour set")
+                    except Exception as ce:
+                        logger.error(f"Failed to create contours: {str(ce)}")
+                        raise
+                    finally:
+                        plt.close(fig)
                     
-                    # Get ocean feature classification
-                    feature_info = self._classify_ocean_feature(float(level), thresholds)
+                    # Process contours
+                    features = []
+                    for level_idx, level in enumerate(contour_set.levels):
+                        segments = contour_set.allsegs[level_idx]
+                        logger.info(f"Level {level:.3f}m:")
+                        logger.info(f"  - Found {len(segments)} segments")
+                        valid_segments = 0
+                        
+                        for segment in segments:
+                            # Only keep segments with enough points
+                            if len(segment) < 3:
+                                continue
+                                
+                            coords = [[float(x), float(y)] for x, y in segment 
+                                     if not (np.isnan(x) or np.isnan(y))]
+                            
+                            if len(coords) < 3:
+                                continue
+                                
+                            # Keep only longer segments for major trends
+                            path_length = float(LineString(coords).length)
+                            if path_length < 0.1:  # Increased minimum length
+                                continue
+                                
+                            valid_segments += 1
+                            features.append({
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "LineString",
+                                    "coordinates": coords
+                                },
+                                "properties": {
+                                    "value": clean_value(level),
+                                    "unit": "meters",
+                                    "path_length_nm": round(path_length * 60, 1),
+                                    "lineStyle": "solid"  # Explicitly mark as solid
+                                }
+                            })
+                        logger.info(f"  - Kept {valid_segments} valid segments")
                     
-                    # Calculate path length for all features
-                    path_length = float(LineString(segment).length) * 60  # Convert degrees to nautical miles
+                    logger.info(f"Final feature count: {len(features)}")
                     
-                    # Create geometry with standardized properties
-                    if is_closed:
-                        geom = mapping(Polygon(segment))
-                        feature_info["feature_type"] = f"{eddy_size}_eddy"
-                        feature_info["description"] = f"{eddy_size.capitalize()} eddy - Rotating water mass"
-                        feature_info["fishing_relevance"] = "Check edges for fish aggregation"
-                    else:
-                        geom = mapping(LineString(segment))
-                    
-                    # Create feature with enhanced properties
-                    feature = {
-                        "type": "Feature",
-                        "geometry": geom,
-                        "properties": {
-                            "value": float(level),
-                            "unit": "meters",
-                            "path_length_nm": path_length,
-                            "points": len(segment),
-                            "is_closed": is_closed,
-                            **feature_info
-                        }
-                    }
-                    features.append(feature)
+                except Exception as e:
+                    logger.error(f"Error in contour generation: {str(e)}")
+                    logger.exception(e)
+                    return self._create_geojson([], date, min_ssh, max_ssh)
+            else:
+                logger.warning(f"Insufficient data: {len(valid_ssh)} points, range: {max_ssh - min_ssh:.3f}m")
             
-            # Log summary
-            eddy_count = sum(1 for f in features if "eddy" in f["properties"]["feature_type"])
-            logger.info(f"Generated {len(features)} features including {eddy_count} eddies")
-            
-            # 6. Save as GeoJSON with enhanced metadata
-            geojson = self.create_standardized_geojson(
-                features=features,
-                date=date,
-                dataset=dataset,
-                ranges={
-                    "ssh": {"min": min_val, "max": max_val, "unit": "m"},
-                    "thresholds": thresholds
-                },
-                metadata={
-                    "feature_types": {
-                        "strong_upwelling": "Nutrient-rich areas, high potential for fish",
-                        "weak_upwelling": "Mixing zones, moderate fishing potential",
-                        "convergence": "Warm water accumulation, check for temperature breaks",
-                        "transition": "Changing conditions, monitor for activity",
-                        "eddy": "Rotating water mass, check edges for fish"
+            # Create and save GeoJSON
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features,
+                "properties": {
+                    "date": date.strftime('%Y-%m-%d'),
+                    "value_range": {
+                        "min": clean_value(min_ssh),
+                        "max": clean_value(max_ssh)
                     }
                 }
-            )
+            }
             
-            output_path = self.path_manager.get_asset_paths(date, dataset, region).contours
-            return self.save_geojson(geojson, output_path)
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            return self.save_geojson(geojson, asset_paths.contours)
             
         except Exception as e:
-            logger.error(f"Error converting SSH contours: {str(e)}")
+            logger.error(f"Error converting SSH data to contour GeoJSON: {str(e)}")
             raise
+
+    def _create_geojson(self, features, date, min_ssh, max_ssh):
+        """Create a GeoJSON object with consistent structure."""
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+            "properties": {
+                "date": date.strftime('%Y-%m-%d'),
+                "value_range": {
+                    "min": clean_value(min_ssh),
+                    "max": clean_value(max_ssh)
+                }
+            }
+        }
