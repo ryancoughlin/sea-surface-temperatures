@@ -10,30 +10,19 @@ from .data_utils import standardize_dataset
 logger = logging.getLogger(__name__)
 
 class DataPreprocessor:
-    """Handles data preprocessing operations"""
-    
     def __init__(self):
         self.land_masker = LandMasker()
-        
+    
     def preprocess_dataset(self, data: Union[xr.DataArray, xr.Dataset, Dict], dataset: str, region: str) -> xr.Dataset:
-        """
-        Preprocess dataset with standard operations
-        Args:
-            data: Input data in any supported format
-            dataset: Dataset identifier
-            region: Region identifier (used for logging)
-        Returns:
-            Preprocessed xarray Dataset
-        """
         try:
-            # First standardize the dataset format
+            # Standardize the dataset format
             standardized = standardize_dataset(data, dataset)
             logger.info(f"Standardized dataset type: {type(standardized)}")
             
-            # Apply preprocessing operations
+            # Handle dimensions and apply land masking
             preprocessed = self._preprocess_data(standardized, dataset)
             
-            # Log data ranges for monitoring
+            # Log data ranges
             self._log_data_ranges(preprocessed)
             
             return preprocessed
@@ -43,29 +32,32 @@ class DataPreprocessor:
             raise
     
     def _preprocess_data(self, data: xr.Dataset, dataset: str) -> xr.Dataset:
-        """Preprocess standardized dataset."""
         # Handle dimensions
         data = self._handle_dimensions(data)
         
         # Apply land masking based on dataset type
         dataset_type = SOURCES[dataset]['type']
-        if dataset_type in ['currents', 'waves']:
-            for var in data.data_vars:
-                data[var] = self.land_masker.mask_land(data[var])
-        elif dataset_type in ['sst', 'chlorophyll']:
+        if dataset_type in ['sst', 'chlorophyll', 'currents', 'waves']:
             for var in data.data_vars:
                 data[var] = self.land_masker.mask_land(data[var])
         
         return data
     
-    def _handle_dimensions(self, data: xr.Dataset, dims: list = None) -> xr.Dataset:
-        """Handle dimension selection for data"""
-        if dims is None:
-            dims = ['time', 'altitude', 'depth']
-            
+    def _handle_dimensions(self, data: xr.Dataset) -> xr.Dataset:
+        dims_to_reduce = ['time', 'altitude', 'depth']
+        
         for var in data.data_vars:
-            for dim in dims:
+            for dim in dims_to_reduce:
                 if dim in data[var].dims:
                     data[var] = data[var].isel({dim: 0})
-                    
+        
         return data
+    
+    def _log_data_ranges(self, data: xr.Dataset):
+        for var in data.data_vars:
+            values = data[var].values
+            valid_values = values[~np.isnan(values)]
+            if len(valid_values) > 0:
+                logger.info(f"Variable {var} range: {valid_values.min():.4f} to {valid_values.max():.4f}")
+            else:
+                logger.warning(f"No valid data found for variable {var}")

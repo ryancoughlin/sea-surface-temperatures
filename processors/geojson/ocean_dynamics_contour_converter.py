@@ -174,8 +174,8 @@ class OceanDynamicsContourConverter(BaseGeoJSONConverter):
                 lons, lats, ssh, 
                 levels=levels,
                 linestyles='solid',
-                linewidths=1.5,  # Increased for better visibility
-                colors='black'  # Consistent color for all contours
+                linewidth=1.5,
+                colors='black'
             )
             plt.close(fig)
             
