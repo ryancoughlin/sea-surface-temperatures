@@ -16,14 +16,28 @@ def clean_value(value):
 
 class OceanDynamicsContourConverter(BaseGeoJSONConverter):
     def _generate_levels(self, min_ssh: float, max_ssh: float) -> np.ndarray:
-        """Generate fewer contour levels for major SSH trends."""
-        # Fewer levels with larger intervals for major trends
+        """Generate contour levels based on data statistics."""
+        # Calculate mean and range
+        ssh_mean = (max_ssh + min_ssh) / 2
+        ssh_range = max_ssh - min_ssh
+        
+        # Use range/4 as our effective "standard deviation"
+        ssh_std = ssh_range / 4
+        
+        # Generate levels based on deviations from mean
         base_levels = np.array([
-            -0.4, -0.2, 0.0, 0.2, 0.4
+            ssh_mean - ssh_std,
+            ssh_mean - 0.5 * ssh_std,
+            ssh_mean,
+            ssh_mean + 0.5 * ssh_std,
+            ssh_mean + ssh_std
         ])
+        
         # Only use levels within our data range
         levels = base_levels[(base_levels >= min_ssh) & (base_levels <= max_ssh)]
-        logger.info(f"Using {len(levels)} SSH contour levels between {min_ssh:.3f}m and {max_ssh:.3f}m")
+        logger.info(f"Using {len(levels)} SSH contour levels:")
+        for level in levels:
+            logger.info(f"  Level: {level:.3f}m ({(level - ssh_mean)/ssh_std:.1f} std)")
         return levels
 
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:

@@ -24,35 +24,20 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
         
         thresholds = {
             'ssh': {
-                'min_amplitude': ssh_std * 0.3,  # Reduced from 0.5 to 0.3
-                'max_amplitude': ssh_std * 2.0,  # 2x STD for maximum
-                'high_thresh': ssh_mean + (ssh_std * 0.3),  # Reduced from 0.5 to 0.3
-                'low_thresh': ssh_mean - (ssh_std * 0.3)   # Reduced from 0.5 to 0.3
+                'min_amplitude': ssh_std * 0.75,  # Increased from 0.3
+                'max_amplitude': ssh_std * 2.0,
+                'high_thresh': ssh_mean + (ssh_std * 0.75),  # Increased from 0.3
+                'low_thresh': ssh_mean - (ssh_std * 0.75)    # Increased from 0.3
             },
             'size': {
-                'min_radius_points': max(2, int(10/grid_spacing)),  # Keep minimum size
-                'max_radius_points': int(150/grid_spacing)          # Keep maximum size
+                'min_radius_points': max(3, int(20/grid_spacing)),  # Increased minimum size
+                'max_radius_points': int(150/grid_spacing)
             },
             'velocity': {
-                'min_speed': 0.05,  # Reduced from 0.1 to 0.05 m/s
-                'max_speed': 1.5    # Keep maximum speed
+                'min_speed': 0.1,  # Increased from 0.05
+                'max_speed': 1.5
             }
         }
-        
-        # Calculate current statistics
-        current_magnitude = np.sqrt(u_current**2 + v_current**2)
-        current_std = np.nanstd(current_magnitude)
-        current_mean = np.nanmean(current_magnitude)
-        
-        # Adjust velocity thresholds based on data
-        thresholds['velocity']['min_speed'] = min(0.05, current_mean * 0.2)  # More lenient speed threshold
-        
-        logger.info(f"[THRESHOLDS] Grid spacing: {grid_spacing:.2f} km/point")
-        logger.info(f"[THRESHOLDS] SSH - Mean: {ssh_mean:.3f}, STD: {ssh_std:.3f}")
-        logger.info(f"[THRESHOLDS] Current - Mean: {current_mean:.3f}, STD: {current_std:.3f}")
-        logger.info(f"[THRESHOLDS] Size - Min: {thresholds['size']['min_radius_points']} points ({10:.1f}km)")
-        logger.info(f"[THRESHOLDS] Size - Max: {thresholds['size']['max_radius_points']} points ({150:.1f}km)")
-        logger.info(f"[THRESHOLDS] Current - Min: {thresholds['velocity']['min_speed']:.2f} m/s")
         
         return thresholds
     
@@ -94,61 +79,49 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                            (vorticity < np.nanpercentile(vorticity, 25)))
         
         # Process anticyclonic eddies
-        anticyclonic_count = 0
         for y, x in zip(*np.where(anticyclonic_centers)):
-            # Skip if too close to boundary
-            if (y < 3 or y >= ssh.shape[0] - 3 or 
-                x < 3 or x >= ssh.shape[1] - 3):
-                continue
-                
-            # Basic size check (20-150km diameter)
-            radius_km = self._estimate_radius(ssh_smooth, x, y, lons, lats)
-            if 10 <= radius_km <= 75:  # radius in km
-                anticyclonic_count += 1
-                features.append({
-                    'type': 'Feature',
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [float(lons[x]), float(lats[y])]
-                    },
-                    'properties': {
-                        'feature_type': 'anticyclonic_eddy',
-                        'radius_km': float(radius_km),
-                        'ssh': float(ssh[y, x]),
-                        'vorticity': float(vorticity[y, x]),
-                        'description': 'Clockwise eddy - Good for tuna/mahi',
-                        'display_text': f'CW\n{int(radius_km*2)}km'
-                    }
-                })
-                
-        # Process cyclonic eddies
-        cyclonic_count = 0
-        for y, x in zip(*np.where(cyclonic_centers)):
-            # Skip if too close to boundary
-            if (y < 3 or y >= ssh.shape[0] - 3 or 
-                x < 3 or x >= ssh.shape[1] - 3):
-                continue
-                
-            radius_km = self._estimate_radius(ssh_smooth, x, y, lons, lats)
-            if 10 <= radius_km <= 75:
-                cyclonic_count += 1
-                features.append({
-                    'type': 'Feature',
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [float(lons[x]), float(lats[y])]
-                    },
-                    'properties': {
-                        'feature_type': 'cyclonic_eddy',
-                        'radius_km': float(radius_km),
-                        'ssh': float(ssh[y, x]),
-                        'vorticity': float(vorticity[y, x]),
-                        'description': 'Counter-clockwise eddy - Good for bait/feeding',
-                        'display_text': f'CCW\n{int(radius_km*2)}km'
-                    }
-                })
+            vort_value = float(vorticity[y, x])
+            strength = 'Strong' if vort_value > np.nanpercentile(vorticity, 90) else 'Moderate'
+            
+            features.append({
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [float(lons[x]), float(lats[y])]
+                },
+                'properties': {
+                    'feature_type': 'clockwise_eddy',
+                    'fishing_type': 'Warm Eddy',
+                    'strength': strength,
+                    'target_species': ['Mahi-mahi', 'Marlin', 'Tuna'],
+                    'fishing_notes': 'Warm water eddy. Fish the edges for best results. Look for bait schools and birds.',
+                    'vorticity': vort_value,
+                    'display_text': f'{strength} Warm Eddy'
+                }
+            })
         
-        logger.info(f"[EDDY DETECTION] Found {anticyclonic_count} anticyclonic and {cyclonic_count} cyclonic eddies")
+        # Process cyclonic eddies
+        for y, x in zip(*np.where(cyclonic_centers)):
+            vort_value = float(vorticity[y, x])
+            strength = 'Strong' if abs(vort_value) > np.nanpercentile(abs(vorticity), 90) else 'Moderate'
+            
+            features.append({
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [float(lons[x]), float(lats[y])]
+                },
+                'properties': {
+                    'feature_type': 'counterclockwise_eddy',
+                    'fishing_type': 'Cool Eddy',
+                    'strength': strength,
+                    'target_species': ['Yellowfin Tuna', 'Bigeye Tuna', 'Swordfish'],
+                    'fishing_notes': 'Cool water eddy. Concentrate on edges where bait gathers. Good for deep dropping.',
+                    'vorticity': vort_value,
+                    'display_text': f'{strength} Cool Eddy'
+                }
+            })
+        
         return features
         
     def _estimate_radius(self, ssh: np.ndarray, x: int, y: int, lons: np.ndarray, lats: np.ndarray) -> float:
@@ -341,24 +314,28 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
         return aspect_ratio < 3.0 and compactness > 0.5  # More lenient criteria
     
     def _find_extrema(self, ssh: np.ndarray, lons: np.ndarray, lats: np.ndarray, 
-                     neighborhood_size: int = 10) -> List[Dict]:
-        """Find significant SSH extrema."""
+                     neighborhood_size: int = 40) -> List[Dict]:
         features = []
         
-        # Use maximum/minimum filters to find local extrema
         max_filtered = maximum_filter(ssh, size=neighborhood_size)
         min_filtered = minimum_filter(ssh, size=neighborhood_size)
         
-        # Find global extrema
         global_max = float(np.nanmax(ssh))
         global_min = float(np.nanmin(ssh))
         
-        # Find locations of maxima
-        maxima = (ssh == max_filtered) & (ssh > np.percentile(ssh[~np.isnan(ssh)], 95))
+        maxima = (ssh == max_filtered) & (ssh > np.percentile(ssh[~np.isnan(ssh)], 98))
         max_points = np.where(maxima)
         
+        processed_regions = set()
+        
         for y, x in zip(*max_points):
+            region_key = (y // (neighborhood_size//2), x // (neighborhood_size//2))
+            if region_key in processed_regions:
+                continue
+                
             ssh_value = float(ssh[y, x])
+            strength = 'Strong' if ssh_value > (ssh_mean + ssh_std * 1.5) else 'Moderate'
+            
             features.append({
                 'type': 'Feature',
                 'geometry': {
@@ -366,20 +343,36 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                     'coordinates': [float(lons[x]), float(lats[y])]
                 },
                 'properties': {
-                    'feature_type': 'ssh_maximum',
+                    'feature_type': 'high_ssh',
+                    'fishing_type': 'Temperature Break',
+                    'strength': strength,
+                    'target_species': ['Mahi-mahi', 'Tuna', 'Billfish'],
+                    'fishing_notes': 'Warm water concentration. Look for bait schools and temperature breaks.',
                     'value': ssh_value,
-                    'is_global_max': bool(np.isclose(ssh_value, global_max)),
-                    'description': f'High SSH: {ssh_value:.2f}m',
-                    'display_text': f'High SSH\n{ssh_value:.2f}m'
+                    'display_text': f'{strength} Temp Break'
                 }
             })
+            
+            for dy in range(-1, 2):
+                for dx in range(-1, 2):
+                    processed_regions.add((
+                        (y // (neighborhood_size//2)) + dy,
+                        (x // (neighborhood_size//2)) + dx
+                    ))
         
-        # Find locations of minima
-        minima = (ssh == min_filtered) & (ssh < np.percentile(ssh[~np.isnan(ssh)], 5))
+        minima = (ssh == min_filtered) & (ssh < np.percentile(ssh[~np.isnan(ssh)], 2))
         min_points = np.where(minima)
         
+        processed_regions.clear()
+        
         for y, x in zip(*min_points):
+            region_key = (y // (neighborhood_size//2), x // (neighborhood_size//2))
+            if region_key in processed_regions:
+                continue
+                
             ssh_value = float(ssh[y, x])
+            strength = 'Strong' if ssh_value < (ssh_mean - ssh_std * 1.5) else 'Moderate'
+            
             features.append({
                 'type': 'Feature',
                 'geometry': {
@@ -387,48 +380,60 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                     'coordinates': [float(lons[x]), float(lats[y])]
                 },
                 'properties': {
-                    'feature_type': 'ssh_minimum',
+                    'feature_type': 'low_ssh',
+                    'fishing_type': 'Cool Water Zone',
+                    'strength': strength,
+                    'target_species': ['Tuna', 'Wahoo', 'Kingfish'],
+                    'fishing_notes': 'Cool water area. Good for finding bait concentrations.',
                     'value': ssh_value,
-                    'is_global_min': bool(np.isclose(ssh_value, global_min)),
-                    'description': f'Low SSH: {ssh_value:.2f}m',
-                    'display_text': f'Low SSH\n{ssh_value:.2f}m'
+                    'display_text': f'{strength} Cool Zone'
                 }
             })
+            
+            for dy in range(-1, 2):
+                for dx in range(-1, 2):
+                    processed_regions.add((
+                        (y // (neighborhood_size//2)) + dy,
+                        (x // (neighborhood_size//2)) + dx
+                    ))
         
         return features
     
     def _find_upwelling_zones(self, ssh: np.ndarray, lons: np.ndarray, lats: np.ndarray,
-                             neighborhood_size: int = 20) -> List[Dict]:
-        """Find significant upwelling/downwelling zones."""
+                             neighborhood_size: int = 40) -> List[Dict]:
         features = []
         
-        # Calculate SSH gradients
         ssh_dx, ssh_dy = np.gradient(ssh)
         gradient_magnitude = np.sqrt(ssh_dx**2 + ssh_dy**2)
         
-        # Smooth SSH for zone detection
         ssh_smooth = gaussian_filter(ssh, sigma=2.0)
         
-        # Find strong upwelling zones (significant negative SSH)
-        upwelling = (ssh_smooth < -0.5) & (gradient_magnitude > np.percentile(gradient_magnitude[~np.isnan(gradient_magnitude)], 75))
+        strong_thresh = np.percentile(gradient_magnitude[~np.isnan(gradient_magnitude)], 90)
+        
+        upwelling = (ssh_smooth < -0.75) & (gradient_magnitude > strong_thresh)
         up_points = np.where(upwelling)
         
-        # Group nearby points and find centers
         processed_points = set()
         
         for y, x in zip(*up_points):
-            if (y, x) not in processed_points:
-                # Find local center
-                y_start, y_end = max(0, y - neighborhood_size//2), min(ssh.shape[0], y + neighborhood_size//2)
-                x_start, x_end = max(0, x - neighborhood_size//2), min(ssh.shape[1], x + neighborhood_size//2)
+            region_key = (y // (neighborhood_size//2), x // (neighborhood_size//2))
+            if region_key in processed_points:
+                continue
                 
-                region = ssh_smooth[y_start:y_end, x_start:x_end]
-                if region.size > 0:
-                    local_min_idx = np.unravel_index(np.argmin(region), region.shape)
-                    center_y = y_start + local_min_idx[0]
-                    center_x = x_start + local_min_idx[1]
-                    
-                    ssh_value = float(ssh[center_y, center_x])
+            y_start = max(0, y - neighborhood_size//2)
+            y_end = min(ssh.shape[0], y + neighborhood_size//2)
+            x_start = max(0, x - neighborhood_size//2)
+            x_end = min(ssh.shape[1], x + neighborhood_size//2)
+            
+            region = ssh_smooth[y_start:y_end, x_start:x_end]
+            if region.size > 0:
+                local_min_idx = np.unravel_index(np.argmin(region), region.shape)
+                center_y = y_start + local_min_idx[0]
+                center_x = x_start + local_min_idx[1]
+                
+                ssh_value = float(ssh[center_y, center_x])
+                if ssh_value < -0.75:
+                    strength = 'Strong' if ssh_value < -1.0 else 'Moderate'
                     features.append({
                         'type': 'Feature',
                         'geometry': {
@@ -436,40 +441,47 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                             'coordinates': [float(lons[center_x]), float(lats[center_y])]
                         },
                         'properties': {
-                            'feature_type': 'upwelling_zone',
+                            'feature_type': 'upwelling',
+                            'fishing_type': 'Nutrient Rich Zone',
+                            'strength': strength,
+                            'target_species': ['Tuna', 'Billfish', 'Wahoo'],
+                            'fishing_notes': 'Nutrient-rich water rising from deep. Prime area for bait and predators.',
                             'ssh': ssh_value,
-                            'strength': 'strong' if ssh_value < -0.8 else 'moderate',
-                            'description': f'Upwelling Zone: {ssh_value:.2f}m',
-                            'display_text': 'Upwelling\nZone'
+                            'display_text': f'{strength} Upwelling'
                         }
                     })
-                    
-                    # Mark region as processed
-                    for dy in range(-neighborhood_size//2, neighborhood_size//2):
-                        for dx in range(-neighborhood_size//2, neighborhood_size//2):
-                            py, px = y + dy, x + dx
-                            if 0 <= py < ssh.shape[0] and 0 <= px < ssh.shape[1]:
-                                processed_points.add((py, px))
+                
+                for dy in range(-2, 3):
+                    for dx in range(-2, 3):
+                        processed_points.add((
+                            (center_y // (neighborhood_size//2)) + dy,
+                            (center_x // (neighborhood_size//2)) + dx
+                        ))
         
-        # Find strong downwelling zones (significant positive SSH)
-        downwelling = (ssh_smooth > 0.5) & (gradient_magnitude > np.percentile(gradient_magnitude[~np.isnan(gradient_magnitude)], 75))
+        downwelling = (ssh_smooth > 0.75) & (gradient_magnitude > strong_thresh)
         down_points = np.where(downwelling)
         
         processed_points.clear()
         
         for y, x in zip(*down_points):
-            if (y, x) not in processed_points:
-                # Find local center
-                y_start, y_end = max(0, y - neighborhood_size//2), min(ssh.shape[0], y + neighborhood_size//2)
-                x_start, x_end = max(0, x - neighborhood_size//2), min(ssh.shape[1], x + neighborhood_size//2)
+            region_key = (y // (neighborhood_size//2), x // (neighborhood_size//2))
+            if region_key in processed_points:
+                continue
                 
-                region = ssh_smooth[y_start:y_end, x_start:x_end]
-                if region.size > 0:
-                    local_max_idx = np.unravel_index(np.argmax(region), region.shape)
-                    center_y = y_start + local_max_idx[0]
-                    center_x = x_start + local_max_idx[1]
-                    
-                    ssh_value = float(ssh[center_y, center_x])
+            y_start = max(0, y - neighborhood_size//2)
+            y_end = min(ssh.shape[0], y + neighborhood_size//2)
+            x_start = max(0, x - neighborhood_size//2)
+            x_end = min(ssh.shape[1], x + neighborhood_size//2)
+            
+            region = ssh_smooth[y_start:y_end, x_start:x_end]
+            if region.size > 0:
+                local_max_idx = np.unravel_index(np.argmax(region), region.shape)
+                center_y = y_start + local_max_idx[0]
+                center_x = x_start + local_max_idx[1]
+                
+                ssh_value = float(ssh[center_y, center_x])
+                if ssh_value > 0.75:
+                    strength = 'Strong' if ssh_value > 1.0 else 'Moderate'
                     features.append({
                         'type': 'Feature',
                         'geometry': {
@@ -477,20 +489,22 @@ class OceanFeaturesConverter(BaseGeoJSONConverter):
                             'coordinates': [float(lons[center_x]), float(lats[center_y])]
                         },
                         'properties': {
-                            'feature_type': 'downwelling_zone',
+                            'feature_type': 'downwelling',
+                            'fishing_type': 'Convergence Zone',
+                            'strength': strength,
+                            'target_species': ['Mahi-mahi', 'Marlin', 'Flying Fish'],
+                            'fishing_notes': 'Surface waters converging. Look for floating debris and bait.',
                             'ssh': ssh_value,
-                            'strength': 'strong' if ssh_value > 0.8 else 'moderate',
-                            'description': f'Downwelling Zone: {ssh_value:.2f}m',
-                            'display_text': 'Downwelling\nZone'
+                            'display_text': f'{strength} Convergence'
                         }
                     })
-                    
-                    # Mark region as processed
-                    for dy in range(-neighborhood_size//2, neighborhood_size//2):
-                        for dx in range(-neighborhood_size//2, neighborhood_size//2):
-                            py, px = y + dy, x + dx
-                            if 0 <= py < ssh.shape[0] and 0 <= px < ssh.shape[1]:
-                                processed_points.add((py, px))
+                
+                for dy in range(-2, 3):
+                    for dx in range(-2, 3):
+                        processed_points.add((
+                            (center_y // (neighborhood_size//2)) + dy,
+                            (center_x // (neighborhood_size//2)) + dx
+                        ))
         
         return features
 
