@@ -3,18 +3,27 @@
 # Exit on any error
 set -e
 
-# Check if required directories exist
-if [ ! -d "assets" ]; then
-    echo "Error: assets directory not found"
-    exit 1
-fi
+# Required directories
+REQUIRED_DIRS=(
+    "static"
+    "static/vector_tiles"
+    "static/region_thumbnails"
+    "api"
+    "data"
+)
 
-if [ ! -d "output" ]; then
-    echo "Creating output directory..."
-    mkdir -p output
-fi
+# Create required directories
+echo "Setting up directory structure..."
+for dir in "${REQUIRED_DIRS[@]}"; do
+    if [ ! -d "$dir" ]; then
+        echo "Creating $dir directory..."
+        mkdir -p "$dir"
+        chmod 777 "$dir"  # Ensure write permissions
+    fi
+done
 
 # Pull the latest code from the repository
+echo "Pulling latest code..."
 git pull origin main
 
 # Stop containers and clean up
@@ -30,3 +39,9 @@ docker-compose up --build -d
 echo "Verifying containers..."
 sleep 5
 docker-compose ps
+
+# Verify nginx configuration
+echo "Verifying nginx configuration..."
+docker-compose exec nginx nginx -t
+
+echo "Deployment complete! 🚀"
