@@ -15,8 +15,6 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
         """Convert wave data to GeoJSON format."""
         try:
-            logger.info(f"Converting waves data type: {type(data)}")
-            
             # Extract wave data from dataset
             if isinstance(data, xr.Dataset):
                 variables = SOURCES[dataset]['variables']

@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict
-from config.settings import SOURCES
+from config.settings import SOURCES, PATHS, LAYER_TYPES, FILE_EXTENSIONS
 import shutil
 import logging
 import re
@@ -38,8 +38,8 @@ class PathManager:
     
     def __init__(self, base_dir: Optional[Path] = None):
         self.base_dir = base_dir or Path(__file__).parent.parent
-        self.data_dir = self.base_dir / "data"
-        self.output_dir = self.base_dir / "output"
+        self.data_dir = PATHS['DOWNLOADED_DATA_DIR']
+        self.output_dir = PATHS['DATA_DIR']
         try:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -71,14 +71,14 @@ class PathManager:
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> AssetPaths:
         """Get paths for all assets for a given date, dataset, and region."""
         try:
-            base_dir = self.output_dir / region / date.strftime('%Y%m%d') / dataset
+            base_dir = self.output_dir / region / dataset / date.strftime('%Y%m%d')
             base_dir.mkdir(parents=True, exist_ok=True)
             
             return AssetPaths(
-                data=base_dir / 'data.json',
-                image=base_dir / 'image.png',
-                contours=base_dir / 'contours.json',
-                features=base_dir / 'features.json'
+                data=base_dir / f"{LAYER_TYPES['DATA']}.{FILE_EXTENSIONS[LAYER_TYPES['DATA']]}",
+                image=base_dir / f"{LAYER_TYPES['IMAGE']}.{FILE_EXTENSIONS[LAYER_TYPES['IMAGE']]}",
+                contours=base_dir / f"{LAYER_TYPES['CONTOURS']}.{FILE_EXTENSIONS[LAYER_TYPES['CONTOURS']]}",
+                features=base_dir / f"{LAYER_TYPES['FEATURES']}.{FILE_EXTENSIONS[LAYER_TYPES['FEATURES']]}"
             )
         except Exception as e:
             raise PathError(f"Failed to construct asset paths: {e}")
@@ -88,7 +88,6 @@ class PathManager:
         try:
             path = self.get_data_path(date, dataset, region)
             if path.exists():
-                logger.info(f"Using existing local file: {path.name}")
                 return path
             return None
         except Exception as e:
@@ -103,7 +102,6 @@ class PathManager:
             
             # Copy instead of move to preserve original
             shutil.copy2(source_path, local_path)
-            logger.info(f"Stored local copy at: {local_path.name}")
             return DataFileInfo(path=local_path, dataset=dataset, region=region, date=date)
         except Exception as e:
             raise PathError(f"Failed to store local copy: {e}")
@@ -127,12 +125,10 @@ class PathManager:
                             if file_date < cutoff_date:
                                 file.unlink()
                                 cleaned_count += 1
-                                logger.info(f"Removed old data file: {file}")
                     except Exception as e:
                         logger.error(f"Error processing file {file}: {e}")
                         continue
             
-            logger.info(f"Successfully cleaned up {cleaned_count} files older than {keep_days} days")
             return cleaned_count
             
         except Exception as e:

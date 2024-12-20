@@ -10,7 +10,7 @@ from processors.orchestration.processing_manager import ProcessingManager
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
+    format='%(asctime)s | %(message)s',
     datefmt='%H:%M:%S'
 )
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def main():
     """Process oceanographic data for all regions and datasets"""
     try:
-        logger.info("🌊 Starting oceanographic data processing")
+        logger.info("Starting oceanographic data processing")
         
         base_dir = Path(__file__).parent
         processing_manager = ProcessingManager(base_dir)
@@ -37,16 +37,16 @@ async def main():
                         )
                         
                         if result['status'] != 'success':
-                            logger.error(f"❌ Failed {dataset} for {region_id}: {result.get('error', 'Unknown error')}")
+                            logger.error(f"Failed {dataset} for {region_id}: {result.get('error', 'Unknown error')}")
                             
                     except Exception as e:
-                        logger.error(f"💥 Error processing {dataset} for {region_id}: {str(e)}")
+                        logger.error(f"Error processing {dataset} for {region_id}: {str(e)}")
                         continue
         
-        logger.info("🏁 Processing completed")
+        logger.info("Processing completed")
         
     except Exception as e:
-        logger.error(f"🚨 Fatal error: {str(e)}")
+        logger.error(f"Fatal error: {str(e)}")
         raise
 
 if __name__ == "__main__":

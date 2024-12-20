@@ -32,10 +32,8 @@ class CMEMSService:
         try:
             output_path = self.download_dir / region / dataset / date.strftime('%Y%m%d') / 'raw.nc'
             if output_path.exists():
-                logger.info(f"[CMEMS] Using cached data for {dataset} ({region})")
                 return output_path
 
-            logger.info(f"[CMEMS] Downloading {dataset} for {region}")
             bounds = REGIONS[region]['bounds']
             
             # Get dataset configuration
@@ -54,14 +52,10 @@ class CMEMSService:
                     # Adjust date to specific hour
                     start_time = date.replace(hour=target_hour, minute=0, second=0, microsecond=0)
                     end_time = start_time + timedelta(hours=window_hours)
-                    
-                    logger.info(f"[CMEMS] Using hourly time selection for {dataset}")
-                    logger.info(f"[CMEMS] Time selection: {start_time} to {end_time}")
                 else:
                     # Use full day for non-hourly datasets
                     start_time = date.replace(hour=0, minute=0, second=0, microsecond=0)
                     end_time = date.replace(hour=23, minute=59, second=59, microsecond=999999)
-                    logger.info(f"[CMEMS] Using full day selection for {dataset}")
             else:
                 # If dataset not in SOURCES, assume it's a direct dataset ID
                 dataset_id = dataset
@@ -72,12 +66,8 @@ class CMEMSService:
             
             # Handle both dict and list variables
             var_list = list(variables.keys()) if isinstance(variables, dict) else variables
-            logger.info(f"[CMEMS] Dataset ID: {dataset_id}")
-            logger.info(f"[CMEMS] Requesting variables: {var_list}")
-            logger.info(f"[CMEMS] Time range: {start_time} to {end_time}")
             
             try:
-                logger.info(f"[CMEMS] Making request for {dataset_id} with time range {start_time} to {end_time}")
                 copernicusmarine.subset(
                     dataset_id=dataset_id,
                     variables=var_list,
@@ -94,23 +84,22 @@ class CMEMSService:
                 if not output_path.exists():
                     raise ValueError("Download failed - no output file created")
                 
-                # Verify downloaded data
-                with xr.open_dataset(output_path) as ds:
+                # Verify downloaded data with decode_times=False
+                with xr.open_dataset(output_path, decode_times=False) as ds:
                     for var in var_list:
                         if var not in ds.variables:
                             raise ValueError(f"Downloaded data missing variable: {var}")
                         if np.all(np.isnan(ds[var].values)):
-                            logger.warning(f"[CMEMS] Variable {var} contains all NaN values")
+                            logger.warning(f"Variable {var} contains all NaN values")
                             
-                logger.info(f"[CMEMS] Successfully downloaded {dataset} ({output_path.stat().st_size / 1024 / 1024:.1f}MB)")
                 return output_path
-                
+
             except Exception as e:
-                logger.error(f"[CMEMS] Download failed for {dataset}: {str(e)}")
+                logger.error(f"Download failed for {dataset}: {str(e)}")
                 if output_path.exists():
                     output_path.unlink()
                 raise
                 
         except Exception as e:
-            logger.error(f"[CMEMS] Failed to process {dataset}: {str(e)}")
+            logger.error(f"Failed to process {dataset}: {str(e)}")
             raise

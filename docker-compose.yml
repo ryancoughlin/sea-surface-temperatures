@@ -2,8 +2,9 @@ services:
   app:
     build: .
     volumes:
-      - ./output:/output
-      - ./assets:/assets:ro  # Read-only access to static data if needed by main.py
+      - ./static:/static
+      - ./api:/api
+      - ./data:/data
     networks:
       - app_network
     restart: "no"
@@ -13,8 +14,9 @@ services:
     ports:
       - "0.0.0.0:80:80"
     volumes:
-      - ./output:/output
-      - ./assets:/assets
+      - ./static:/static
+      - ./api:/api
+      - ./data:/data
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - app_network

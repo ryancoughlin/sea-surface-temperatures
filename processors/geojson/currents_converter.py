@@ -15,8 +15,6 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
         """Convert current data to GeoJSON format."""
         try:
-            logger.info(f"Converting currents data type: {type(data)}")
-            
             # Extract current components from dataset
             if isinstance(data, xr.Dataset):
                 variables = SOURCES[dataset]['variables']
@@ -38,8 +36,7 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                 v_current = self._reduce_dimensions(v_current)
             
             # Get coordinate names
-            lon_name, lat_name = self.get_coordinate_names(u_current)
-            logger.info(f"Using coordinates: lon={lon_name}, lat={lat_name}")
+            longitude, latitude = self.get_coordinate_names(u_current)
             
             # Calculate speed and direction
             if v_current is not None:
@@ -52,8 +49,8 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                 direction = np.zeros_like(u_current)
             
             # Prepare data for feature generation
-            lats = u_current[lat_name].values
-            lons = u_current[lon_name].values
+            lats = u_current[latitude].values
+            lons = u_current[longitude].values
             speed_values = speed.values
             direction_values = direction.values
             u_values = u_current.values

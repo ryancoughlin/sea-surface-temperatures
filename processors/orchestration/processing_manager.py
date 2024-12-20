@@ -159,10 +159,8 @@ class ProcessingManager:
                             processed_data = standardize_dataset(
                                 data=processed_data,
                                 dataset=dataset,
-                                region=region_id
                             )
-                            
-                            logger.info(f"Processed data variables: {list(processed_data.variables)}")
+
                             datasets_to_merge.append(processed_data)
                             
                     except Exception as e:
@@ -174,14 +172,9 @@ class ProcessingManager:
                             'region': region_id
                         }
                 
-                # Merge all datasets into one
-                logger.info(f"Merging {len(datasets_to_merge)} datasets")
-                logger.info(f"Dataset variables to merge: {[list(ds.variables) for ds in datasets_to_merge]}")
-                
                 # Merge standardized datasets
                 combined_data = xr.merge(datasets_to_merge)
-                logger.info(f"Combined data variables: {list(combined_data.variables)}")
-                
+
                 # No need to standardize again since components were already standardized
                 processed_data = combined_data
             else:
@@ -195,7 +188,6 @@ class ProcessingManager:
                     processed_data = standardize_dataset(
                         data=raw_data,
                         dataset=dataset,
-                        region=region_id
                     )
 
             # Generate outputs

@@ -171,55 +171,46 @@ def apply_land_mask(data: Union[xr.Dataset, xr.DataArray],
     return data
 
 # Logging functions
-def log_data_ranges(data: Union[xr.Dataset, xr.DataArray], name: str = ""):
-    """Log data ranges for monitoring."""
+def log_data_ranges(data: Union[xr.Dataset, xr.DataArray], name: str = None) -> None:
+    """Log min/max ranges for all variables in a dataset."""
     if isinstance(data, xr.Dataset):
         for var in data.data_vars:
-            _log_variable_range(data[var], f"{name}:{var}" if name else var)
+            valid_data = data[var].values[~np.isnan(data[var].values)]
+            if len(valid_data) == 0:
+                logger.info(f"No valid data for {name}:{var}")
+                continue
+            min_val = float(np.min(valid_data))
+            max_val = float(np.max(valid_data))
+            logger.info(f"[RANGES] {name}:{var} min/max: {min_val:.4f} to {max_val:.4f}")
     else:
-        _log_variable_range(data, name or "data")
-
-def _log_variable_range(da: xr.DataArray, name: str):
-    """Log range for a single variable."""
-    valid_data = da.values[~np.isnan(da.values)]
-    if len(valid_data) > 0:
-        logger.info(f"[RANGES] {name} min/max: {valid_data.min():.4f} to {valid_data.max():.4f}")
-    else:
-        logger.info("data", da)
-        logger.warning(f"No valid data for {name}")
+        valid_data = data.values[~np.isnan(data.values)]
+        if len(valid_data) == 0:
+            logger.info(f"No valid data for {name or data.name}")
+            return
+        min_val = float(np.min(valid_data))
+        max_val = float(np.max(valid_data))
+        logger.info(f"[RANGES] {name or data.name} min/max: {min_val:.4f} to {max_val:.4f}")
 
 # Main entry point
 def standardize_dataset(data: Union[xr.Dataset, xr.DataArray], 
-                       dataset: str,
-                       region: str = None) -> xr.Dataset:
+                       dataset: str) -> xr.Dataset:
     """
     Main entry point for data standardization.
     Returns a standardized xarray Dataset with consistent coordinates and types.
     """
     try:
-        logger.info(f"Standardizing dataset: {dataset}" + (f" for {region}" if region else ""))
-        
-        # 1. Ensure correct data type and structure
         data, missing_coords = ensure_data_type(data, dataset)
         if missing_coords:
             raise ValueError(f"Missing coordinates: {missing_coords}")
         
-        # 2. Remove depth coordinate and variable if present
         if 'depth' in data.coords:
             data = data.drop_vars('depth')
         if 'depth' in data.variables:
             data = data.drop_vars('depth')
-        
-        # 3. Standardize coordinates
+
         data = standardize_coordinates(data)
-        
-        # 4. Reduce extra dimensions
         data = reduce_dimensions(data)
-        
-        # 5. Apply land masking
         data = apply_land_mask(data, dataset)
-        
-        # 6. Log data ranges
         log_data_ranges(data, dataset)
         
         return data

@@ -93,5 +93,5 @@ class DataAssembler:
         for layer_type, path in paths.items():
             if path:  # Only include paths that exist
                 relative_path = str(path).replace(str(self.data_dir) + '/', '')
-                urls[layer_type] = f"{SERVER_URL}/{relative_path}"
+                urls[layer_type] = f"{SERVER_URL}/{PATHS['DATA_DIR'].name}/{relative_path}"
         return urls

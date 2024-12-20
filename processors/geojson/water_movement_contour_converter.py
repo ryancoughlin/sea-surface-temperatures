@@ -37,16 +37,11 @@ class WaterMovementContourConverter(BaseGeoJSONConverter):
         
         # Only use levels within our data range
         levels = base_levels[(base_levels >= min_ssh) & (base_levels <= max_ssh)]
-        logger.info(f"Using {len(levels)} SSH contour levels:")
-        for level in levels:
-            logger.info(f"  Level: {level:.3f}m ({(level - ssh_mean)/ssh_std:.1f} std)")
         return levels
 
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert water movement data to contour GeoJSON format."""
         try:
-            logger.info(f"📈 Creating water movement contours for {dataset} in {region}")
-            
             # Get SSH data
             ssh = data['sea_surface_height'].values
             lon_name, lat_name = self.get_coordinate_names(data)
@@ -105,15 +100,12 @@ class WaterMovementContourConverter(BaseGeoJSONConverter):
                                                 "path_length_nm": round(path_length * 60, 1),
                                                 "lineStyle": "solid"
                                             }
-                                        })
-                    
-                    logger.info(f"   └── Generated {valid_segments} contour segments")
-                    
+                                        })                    
                 except Exception as e:
                     logger.error(f"❌ Failed to generate contours: {str(e)}")
                     return self._create_geojson([], date, min_ssh, max_ssh)
             else:
-                logger.warning(f"⚠️  Insufficient data for contours: {len(valid_ssh)} points, range: {max_ssh - min_ssh:.3f}m")
+                logger.warning(f"❌  Insufficient data for contours: {len(valid_ssh)} points, range: {max_ssh - min_ssh:.3f}m")
             
             # Create and save GeoJSON
             geojson = {

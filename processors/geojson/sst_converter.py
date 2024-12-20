@@ -14,8 +14,6 @@ class SSTGeoJSONConverter(BaseGeoJSONConverter):
     def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to GeoJSON format."""
         try:
-            logger.info(f"Converting SST data type: {type(data)}")
-            
             # Handle Dataset vs DataArray and extract SST data
             if isinstance(data, xr.Dataset):
                 # Get the main SST variable

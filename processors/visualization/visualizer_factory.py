@@ -17,6 +17,5 @@ class VisualizerFactory:
         if dataset_type not in PROCESSOR_MAPPING:
             raise ValueError(f"Visualizer type {dataset_type} not supported")
             
-        logger.info(f"Creating visualizer for {dataset_type}")
         visualizer_class = PROCESSOR_MAPPING[dataset_type]['visualizer']
         return visualizer_class(self.path_manager)
