@@ -92,7 +92,6 @@ def reduce_dimensions(data: Union[xr.Dataset, xr.DataArray],
     for dim in dims_to_reduce:
         if dim in data.dims:
             data = data.isel({dim: 0})
-            logger.info(f"Reduced {dim} dimension")
     
     return data
 
