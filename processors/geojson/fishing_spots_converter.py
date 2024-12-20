@@ -2,12 +2,63 @@ from pathlib import Path
 import logging
 import datetime
 import numpy as np
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Final
 from .base_converter import BaseGeoJSONConverter
 import xarray as xr
 from scipy.ndimage import maximum_filter, minimum_filter, gaussian_filter
 from config.settings import SOURCES
 logger = logging.getLogger(__name__)
+
+# Feature type definitions
+FEATURE_TYPES: Final[Dict[str, Dict]] = {
+    'warm_eddy': {
+        'feature_type': 'clockwise_eddy',
+        'fishing_type': 'Warm Eddy',
+        'target_species': ['Mahi-mahi', 'Marlin', 'Tuna'],
+        'fishing_notes': 'Warm water eddy. Fish the edges for best results. Look for bait schools and birds.'
+    },
+    'cool_eddy': {
+        'feature_type': 'counterclockwise_eddy',
+        'fishing_type': 'Cool Eddy',
+        'target_species': ['Yellowfin Tuna', 'Bigeye Tuna', 'Swordfish'],
+        'fishing_notes': 'Cool water eddy. Concentrate on edges where bait gathers. Good for deep dropping.'
+    },
+    'temp_break_high': {
+        'feature_type': 'high_ssh',
+        'fishing_type': 'Temperature Break',
+        'target_species': ['Mahi-mahi', 'Tuna', 'Billfish'],
+        'fishing_notes': 'Warm water concentration. Look for bait schools and temperature breaks.'
+    },
+    'temp_break_low': {
+        'feature_type': 'low_ssh',
+        'fishing_type': 'Cool Water Zone',
+        'target_species': ['Tuna', 'Wahoo', 'Kingfish'],
+        'fishing_notes': 'Cool water area. Good for finding bait concentrations.'
+    },
+    'upwelling': {
+        'feature_type': 'upwelling',
+        'fishing_type': 'Nutrient Rich Zone',
+        'target_species': ['Tuna', 'Billfish', 'Wahoo'],
+        'fishing_notes': 'Nutrient-rich water rising from deep. Prime area for bait and predators.'
+    },
+    'convergence': {
+        'feature_type': 'downwelling',
+        'fishing_type': 'Convergence Zone',
+        'target_species': ['Mahi-mahi', 'Marlin', 'Flying Fish'],
+        'fishing_notes': 'Surface waters converging. Look for floating debris and bait.'
+    }
+}
+
+# Threshold constants
+THRESHOLDS: Final[Dict[str, float]] = {
+    'strong_percentile': 90,
+    'moderate_percentile': 75,
+    'min_upwelling': -0.75,
+    'max_downwelling': 0.75,
+    'min_gradient': 0.00015,
+    'min_curvature': 0.0001,
+    'strong_current': 0.5
+}
 
 class FishingSpotConverter(BaseGeoJSONConverter):
     """Detects and converts potential fishing spots to GeoJSON format."""
@@ -511,7 +562,26 @@ class FishingSpotConverter(BaseGeoJSONConverter):
                         ))
         
         return features
-
+    
+    def _create_feature(self, feature_type: str, coords: Tuple[float, float], 
+                       strength: str, value: float) -> Dict:
+        """Create a standardized GeoJSON feature."""
+        feature_props = FEATURE_TYPES[feature_type].copy()
+        feature_props.update({
+            'strength': strength,
+            'value': value,
+            'display_text': f'{strength} {feature_props["fishing_type"]}'
+        })
+        
+        return {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': coords
+            },
+            'properties': feature_props
+        }
+    
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert ocean dynamics data to feature GeoJSON format."""
         try:

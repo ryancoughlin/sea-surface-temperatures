@@ -1,30 +1,25 @@
-from typing import Dict, Type
+from typing import Dict, Type, Final
 
-# SST
+# Import visualizers
 from processors.visualization.sst_visualizer import SSTVisualizer
+from processors.visualization.currents_visualizer import CurrentsVisualizer
+from processors.visualization.chlorophyll_visualizer import ChlorophyllVisualizer
+from processors.visualization.waves_visualizer import WavesVisualizer
+from processors.visualization.water_movement_visualizer import WaterMovementVisualizer
+
+# Import converters
 from processors.geojson.sst_converter import SSTGeoJSONConverter
 from processors.geojson.sst_contour_converter import SSTContourConverter
-
-# Currents
-from processors.visualization.currents_visualizer import CurrentsVisualizer
 from processors.geojson.currents_converter import CurrentsGeoJSONConverter
-
-# Chlorophyll
-from processors.visualization.chlorophyll_visualizer import ChlorophyllVisualizer
 from processors.geojson.chlorophyll_converter import ChlorophyllGeoJSONConverter
 from processors.geojson.chlorophyll_contour_converter import ChlorophyllContourConverter
-
-# Waves
-from processors.visualization.waves_visualizer import WavesVisualizer
 from processors.geojson.waves_converter import WavesGeoJSONConverter
-
-# Water Movement
-from processors.visualization.water_movement_visualizer import WaterMovementVisualizer
 from processors.geojson.water_movement_converter import WaterMovementConverter
 from processors.geojson.water_movement_contour_converter import WaterMovementContourConverter
 from processors.geojson.fishing_spots_converter import FishingSpotConverter
-# Map dataset types to their processors
-PROCESSOR_MAPPING = {
+
+# Processor type mapping
+PROCESSOR_MAPPING: Final[Dict] = {
     'sst': {
         'visualizer': SSTVisualizer,
         'geojson': SSTGeoJSONConverter,
