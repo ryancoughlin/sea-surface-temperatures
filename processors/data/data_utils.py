@@ -26,33 +26,6 @@ def get_coordinate_names(dataset: xr.Dataset) -> tuple[str, str]:
         
     return lon_name, lat_name
 
-def extract_variables(data: xr.Dataset, dataset: str) -> Tuple[xr.Dataset, List[str]]:
-    """Extract variables from dataset based on configuration."""
-    dataset_config = SOURCES.get(dataset)
-    
-    if not dataset_config:
-        for source_config in SOURCES.values():
-            if source_config.get('source_type') == 'combined_view':
-                for component_info in source_config['source_datasets'].values():
-                    if component_info['dataset_id'] == dataset:
-                        dataset_config = {'variables': component_info['variables']}
-                        break
-                if dataset_config:
-                    break
-    
-    if not dataset_config:
-        raise ValueError(f"Dataset {dataset} not found in configuration")
-        
-    variables = dataset_config['variables']
-    var_names = list(variables.keys())
-
-    # Always return a Dataset with selected variables
-    processed_data = data[var_names]
-    if not isinstance(processed_data, xr.Dataset):
-        processed_data = processed_data.to_dataset()
-    
-    return processed_data, var_names
-
 def convert_temperature_to_f(data: xr.Dataset, source_unit: str = None) -> xr.Dataset:
     """Convert temperature data to Fahrenheit."""
     if source_unit is None:
