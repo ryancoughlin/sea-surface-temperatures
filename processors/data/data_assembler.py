@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 from typing import Dict
 
-from config.settings import SOURCES, SERVER_URL
+from config.settings import SOURCES, SERVER_URL, LAYER_TYPES, FILE_EXTENSIONS, PATHS
 
 logger = logging.getLogger(__name__)
 
@@ -13,19 +13,19 @@ class DataAssembler:
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.output_dir = base_dir / "output"
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.data_dir = PATHS['DATA_DIR']
+        self.data_dir.mkdir(parents=True, exist_ok=True)
 
     def get_asset_paths(self, date: datetime, dataset: str, region: str) -> Dict[str, Path]:
         """Get paths for all assets for a given date, dataset, and region."""
-        base_dir = self.output_dir / region / date.strftime('%Y%m%d') / dataset
+        base_dir = self.data_dir / region / dataset / date.strftime('%Y%m%d')
         base_dir.mkdir(parents=True, exist_ok=True)
         
         return {
-            'data': base_dir / 'data.json',
-            'image': base_dir / 'image.png',
-            'contours': base_dir / 'contours.json',
-            'features': base_dir / 'features.json'
+            LAYER_TYPES['DATA']: base_dir / f"{LAYER_TYPES['DATA']}.{FILE_EXTENSIONS[LAYER_TYPES['DATA']]}",
+            LAYER_TYPES['IMAGE']: base_dir / f"{LAYER_TYPES['IMAGE']}.{FILE_EXTENSIONS[LAYER_TYPES['IMAGE']]}",
+            LAYER_TYPES['CONTOURS']: base_dir / f"{LAYER_TYPES['CONTOURS']}.{FILE_EXTENSIONS[LAYER_TYPES['CONTOURS']]}",
+            LAYER_TYPES['FEATURES']: base_dir / f"{LAYER_TYPES['FEATURES']}.{FILE_EXTENSIONS[LAYER_TYPES['FEATURES']]}"
         }
 
     def update_metadata(self, dataset: str, region: str, date: datetime, paths: Dict[str, str], ranges: Dict = None):
@@ -42,7 +42,7 @@ class DataAssembler:
                 date_entry["ranges"] = ranges
             
             # Load or create metadata file
-            metadata_path = self.output_dir / "metadata.json"
+            metadata_path = PATHS['API_DIR'] / "metadata.json"
             if metadata_path.exists():
                 with open(metadata_path) as f:
                     metadata = json.load(f)
@@ -92,5 +92,6 @@ class DataAssembler:
         urls = {}
         for layer_type, path in paths.items():
             if path:  # Only include paths that exist
-                urls[layer_type] = f"{SERVER_URL}/{path.replace('output/', '')}"
+                relative_path = str(path).replace(str(self.data_dir) + '/', '')
+                urls[layer_type] = f"{SERVER_URL}/{relative_path}"
         return urls

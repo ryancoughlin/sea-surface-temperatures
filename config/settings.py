@@ -5,6 +5,36 @@ SERVER_URL = "http://157.245.10.94"
 
 ROOT_DIR = Path(__file__).parent.parent
 
+PATHS = {
+    # Static content (never changes)
+    'STATIC_DIR': ROOT_DIR / 'static',
+    'VECTOR_TILES_DIR': ROOT_DIR / 'static' / 'vector_tiles',
+    'REGION_THUMBNAILS_DIR': ROOT_DIR / 'static' / 'region_thumbnails',
+    
+    # API resources
+    'API_DIR': ROOT_DIR / 'api',
+    
+    # Raw downloaded data
+    'DOWNLOADED_DATA_DIR': ROOT_DIR / 'downloaded_data',
+    
+    # Processed data (daily updates)
+    'DATA_DIR': ROOT_DIR / 'data',
+}
+
+LAYER_TYPES = {
+    'DATA': 'data',
+    'IMAGE': 'image',
+    'CONTOURS': 'contours',
+    'FEATURES': 'features'
+}
+
+FILE_EXTENSIONS = {
+    LAYER_TYPES['DATA']: 'json',
+    LAYER_TYPES['IMAGE']: 'png',
+    LAYER_TYPES['CONTOURS']: 'json',
+    LAYER_TYPES['FEATURES']: 'json'
+}
+
 with open(ROOT_DIR / 'color_scale.json', 'r') as f:  # Update color scale path
     color_scale = json.load(f)
 

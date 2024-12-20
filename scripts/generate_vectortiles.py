@@ -8,6 +8,13 @@ import logging
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
+import sys
+
+# Add project root to Python path
+root_dir = Path(__file__).parent.parent
+sys.path.append(str(root_dir))
+
+from config.settings import PATHS
 
 # Configure logging
 logging.basicConfig(
@@ -19,17 +26,16 @@ logger = logging.getLogger(__name__)
 class VectorTileGenerator:
     """Handles the generation of vector tiles from geospatial data."""
     
-    def __init__(self, input_path: str, layer_name: str, output_dir: str = "layers"):
+    def __init__(self, input_path: str, layer_name: str):
         """Initialize the vector tile generator.
         
         Args:
             input_path: Path to input data (GDB directory or shapefile)
             layer_name: Name for the data layer
-            output_dir: Base directory for vector tiles (default: layers)
         """
         self.input_path = input_path
         self.layer_name = layer_name
-        self.output_dir = Path(output_dir) / layer_name
+        self.output_dir = PATHS['VECTOR_TILES_DIR'] / layer_name
         self.paths = self._setup_paths()
         self.required_tools = ['ogr2ogr', 'tippecanoe', 'mb-util']
 
@@ -206,7 +212,7 @@ def main() -> None:
     """Main entry point."""
     try:
         args = parse_args()
-        generator = VectorTileGenerator(args.input_path, args.name, args.output_dir)
+        generator = VectorTileGenerator(args.input_path, args.name)
         generator.generate_tiles(args.min_zoom, args.max_zoom)
     except Exception as e:
         logger.error(f"Error: {e}")

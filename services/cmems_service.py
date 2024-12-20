@@ -4,7 +4,7 @@ import logging
 import asyncio
 import copernicusmarine
 import os
-from config.settings import SOURCES
+from config.settings import SOURCES, PATHS
 from config.regions import REGIONS
 import xarray as xr
 import numpy as np
@@ -15,6 +15,8 @@ class CMEMSService:
     def __init__(self, session, path_manager):
         self.session = session
         self.path_manager = path_manager
+        self.download_dir = PATHS['DOWNLOADED_DATA_DIR']
+        self.download_dir.mkdir(parents=True, exist_ok=True)
         
     async def save_data(self, date: datetime, dataset: str, region: str, variables: dict = None) -> Path:
         """
@@ -28,7 +30,7 @@ class CMEMSService:
                      If not provided, will look up in SOURCES
         """
         try:
-            output_path = self.path_manager.get_data_path(date, dataset, region)
+            output_path = self.download_dir / region / dataset / date.strftime('%Y%m%d') / 'raw.nc'
             if output_path.exists():
                 logger.info(f"[CMEMS] Using cached data for {dataset} ({region})")
                 return output_path

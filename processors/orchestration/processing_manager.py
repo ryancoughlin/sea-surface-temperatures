@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Union
 from contextlib import contextmanager
 import aiohttp
@@ -7,6 +7,7 @@ import logging
 import asyncio
 import xarray as xr
 import numpy as np
+import os
 
 from services.erddap_service import ERDDAPService
 from services.cmems_service import CMEMSService
@@ -14,9 +15,10 @@ from processors.data.data_assembler import DataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.visualization.visualizer_factory import VisualizerFactory
 from processors.data.data_utils import standardize_dataset
-from config.settings import SOURCES
+from config.settings import SOURCES, PATHS
 from utils.path_manager import PathManager
 from processors.data.data_utils import extract_variables
+from config.regions import REGIONS
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,14 @@ class ProcessingManager:
         # Initialize services
         self.services = {}
 
+    def ensure_directory(self, path: Path):
+        """Create directory if it doesn't exist and ensure proper permissions."""
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(path, 0o777)
+        except Exception as e:
+            logger.warning(f"Could not set permissions for {path}: {e}")
+
     async def initialize(self, session: aiohttp.ClientSession):
         """Initialize services with session"""
         self.session = session
@@ -43,6 +53,35 @@ class ProcessingManager:
             'erddap': ERDDAPService(session, self.path_manager),
             'cmems': CMEMSService(session, self.path_manager)
         }
+        
+        # Ensure base directories exist
+        for path in [PATHS['DATA_DIR'], PATHS['DOWNLOADED_DATA_DIR']]:
+            self.ensure_directory(path)
+
+    async def _get_data(self, date: datetime, dataset: str, region_id: str) -> Optional[Path]:
+        """Get data file from local storage or download"""
+        # Ensure the download directory exists
+        download_dir = PATHS['DOWNLOADED_DATA_DIR'] / region_id / dataset / date.strftime('%Y%m%d')
+        self.ensure_directory(download_dir)
+        
+        # Check downloaded data first
+        downloaded_path = download_dir / 'raw.nc'
+        if downloaded_path.exists():
+            logger.info(f"♻️  Using cached data for {dataset}")
+            return downloaded_path
+            
+        source_config = SOURCES[dataset]
+        source_type = source_config.get('source_type')
+        
+        if source_type not in self.services:
+            raise ValueError(f"Unknown source type: {source_type}")
+            
+        try:
+            downloaded_path = await self.services[source_type].save_data(date, dataset, region_id)
+            return downloaded_path
+        except Exception as e:
+            logger.error(f"📥 Download failed for {dataset}: {str(e)}")
+            return None
 
     async def process_datasets(self, date: datetime, region_id: str, datasets: List[str], skip_geojson: bool = False) -> List[dict]:
         """Process multiple datasets for a region"""
@@ -72,26 +111,6 @@ class ProcessingManager:
             if ds:
                 ds.close()
 
-    async def _get_data(self, date: datetime, dataset: str, region_id: str) -> Optional[Path]:
-        """Get data file from local storage or download"""
-        local_file = self.path_manager.find_local_file(dataset, region_id, date)
-        if local_file:
-            logger.info(f"♻️  Using cached data for {dataset}")
-            return local_file
-            
-        source_config = SOURCES[dataset]
-        source_type = source_config.get('source_type')
-        
-        if source_type not in self.services:
-            raise ValueError(f"Unknown source type: {source_type}")
-            
-        try:
-            downloaded_path = await self.services[source_type].save_data(date, dataset, region_id)
-            return downloaded_path
-        except Exception as e:
-            logger.error(f"📥 Download failed for {dataset}: {str(e)}")
-            return None
-
     async def process_dataset(self, date: datetime, region_id: str, dataset: str, skip_geojson: bool = False) -> dict:
         """Process single dataset for a region"""
         logger.info(f"🔄 Processing {dataset} for {region_id}")
@@ -109,6 +128,10 @@ class ProcessingManager:
                 for source_name, source_info in source_config['source_datasets'].items():
                     logger.info(f"Processing {source_name} component of {dataset}")
                     logger.info(f"Source info: {source_info}")
+                    
+                    # Ensure directory exists for component dataset
+                    download_dir = PATHS['DOWNLOADED_DATA_DIR'] / region_id / source_info['dataset_id'] / date.strftime('%Y%m%d')
+                    self.ensure_directory(download_dir)
                     
                     # Download using appropriate service
                     try:

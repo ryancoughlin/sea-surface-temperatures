@@ -13,6 +13,7 @@ root_dir = Path(__file__).parent.parent
 sys.path.append(str(root_dir))
 
 from config.regions import REGIONS
+from config.settings import PATHS
 from scripts.generate_thumbnails import generate_all_thumbnails
 
 def export_regions():
@@ -34,7 +35,7 @@ def export_regions():
     regions_list = [
         {
             "id": region_id,
-            "thumbnail": f"/assets/region_thumbnails/{thumbnail_mapping[region_id]}",
+            "thumbnail": f"/static/region_thumbnails/{thumbnail_mapping[region_id]}",
             **region_data
         }
         for region_id, region_data in REGIONS.items()
@@ -54,7 +55,7 @@ def export_regions():
     # Sort groups alphabetically
     grouped_regions.sort(key=lambda x: x['group'])
     
-    output_path = root_dir / "output" / "regions.json"
+    output_path = PATHS['API_DIR'] / 'regions.json'
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"Writing regions to {output_path}")

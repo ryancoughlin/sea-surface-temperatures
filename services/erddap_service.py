@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import aiohttp
 import asyncio
-from config.settings import SOURCES
+from config.settings import SOURCES, PATHS
 from config.regions import REGIONS
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,8 @@ class ERDDAPService:
     def __init__(self, session: aiohttp.ClientSession, path_manager):
         self.session = session
         self.path_manager = path_manager
+        self.download_dir = PATHS['DOWNLOADED_DATA_DIR']
+        self.download_dir.mkdir(parents=True, exist_ok=True)
         
         self.timeout = aiohttp.ClientTimeout(
             total=300,     # 5 minutes total
@@ -61,7 +63,7 @@ class ERDDAPService:
 
     async def save_data(self, date: datetime, dataset: str, region: str) -> Path:
         try:
-            output_path = self.path_manager.get_data_path(date, dataset, region)
+            output_path = self.download_dir / region / dataset / date.strftime('%Y%m%d') / 'raw.nc'
             if output_path.exists():
                 logger.info(f"[ERDDAP] Using cached data for {dataset} ({region})")
                 return output_path
