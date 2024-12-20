@@ -82,7 +82,7 @@ SOURCES = {
                 }
             }
         },
-        "supportedLayers": ["image", "data", "contours", "features"],
+        "supportedLayers": ["image", "data", "contours"],
         "metadata": {
             "cloud-free": "Yes",
             "frequency": "Daily",
@@ -91,9 +91,81 @@ SOURCES = {
             "processing_note": "Processes noon UTC altimetry data with daily currents."
         }
     },
+    "LEOACSPOSSTL3SnrtCDaily": {
+        "source_type": "erddap",
+        "type": "sst",
+        "name": "LEO ACSPO SST L3S NRT C Daily",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
+        "variables": {
+            "sea_surface_temperature": {
+                "type": "temperature",
+                "source_unit": "C",
+                "target_unit": "fahrenheit",
+            },
+            "sst_gradient_magnitude": {
+                "type": "gradient",
+                "unit": "C/km",
+            }
+        },
+        "lag_days": 2,
+        "color_scale": [
+            '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
+            '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
+            '#3a7bea', '#4185f8', '#41b6c4', '#46c0cd', '#4bcad6',
+            '#50d4df', '#55dde8', '#5ae7f1', '#7fcdbb', '#8ed7c4',
+            '#9de1cd', '#acebd6', '#bbf5df', '#c7e9b4', '#d6edb8',
+            '#e5f1bc', '#f4f5c0', '#fef396', '#fec44f', '#fdb347',
+            '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
+            '#f74d17'
+        ],
+        "stride": None,
+        "supportedLayers": ["image", "data", "contours", "features"],
+        "metadata": {
+            "cloud-free": "No",
+            "frequency": "Daily",
+            "resolution": "1 mile",
+            "capture": "blends day and night",
+            "description": "Sea surface temperature from NOAA's ACSPO L3S product."
+        }
+    },
+    "BLENDEDsstDNDaily": {
+        "source_type": "erddap",
+        "type": "sst",
+        "name": "NOAA Geo-polar Blended SST Analysis Day+Night",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
+        "dataset_id": "noaacwBLENDEDsstDNDaily",
+        "variables": {
+            "analysed_sst": {
+                "type": "temperature",
+                "source_unit": "C",
+                "target_unit": "fahrenheit",
+            }
+        },
+        "lag_days": 2,
+        "supportedLayers": ["image", "data", "contours"],
+        "color_scale": [
+            '#081d58', '#0d2167', '#122b76', '#173584', '#1c3f93',
+            '#2149a1', '#2653b0', '#2b5dbe', '#3067cd', '#3571db',
+            '#3a7bea', '#4185f8', '#41b6c4', '#46c0cd', '#4bcad6',
+            '#50d4df', '#55dde8', '#5ae7f1', '#7fcdbb', '#8ed7c4',
+            '#9de1cd', '#acebd6', '#bbf5df', '#c7e9b4', '#d6edb8',
+            '#e5f1bc', '#f4f5c0', '#fef396', '#fec44f', '#fdb347',
+            '#fca23f', '#fb9137', '#fa802f', '#f96f27', '#f85e1f',
+            '#f74d17'
+        ],
+        "metadata": {
+            "cloud-free": "Yes",
+            "frequency": "Daily",
+            "resolution": "~3.1 miles (0.05°)",
+            "description": "Blended sea surface temperature analysis from multiple satellites.",
+            "capture": "Blends day and night"
+        }
+    },
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
+        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
         "variables": {
             "chlor_a": {
@@ -154,7 +226,6 @@ SOURCES = {
             "cloud-free": "Yes",
             "frequency": "3-hourly",
             "resolution": "5 miles",
-            "description": "Global wave analysis including height, period, and direction."
         }
     }
 }

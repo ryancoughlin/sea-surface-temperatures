@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 import xarray as xr
-from typing import Dict, List
+from typing import Dict, List, Optional
 from shapely.geometry import LineString
 from skimage import measure 
 

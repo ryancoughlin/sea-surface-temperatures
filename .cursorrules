@@ -12,6 +12,10 @@
 
 - Keep commit messages concise.
 
+## Data Processing
+
+- Use xr.Dataset for all data processing.
+
 ## Libraries
 
 - Use `xarray` for all data manipulation and analysis. Use declaritive operations always.
