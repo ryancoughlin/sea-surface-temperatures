@@ -7,7 +7,7 @@ class Region(TypedDict):
     center: List[float]
 
 REGIONS: Dict[str, Region] = {
-    Atlantic Ocean
+    #Atlantic Ocean
     "gulf_of_maine": {
         "name": "Gulf of Maine",
         "group": "Atlantic Ocean",
