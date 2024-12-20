@@ -585,66 +585,48 @@ class FishingSpotConverter(BaseGeoJSONConverter):
     def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert ocean dynamics data to feature GeoJSON format."""
         try:
-            # Get variables based on SOURCES configuration
+            logger.info(f"🎯 Processing fishing spots for {dataset} in {region}")
+            
+            # Get variables and coordinates
             source_config = SOURCES[dataset]
             altimetry_vars = source_config['source_datasets']['altimetry']['variables']
             currents_vars = source_config['source_datasets']['currents']['variables']
             
-            # Get SSH variable name
             ssh_var = next(var for var in altimetry_vars.keys())
-            
-            # Get current variable names
             u_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('u'))
             v_var = next(var for var, config in currents_vars.items() if config['type'] == 'current' and var.startswith('v'))
             
-            # Get coordinates
             lon_name, lat_name = self.get_coordinate_names(data)
             lons = data[lon_name].values
             lats = data[lat_name].values
             
-            # Extract variables from merged dataset
+            # Extract variables
             ssh = data[ssh_var].values
             u_current = data[u_var].values
             v_current = data[v_var].values
             
-            logger.info(f"[EDDY DETECTION] SSH shape: {ssh.shape}")
-            logger.info(f"[EDDY DETECTION] Current shapes: {u_current.shape}, {v_current.shape}")
-            
-            # Calculate some statistics for debugging
-            logger.info(f"[EDDY DETECTION] SSH range: {np.nanmin(ssh):.3f} to {np.nanmax(ssh):.3f}")
-            logger.info(f"[EDDY DETECTION] U current range: {np.nanmin(u_current):.3f} to {np.nanmax(u_current):.3f}")
-            logger.info(f"[EDDY DETECTION] V current range: {np.nanmin(v_current):.3f} to {np.nanmax(v_current):.3f}")
-            
             # Initialize features list
             features = []
             
-            # Detect eddies with debug info
+            # Detect features
             eddy_features = self._detect_eddies(ssh, u_current, v_current, lons, lats)
-            logger.info(f"[EDDY DETECTION] Found {len(eddy_features)} eddies")
+            logger.info(f"   ├── Found {len(eddy_features)} eddies")
             features.extend(eddy_features)
             
-            # Find SSH extrema
             ssh_features = self._find_extrema(ssh, lons, lats)
-            logger.info(f"[EDDY DETECTION] Found {len(ssh_features)} SSH extrema")
+            logger.info(f"   ├── Found {len(ssh_features)} temperature breaks")
             features.extend(ssh_features)
             
-            # Find upwelling/downwelling zones
-            features.extend(self._find_upwelling_zones(ssh, lons, lats))
+            upwelling_features = self._find_upwelling_zones(ssh, lons, lats)
+            logger.info(f"   └── Found {len(upwelling_features)} upwelling/convergence zones")
+            features.extend(upwelling_features)
             
-            # Add metadata
+            # Create GeoJSON
             metadata = {
                 "source": dataset,
-                "feature_types": [
-                    "cyclonic_eddy",
-                    "anticyclonic_eddy",
-                    "ssh_maximum",
-                    "ssh_minimum",
-                    "upwelling_zone",
-                    "downwelling_zone"
-                ]
+                "feature_types": list(FEATURE_TYPES.keys())
             }
             
-            # Create standardized GeoJSON
             geojson = self.create_standardized_geojson(
                 features=features,
                 date=date,
@@ -655,10 +637,10 @@ class FishingSpotConverter(BaseGeoJSONConverter):
             
             # Save and return path
             output_path = self.path_manager.get_asset_paths(date, dataset, region).features
-            logger.info(f"   └── Saving ocean features GeoJSON to {output_path.name}")
+            logger.info(f"💾 Saved {len(features)} fishing spots to {output_path.name}")
             
             return self.save_geojson(geojson, output_path)
             
         except Exception as e:
-            logger.error(f"Error converting ocean features to GeoJSON: {str(e)}")
-            raise 
+            logger.error(f"❌ Failed to process fishing spots: {str(e)}")
+            raise

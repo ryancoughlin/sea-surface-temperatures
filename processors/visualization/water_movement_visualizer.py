@@ -43,6 +43,8 @@ class WaterMovementVisualizer(BaseVisualizer):
     def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate visualization combining sea surface height and currents."""
         try:
+            logger.info(f"🎨 Creating water movement visualization for {dataset} in {region}")
+            
             # Extract data
             ssh_data = self._get_ssh_data(data, dataset)
             u_data, v_data = self._get_current_data(data)
@@ -51,16 +53,16 @@ class WaterMovementVisualizer(BaseVisualizer):
             fig, ax = self.create_axes(region)
             expanded_data = self.expand_coastal_data(ssh_data)
             self._plot_ssh(ax, expanded_data)
+            logger.info("   ├── Added sea surface height layer")
             
             # Add current vectors
             self._plot_currents(ax, u_data, v_data)
+            logger.info("   └── Added current vectors")
             
             return fig, None
             
         except Exception as e:
-            logger.error(f"Error generating water movement visualization: {str(e)}")
-            logger.error(f"Data dimensions: {data.dims}")
-            logger.error(f"Variables: {list(data.variables)}")
+            logger.error(f"❌ Failed to create water movement visualization: {str(e)}")
             raise
             
     def _get_ssh_data(self, data: xr.Dataset, dataset: str) -> xr.DataArray:
