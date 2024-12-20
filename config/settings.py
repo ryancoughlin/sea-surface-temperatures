@@ -65,7 +65,6 @@ SOURCES = {
         "source_type": "erddap",
         "type": "sst",
         "name": "LEO ACSPO SST L3S NRT C Daily",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwLEOACSPOSSTL3SnrtCDaily",
         "variables": {
             "sea_surface_temperature": {
@@ -103,7 +102,6 @@ SOURCES = {
         "source_type": "erddap",
         "type": "sst",
         "name": "NOAA Geo-polar Blended SST Analysis Day+Night",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwBLENDEDsstDNDaily",
         "variables": {
             "analysed_sst": {
@@ -135,7 +133,6 @@ SOURCES = {
     "chlorophyll_oci": {
         "source_type": "erddap",
         "name": "Chlorophyll OCI VIIRS Daily (Gap-filled)",
-        "base_url": "https://coastwatch.noaa.gov/erddap/griddap",
         "dataset_id": "noaacwNPPN20VIIRSDINEOFDaily",
         "variables": {
             "chlor_a": {

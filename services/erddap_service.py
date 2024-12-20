@@ -9,6 +9,8 @@ from config.regions import REGIONS
 logger = logging.getLogger(__name__)
 
 class ERDDAPService:
+    BASE_URL = "https://coastwatch.noaa.gov/erddap/griddap"
+
     def __init__(self, session: aiohttp.ClientSession, path_manager):
         self.session = session
         self.path_manager = path_manager
@@ -35,7 +37,7 @@ class ERDDAPService:
         adjusted_date = date - timedelta(days=lag_days)
         formatted_date = adjusted_date.strftime("%Y-%m-%dT00:00:00Z")
         
-        base = f"{config['base_url']}/{config['dataset_id']}.nc?"
+        base = f"{self.BASE_URL}/{config['dataset_id']}.nc?"
         var_parts = []
         
         for var in config.get('variables', []):
