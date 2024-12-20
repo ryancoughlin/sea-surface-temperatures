@@ -20,7 +20,6 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                 variables = SOURCES[dataset]['variables']
                 u_var = next(var for var, config in variables.items() if config['type'] == 'current' and var.startswith('u'))
                 v_var = next(var for var, config in variables.items() if config['type'] == 'current' and var.startswith('v'))
-                logger.info(f"Using current variables: u={u_var}, v={v_var}")
                 
                 u_current = data[u_var]
                 v_current = data[v_var]

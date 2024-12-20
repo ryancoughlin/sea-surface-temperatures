@@ -20,7 +20,6 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
                 variables = SOURCES[dataset]['variables']
                 height_var = next(var for var, config in variables.items() if config['type'] == 'wave_height')
                 direction_var = next((var for var, config in variables.items() if config['type'] == 'wave_direction'), None)
-                logger.info(f"Using wave variables: height={height_var}, direction={direction_var}")
                 
                 wave_height = data[height_var]
                 wave_direction = data[direction_var] if direction_var else None
@@ -35,14 +34,12 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
                 wave_direction = self._reduce_dimensions(wave_direction)
             
             # Get coordinates
-            lon_name, lat_name = self.get_coordinate_names(wave_height)
-            logger.info(f"Using coordinates: lon={lon_name}, lat={lat_name}")
+            longitude, latitude = self.get_coordinate_names(wave_height)
             
             # Check which variables are available
             has_direction = wave_direction is not None
             has_mean_period = 'VTM10' in data.variables if isinstance(data, xr.Dataset) else False
             has_peak_period = 'VTPK' in data.variables if isinstance(data, xr.Dataset) else False
-            logger.info(f"Available variables: direction={has_direction}, mean_period={has_mean_period}, peak_period={has_peak_period}")
             
             # Load optional variables if available
             mean_period = data['VTM10'] if has_mean_period else None
@@ -55,8 +52,8 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
                 peak_period = self._reduce_dimensions(peak_period)
             
             # Prepare data for feature generation
-            lats = wave_height[lat_name].values
-            lons = wave_height[lon_name].values
+            lats = wave_height[latitude].values
+            lons = wave_height[longitude].values
             height_values = wave_height.values
             direction_values = wave_direction.values if wave_direction is not None else None
             mean_period_values = mean_period.values if mean_period is not None else None

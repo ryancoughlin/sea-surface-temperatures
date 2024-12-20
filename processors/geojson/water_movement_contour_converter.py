@@ -62,8 +62,7 @@ class WaterMovementContourConverter(BaseGeoJSONConverter):
             if len(valid_ssh) >= 10 and (max_ssh - min_ssh) >= 0.05:
                 try:
                     levels = self._generate_levels(min_ssh, max_ssh)
-                    logger.info(f"   ├── Using {len(levels)} contour levels")
-                    
+
                     # Generate contours
                     fig, ax = plt.subplots(figsize=(10, 10))
                     contour_set = ax.contour(

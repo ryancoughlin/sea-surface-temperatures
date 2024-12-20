@@ -147,8 +147,6 @@ class ProcessingManager:
                             
                         # Load and extract variables
                         with self._open_netcdf(downloaded_path) as ds:
-                            logger.info(f"Loading variables for {source_name}: {list(source_info['variables'].keys())}")
-                            logger.info(f"Available variables in dataset: {list(ds.variables)}")
                             
                             # Ensure we get a Dataset from extract_variables
                             processed_data, _ = extract_variables(ds, source_info['dataset_id'])
