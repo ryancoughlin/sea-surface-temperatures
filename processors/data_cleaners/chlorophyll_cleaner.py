@@ -21,35 +21,30 @@ class ChlorophyllCleaner:
         point = Point(lon, lat)
         return any(geom.contains(point) for geom in self.land_geoms)
     
-    def clean(self, data: xr.DataArray) -> xr.DataArray:
-        """Clean chlorophyll data by masking out land and extreme values."""
+    def clean(self, data: xr.Dataset) -> xr.Dataset:
+        """Clean chlorophyll data.
+        
+        Args:
+            data: Dataset containing chlorophyll data
+            
+        Returns:
+            Cleaned dataset
+        """
         try:
-            # Get coordinate names
-            lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
-            lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
+            # Create copy to avoid modifying input
+            cleaned_data = data.copy()
             
-            # Create land mask
-            lons = data[lon_name].values
-            lats = data[lat_name].values
-            mask = np.zeros(data.shape, dtype=bool)
+            # Get chlorophyll variable
+            chl_var = next(var for var in data.data_vars if 'CHL' in var)
             
-            # Create land mask using vectorized operations where possible
-            for i in range(len(lats)):
-                for j in range(len(lons)):
-                    if self._is_over_land(lons[j], lats[i]):
-                        mask[i, j] = True
+            # Apply log transform
+            values = data[chl_var].values
+            values = np.where(values <= 0, np.nan, values)
+            values = np.where(~np.isnan(values), np.log10(values), values)
             
-            # Apply masks for both land and extreme values
-            cleaned_data = data.where(
-                (~mask) &  # Not over land
-                (data > 0.01) &  # Remove extremely low values
-                (data <= 15.0),  # Remove extremely high values
-                drop=False
-            )
-            
-            logger.info("Applied land mask and value constraints to chlorophyll data")
+            cleaned_data[chl_var].values = values
             return cleaned_data
             
         except Exception as e:
-            logger.error(f"Error cleaning chlorophyll data: {str(e)}")
-            raise 
+            logger.error(f"Failed to clean chlorophyll data: {str(e)}")
+            raise

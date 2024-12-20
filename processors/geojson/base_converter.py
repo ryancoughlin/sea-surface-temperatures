@@ -21,11 +21,11 @@ class BaseGeoJSONConverter(ABC):
         self.logger = logging.getLogger(__name__)
     
     @abstractmethod
-    def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert data to GeoJSON format.
         
         Args:
-            data: Input data as xarray Dataset/DataArray
+            data: Input data as xarray Dataset
             region: Region identifier
             dataset: Dataset identifier
             date: Processing date
@@ -35,26 +35,25 @@ class BaseGeoJSONConverter(ABC):
         """
         pass
     
-    def get_coordinate_names(self, data: xr.DataArray) -> tuple:
+    def get_coordinate_names(self, data: xr.Dataset) -> tuple:
         """Get standardized coordinate names."""
-        return get_coordinate_names(data)
-
-    def _reduce_dimensions(self, data: Union[xr.DataArray, xr.Dataset], 
-                         dims_to_reduce: List[str] = ['time', 'depth']) -> Union[xr.DataArray, xr.Dataset]:
-        """
-        Reduce dimensions by selecting first index of specified dimensions.
+        lon_patterns = ['lon', 'longitude', 'x']
+        lat_patterns = ['lat', 'latitude', 'y']
         
-        Args:
-            data: Input data array or dataset
-            dims_to_reduce: List of dimension names to reduce
+        lon_name = None
+        lat_name = None
+        
+        for var in data.coords:
+            var_lower = var.lower()
+            if any(pattern in var_lower for pattern in lon_patterns):
+                lon_name = var
+            elif any(pattern in var_lower for pattern in lat_patterns):
+                lat_name = var
+                
+        if not lon_name or not lat_name:
+            raise ValueError("Could not identify coordinate variables")
             
-        Returns:
-            Reduced data array or dataset
-        """
-        for dim in dims_to_reduce:
-            if dim in data.dims:
-                data = data.isel({dim: 0})
-        return data
+        return lon_name, lat_name
 
     def _generate_features(self, 
                          lats: np.ndarray, 

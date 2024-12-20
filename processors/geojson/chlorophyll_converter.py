@@ -4,67 +4,74 @@ from pathlib import Path
 import logging
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
+from processors.data.data_utils import extract_variables
 import datetime
-from typing import Union, Dict, Optional
+from typing import Union, Dict, Optional, List
 
 logger = logging.getLogger(__name__)
 
 class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
     """Converts chlorophyll data to GeoJSON for basic data display."""
     
-    def convert(self, data: Union[xr.Dataset, xr.DataArray], region: str, dataset: str, date: datetime) -> Path:
-        """Convert chlorophyll data to GeoJSON format."""
+    def _create_features(self, data: xr.Dataset) -> List[Dict]:
+        """Create GeoJSON features from chlorophyll data."""
+        features = []
+        
+        # Validate data
+        if len(data['chlor_a'].values[~np.isnan(data['chlor_a'].values)]) == 0:
+            logger.warning("No valid chlorophyll data points found")
+            return features
+        
         try:
-            # Extract chlorophyll data
-            if isinstance(data, xr.Dataset):
-                variables = SOURCES[dataset]['variables']
-                chl_var = next(var for var, config in variables.items() if config['type'] == 'chlorophyll')
-                chl_data = data[chl_var]
-            else:
-                chl_data = data
+            # Stack lat/lon coordinates to get all points
+            stacked = data['chlor_a'].stack(points=['latitude', 'longitude'])
             
-            # Generate features from chlorophyll data
-            def property_generator(i: int, j: int) -> Optional[Dict]:
-                value = float(chl_data.values[i, j])
-                if np.isnan(value):
-                    return None
-                    
-                return {
-                    "concentration": round(value, 4),
-                    "unit": "mg/m³"
-                }
-            
-            # Generate features using base class utility
-            features = self._generate_features(
-                chl_data.latitude.values,
-                chl_data.longitude.values,
-                property_generator
-            )
-            logger.info(f"Generated {len(features)} features")
-            
-            # Calculate ranges
-            ranges = self._calculate_ranges({
-                "concentration": (chl_data.values, "mg/m³")
-            })
-            
-            # Create GeoJSON with metadata
-            geojson = self.create_standardized_geojson(
-                features=features,
-                date=date,
-                dataset=dataset,
-                ranges=ranges,
-                metadata={
-                    "source": dataset,
-                    "variables": list(SOURCES[dataset]['variables']),
-                    "unit": "mg/m³",
-                    "valid_range": ranges["concentration"]
-                }
-            )
-            
-            # Save and return
-            output_path = self.path_manager.get_asset_paths(date, dataset, region).data
-            return self.save_geojson(geojson, output_path)
+            # Create features for valid points
+            for point in stacked.where(~np.isnan(stacked), drop=True):
+                features.append({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [
+                            float(point['longitude'].values),
+                            float(point['latitude'].values)
+                        ]
+                    },
+                    'properties': {
+                        'concentration': float(point.values)
+                    }
+                })
+
+            return features
             
         except Exception as e:
-            logger.error(f"Error converting chlorophyll data to GeoJSON: {str(e)}", exc_info=True)
+            logger.error(f"Error creating chlorophyll features: {str(e)}")
+            raise
+    
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+        """Convert chlorophyll data to GeoJSON format."""
+        try:
+            logger.info(f"Converting chlorophyll data to GeoJSON for {dataset} in {region}")
+            
+            # Use chlor_a directly - it's the standard chlorophyll variable
+            if 'chlor_a' not in data:
+                raise ValueError("Required variable 'chlor_a' not found in dataset")
+            
+            processed_data = xr.Dataset({'chlor_a': data['chlor_a'].squeeze()})
+            
+            # Convert to GeoJSON
+            features = self._create_features(processed_data)
+            
+            return {
+                'type': 'FeatureCollection',
+                'features': features,
+                'properties': {
+                    'date': date.isoformat(),
+                    'region': region,
+                    'dataset': dataset
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to convert chlorophyll data: {str(e)}")
             raise

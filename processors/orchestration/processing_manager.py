@@ -14,10 +14,9 @@ from services.cmems_service import CMEMSService
 from processors.data.data_assembler import DataAssembler
 from processors.geojson.factory import GeoJSONConverterFactory
 from processors.visualization.visualizer_factory import VisualizerFactory
-from processors.data.data_utils import standardize_dataset
 from config.settings import SOURCES, PATHS
 from utils.path_manager import PathManager
-from processors.data.data_utils import extract_variables
+from processors.data.data_preprocessor import DataPreprocessor
 from config.regions import REGIONS
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,7 @@ class ProcessingManager:
         self.base_dir = base_dir
         self.path_manager = PathManager(base_dir)
         self.data_assembler = DataAssembler(base_dir)
+        self.data_preprocessor = DataPreprocessor()
         self.session = None
         
         # Initialize processors
@@ -127,7 +127,6 @@ class ProcessingManager:
                 
                 for source_name, source_info in source_config['source_datasets'].items():
                     logger.info(f"Processing {source_name} component of {dataset}")
-                    logger.info(f"Source info: {source_info}")
                     
                     # Ensure directory exists for component dataset
                     download_dir = PATHS['DOWNLOADED_DATA_DIR'] / region_id / source_info['dataset_id'] / date.strftime('%Y%m%d')
@@ -145,20 +144,9 @@ class ProcessingManager:
                         if not downloaded_path:
                             raise ValueError(f"No data downloaded for {source_name}")
                             
-                        # Load and extract variables
+                        # Load and process data
                         with self._open_netcdf(downloaded_path) as ds:
-                            
-                            # Ensure we get a Dataset from extract_variables
-                            processed_data, _ = extract_variables(ds, source_info['dataset_id'])
-                            if isinstance(processed_data, xr.DataArray):
-                                processed_data = processed_data.to_dataset()
-                            
-                            # Standardize the dataset
-                            processed_data = standardize_dataset(
-                                data=processed_data,
-                                dataset=dataset,
-                            )
-
+                            processed_data = self.data_preprocessor.preprocess_dataset(data=ds)
                             datasets_to_merge.append(processed_data)
                             
                     except Exception as e:
@@ -170,11 +158,8 @@ class ProcessingManager:
                             'region': region_id
                         }
                 
-                # Merge standardized datasets
-                combined_data = xr.merge(datasets_to_merge)
-
-                # No need to standardize again since components were already standardized
-                processed_data = combined_data
+                # Merge preprocessed datasets
+                processed_data = xr.merge(datasets_to_merge)
             else:
                 # Handle regular single-source datasets
                 netcdf_path = await self._get_data(date, dataset, region_id)
@@ -182,12 +167,8 @@ class ProcessingManager:
                     return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
 
                 with self._open_netcdf(netcdf_path) as ds:
-                    raw_data, _ = extract_variables(ds, dataset)
-                    processed_data = standardize_dataset(
-                        data=raw_data,
-                        dataset=dataset,
-                    )
-
+                    processed_data = self.data_preprocessor.preprocess_dataset(data=ds)
+                    
             # Generate outputs
             result = await self._generate_outputs(
                 processed_data=processed_data,
@@ -269,30 +250,21 @@ class ProcessingManager:
             'ranges': ranges
         }
 
-    def _calculate_data_ranges(self, data: Union[xr.Dataset, xr.DataArray]) -> Dict:
-        """Calculate min/max ranges for all variables in the dataset."""
+    def _calculate_data_ranges(self, data: xr.Dataset) -> Dict:
+        """Calculate data ranges for all variables in dataset."""
         ranges = {}
         
-        if isinstance(data, xr.Dataset):
-            for var_name, var_data in data.data_vars.items():
-                valid_data = var_data.values[~np.isnan(var_data.values)]
-                if len(valid_data) > 0:
-                    ranges[var_name] = {
-                        'min': float(np.min(valid_data)),
-                        'max': float(np.max(valid_data)),
-                        'unit': var_data.attrs.get('units', '')
-                    }
-                    logger.info(f"[RANGES] {var_name} min/max: {ranges[var_name]['min']:.4f} to {ranges[var_name]['max']:.4f}")
-        elif isinstance(data, xr.DataArray):
-            valid_data = data.values[~np.isnan(data.values)]
+        for var in data.data_vars:
+            values = data[var].values
+            valid_data = values[~np.isnan(values)]
             if len(valid_data) > 0:
-                ranges[data.name or 'data'] = {
+                ranges[var] = {
                     'min': float(np.min(valid_data)),
                     'max': float(np.max(valid_data)),
-                    'unit': data.attrs.get('units', '')
+                    'unit': data[var].attrs.get('units', '')
                 }
-                logger.info(f"[RANGES] {data.name or 'data'} min/max: {ranges[data.name or 'data']['min']:.4f} to {ranges[data.name or 'data']['max']:.4f}")
-        
+                logger.info(f"[RANGES] {var} min/max: {ranges[var]['min']:.4f} to {ranges[var]['max']:.4f}")
+            
         return ranges
 
     def _generate_geojson_layers(self, data, dataset: str, dataset_type: str, 

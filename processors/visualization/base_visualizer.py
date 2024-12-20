@@ -1,143 +1,181 @@
+import xarray as xr
+import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from datetime import datetime
+from typing import Dict, Optional, Tuple, Any
 from config.settings import IMAGE_SETTINGS
 from config.regions import REGIONS
-from typing import Dict, Optional, Tuple
 from utils.path_manager import PathManager
-from datetime import datetime
 from PIL import Image
 from io import BytesIO
-import numpy as np
-import xarray as xr
-import scipy.ndimage
-from utils.image_optimizer import ImageOptimizer
-from processors.data.data_utils import get_coordinate_names
+from scipy.ndimage import binary_dilation, distance_transform_edt
+import logging
 
 logger = logging.getLogger(__name__)
 
 class BaseVisualizer(ABC):
-    """Base class for all data visualizers."""
+    """Base class for data visualization."""
+    
     def __init__(self, path_manager: PathManager):
         self.path_manager = path_manager
         self.settings = IMAGE_SETTINGS
-        self.image_optimizer = ImageOptimizer()
-
+        
     @abstractmethod
-    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[Path, Optional[Dict]]:
-        """Generate visualization and any additional layers."""
-        raise NotImplementedError
-
-    def get_coordinate_names(self, dataset):
-        """Get the longitude and latitude variable names from the dataset."""
-        return get_coordinate_names(dataset)
-
-    def generate_image_path(self, region: str, dataset: str, date: datetime) -> Path:
-        """Generate standardized path for image storage."""
-        path = self.path_manager.get_asset_paths(date, dataset, region)
-        return path.image
-
-    def save_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: datetime, asset_paths=None) -> Path:
-        """Save figure with optimization."""
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
+        """Generate visualization from data.
+        
+        Args:
+            data: Input dataset
+            region: Region identifier
+            dataset: Source dataset identifier
+            date: Date string for the visualization
+            
+        Returns:
+            tuple: (matplotlib figure, optional metadata dictionary)
+        """
+        pass
+        
+    def save_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime, asset_paths: Optional[Any] = None) -> Path:
+        """Save visualization to file with optimization.
+        
+        Args:
+            data: Input dataset
+            region: Region identifier
+            dataset: Dataset identifier
+            date: Processing date
+            asset_paths: Optional asset paths object. If not provided, will be fetched from path manager.
+            
+        Returns:
+            Path to saved image file
+        """
         try:
             # Generate the visualization
-            fig, _ = self.generate_image(data, region, dataset, date)
+            fig, metadata = self.generate_image(data, region, dataset, date)
             
+            if fig is None:
+                raise ValueError("No figure generated")
+                
             # Get paths
             if asset_paths is None:
-                asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+                output_path = self.path_manager.get_asset_paths(date, dataset, region).image
+            else:
+                output_path = asset_paths.image
+                
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Ensure directory exists
-            asset_paths.image.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Save to BytesIO first to avoid PIL fileno error
+            # Save to BytesIO first for optimization
             buf = BytesIO()
             fig.savefig(
                 buf,
                 dpi=self.settings['dpi'],
                 bbox_inches='tight',
+                pad_inches=0,
+                transparent=True,
                 format='png'
             )
             plt.close(fig)
             
-            # Write buffer to file
+            # Write optimized buffer to file
             buf.seek(0)
-            with open(asset_paths.image, 'wb') as f:
+            with open(output_path, 'wb') as f:
                 f.write(buf.getvalue())
             
-            # Optimize the saved image
-            self.image_optimizer.optimize_png(asset_paths.image)
-            
-            return asset_paths.image
+            return output_path
             
         except Exception as e:
-            logger.error(f"Error saving image: {str(e)}")
+            logger.error(f"Error saving visualization: {str(e)}")
             raise
-
-    def create_axes(self, region: str) -> tuple[plt.Figure, plt.Axes]:
-        """Create figure and axes with exact bounds."""
-        bounds = REGIONS[region]['bounds']
+            
+    def create_axes(self, region: str) -> Tuple[plt.Figure, plt.Axes]:
+        """Create figure and map projection axes."""
+        try:
+            bounds = REGIONS[region]['bounds']
+            
+            # Calculate aspect ratio from bounds
+            lon_span = bounds[1][0] - bounds[0][0]
+            lat_span = bounds[1][1] - bounds[0][1]
+            aspect = lon_span / lat_span
+            
+            # Create figure with exact size ratio
+            height = self.settings.get('height', 24)
+            width = height * aspect
+            
+            # Create figure with no frame
+            fig = plt.figure(figsize=(width, height), frameon=False)
+            
+            # Use PlateCarree projection
+            ax = plt.axes([0, 0, 1, 1], projection=ccrs.PlateCarree())
+            
+            # Remove all axes elements and make background transparent
+            ax.set_axis_off()
+            ax.patch.set_alpha(0.0)
+            fig.patch.set_alpha(0.0)
+            
+            # Set exact bounds
+            ax.set_extent([
+                bounds[0][0],  # min lon
+                bounds[1][0],  # max lon
+                bounds[0][1],  # min lat
+                bounds[1][1]   # max lat
+            ], crs=ccrs.PlateCarree())
+            
+            return fig, ax
+            
+        except Exception as e:
+            logger.error(f"Error creating axes: {str(e)}")
+            raise
+            
+    def get_coordinate_names(self, data: xr.Dataset) -> tuple:
+        """Get standardized coordinate names."""
+        lon_patterns = ['lon', 'longitude', 'x']
+        lat_patterns = ['lat', 'latitude', 'y']
         
-        # Calculate aspect ratio from bounds
-        lon_span = bounds[1][0] - bounds[0][0]
-        lat_span = bounds[1][1] - bounds[0][1]
-        aspect = lon_span / lat_span
+        lon_name = None
+        lat_name = None
         
-        # Create figure with exact size ratio
-        height = 24
-        width = height * aspect
-        
-        # Create figure with no frame
-        fig = plt.figure(figsize=(width, height), frameon=False)
-        
-        # Use PlateCarree projection
-        ax = plt.axes([0, 0, 1, 1], projection=ccrs.PlateCarree())
-        
-        # Remove all axes elements and make background transparent
-        ax.set_axis_off()
-        ax.patch.set_alpha(0.0)
-        fig.patch.set_alpha(0.0)
-        
-        # Set exact bounds  
-        ax.set_extent([
-            bounds[0][0],
-            bounds[1][0],
-            bounds[0][1],
-            bounds[1][1]
-        ], crs=ccrs.PlateCarree())
-        
-        return fig, ax
-
-    def expand_coastal_data(self, data: xr.DataArray, buffer_size: int = 3) -> xr.DataArray:
-        """
-        Expands data near coastlines using efficient rolling window operations.
-        
-        Args:
-            data: Input DataArray
-            buffer_size: Number of cells to expand (default 3)
-        """
+        for var in data.coords:
+            var_lower = var.lower()
+            if any(pattern in var_lower for pattern in lon_patterns):
+                lon_name = var
+            elif any(pattern in var_lower for pattern in lat_patterns):
+                lat_name = var
+                
+        if not lon_name or not lat_name:
+            raise ValueError("Could not identify coordinate variables")
+            
+        return lon_name, lat_name
+            
+    def expand_coastal_data(self, data: xr.Dataset) -> xr.Dataset:
+        """Expand coastal data points to improve visualization."""
+        kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
         expanded_data = data.copy()
         
-        for _ in range(buffer_size):
-            # Create rolling window view of the data
-            rolled = expanded_data.rolling(
-                {dim: 3 for dim in expanded_data.dims[-2:]}, 
-                center=True, 
-                min_periods=1
-            )
+        for var in data.data_vars:
+            values = data[var].values
+            mask = ~np.isnan(values)
             
-            # Calculate mean of surrounding cells
-            filled = rolled.mean()
+            # Apply dilation
+            expanded_mask = binary_dilation(mask, structure=kernel, iterations=2)
             
-            # Only update NaN values where surrounding cells have data
-            mask = np.isnan(expanded_data) & ~np.isnan(filled)
-            if not np.any(mask):
-                break
-            
-            expanded_data = xr.where(mask, filled, expanded_data)
-        
+            # Fill expanded areas with nearest valid value
+            if mask.any():
+                dist, indices = distance_transform_edt(
+                    ~mask, 
+                    return_indices=True
+                )
+                
+                expanded_values = values.copy()
+                expanded_values[expanded_mask] = values[
+                    indices[0][expanded_mask],
+                    indices[1][expanded_mask]
+                ]
+                
+                # Update only the expanded areas
+                values[expanded_mask & ~mask] = expanded_values[expanded_mask & ~mask]
+                expanded_data[var].values = values
+                
         return expanded_data
-

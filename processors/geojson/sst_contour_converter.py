@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 import xarray as xr
-from typing import Union, Dict, Optional, Any
+from typing import Union, Dict, Optional, Any, List
 from shapely.geometry import LineString, mapping
+from skimage import measure
 
 logger = logging.getLogger(__name__)
 
@@ -54,115 +55,100 @@ class SSTContourConverter(BaseGeoJSONConverter):
             "type": "temperature_break" if strength != 'weak' else "temperature_line"
         }
 
-    def convert(self, data: Union[xr.DataArray, xr.Dataset, Dict], region: str, dataset: str, date: datetime) -> Path:
+    def _prepare_data(self, data: xr.Dataset, dataset: str) -> xr.Dataset:
+        """Prepare dataset for contour conversion."""
+        source_config = SOURCES[dataset]
+        sst_var = next(iter(source_config['variables']))
+        
+        return xr.Dataset({
+            'sst': data[sst_var].squeeze()
+        })
+    
+    def _create_contours(self, data: xr.Dataset) -> List[Dict]:
+        """Create GeoJSON contour features from SST data."""
+        features = []
+        
+        # Get coordinates and data
+        lons = data['longitude'].values
+        lats = data['latitude'].values
+        sst_values = data['sst'].values
+        
+        # Calculate valid temperature range
+        valid_temps = sst_values[~np.isnan(sst_values)]
+        if len(valid_temps) == 0:
+            logger.warning("No valid temperature data points found")
+            return []
+        
+        min_temp = float(np.min(valid_temps))
+        max_temp = float(np.max(valid_temps))
+        
+        # Generate contour levels
+        levels = self._generate_levels(min_temp, max_temp)
+        
+        # Generate contours for each level
+        for level in levels:
+            contours = measure.find_contours(sst_values, level=level)
+            
+            # Convert contours to GeoJSON
+            for contour in contours:
+                # Map array indices to coordinates
+                coords = []
+                for point in contour:
+                    lat_idx, lon_idx = point
+                    if 0 <= lat_idx < len(lats) and 0 <= lon_idx < len(lons):
+                        coords.append([float(lons[int(lon_idx)]), float(lats[int(lat_idx)])])
+                
+                if len(coords) > 2:  # Minimum points for a valid line
+                    # Calculate path length
+                    path_length = float(LineString(coords).length)
+                    
+                    # Filter short segments
+                    if path_length < 0.5:
+                        continue
+                    
+                    # Classify feature
+                    classification = self._classify_feature(level)
+                    
+                    features.append({
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': coords
+                        },
+                        'properties': {
+                            'temperature': float(level),
+                            'path_length_nm': round(path_length * 60, 1),
+                            'is_key_temp': classification['is_key_temp'],
+                            'strength': classification['strength'],
+                            'feature_type': classification['type']
+                        }
+                    })
+                    
+        return features
+    
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+        """Convert SST data to contour GeoJSON format."""
         try:
-            # Handle standardized data format
-            if isinstance(data, dict) and 'data' in data:
-                data = data['data']
+            logger.info(f"Converting SST data to contour GeoJSON for {dataset} in {region}")
             
-            # Extract temperature and gradient data
-            if isinstance(data, xr.Dataset):
-                variables = SOURCES[dataset]['variables']
-                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
-                temp_data = data[sst_var]
-                gradient_var = next((var for var in variables if 'gradient' in var.lower()), None)
-                gradient_data = data[gradient_var] if gradient_var else None
-            else:
-                temp_data = data
-                gradient_data = None
+            # Keep as Dataset throughout processing
+            processed_data = self._prepare_data(data, dataset)
             
-            # Get valid temperatures
-            valid_temps = temp_data.values[~np.isnan(temp_data.values)]
-            if len(valid_temps) == 0:
-                logger.warning("No valid temperature data points found")
-                return self._create_geojson([], date, None, None)
+            # Convert to GeoJSON at the end
+            features = self._create_contours(processed_data)
             
-            min_temp = float(np.min(valid_temps))
-            max_temp = float(np.max(valid_temps))
-            logger.info(f"Processing SST data for {date} with min: {min_temp:.2f}, max: {max_temp:.2f}")   
-            
-            # Generate contours if we have sufficient data
-            features = []
-            if len(valid_temps) >= 10 and (max_temp - min_temp) >= 0.5:
-                try:
-                    levels = self._generate_levels(min_temp, max_temp)
-                    
-                    # Generate contours using matplotlib
-                    fig, ax = plt.subplots(figsize=(10, 10))
-                    contour_set = ax.contour(
-                        temp_data.longitude.values,
-                        temp_data.latitude.values,
-                        temp_data.values,
-                        levels=levels,
-                        linestyles='solid',
-                        linewidths=1.5,
-                        colors='black'
-                    )
-                    plt.close(fig)
-                    
-                    # Create features from contour data
-                    for level_idx, level in enumerate(contour_set.levels):
-                        for segment in contour_set.allsegs[level_idx]:
-                            # Calculate path length
-                            path_length = float(LineString(segment).length)
-                            
-                            # Filter short segments
-                            if path_length < 0.5 or len(segment) < 10:
-                                continue
-                                
-                            coords = [[float(x), float(y)] for x, y in segment 
-                                     if not (np.isnan(x) or np.isnan(y))]
-                            
-                            if len(coords) < 5:
-                                continue
-                            
-                            # Classify feature and create properties
-                            classification = self._classify_feature(
-                                level,
-                                gradient_data=gradient_data.values if gradient_data is not None else None
-                            )
-                            
-                            feature = {
-                                "type": "Feature",
-                                "geometry": {
-                                    "type": "LineString",
-                                    "coordinates": coords
-                                },
-                                "properties": {
-                                    "value": clean_value(level),
-                                    "unit": "fahrenheit",
-                                    "path_length_nm": round(path_length * 60, 1),
-                                    "points": len(coords),
-                                    "is_closed": False,
-                                    "is_key_temp": classification['is_key_temp'],
-                                    "strength": classification['strength'],
-                                    "feature_type": classification['type']
-                                }
-                            }
-                            features.append(feature)
-                            
-                except Exception as e:
-                    logger.warning(f"Could not generate contours: {str(e)}")
-            
-            # Create and save GeoJSON
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features,
-                "properties": {
-                    "date": date.strftime('%Y-%m-%d'),
-                    "value_range": {
-                        "min": clean_value(min_temp),
-                        "max": clean_value(max_temp)
-                    },
-                    "key_temperatures": self.KEY_TEMPERATURES
+            return {
+                'type': 'FeatureCollection',
+                'features': features,
+                'properties': {
+                    'date': date.isoformat(),
+                    'region': region,
+                    'dataset': dataset
                 }
             }
             
-            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
-            return self.save_geojson(geojson, asset_paths.contours)
-            
         except Exception as e:
-            logger.error(f"Error converting data to contour GeoJSON: {str(e)}")
+            logger.error(f"❌ Failed to convert SST contour data: {str(e)}")
             raise
 
     def _create_geojson(self, features, date, min_temp, max_temp):

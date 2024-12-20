@@ -92,7 +92,6 @@ class ChlorophyllContourConverter(BaseGeoJSONConverter):
                 'p90': levels[1],
                 'p95': levels[2]
             }
-            logger.info(f"Contour levels: p75={levels[0]:.4f}, p90={levels[1]:.4f}, p95={levels[2]:.4f}")
             
             # Generate contours
             fig, ax = plt.subplots(figsize=(10, 10))

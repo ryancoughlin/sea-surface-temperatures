@@ -1,11 +1,17 @@
 from abc import ABC, abstractmethod
 import xarray as xr
-from pathlib import Path
 
 class BaseDataCleaner(ABC):
-    """Base class for dataset-specific data cleaning."""
+    """Base class for data cleaning operations."""
     
     @abstractmethod
-    def clean(self, data: xr.DataArray) -> xr.DataArray:
-        """Clean the dataset according to dataset-specific rules."""
-        pass 
+    def clean(self, data: xr.Dataset) -> xr.Dataset:
+        """Clean the input dataset.
+        
+        Args:
+            data: Dataset to clean
+            
+        Returns:
+            Cleaned dataset
+        """
+        pass

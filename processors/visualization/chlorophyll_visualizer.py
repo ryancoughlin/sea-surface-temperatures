@@ -10,67 +10,53 @@ from config.settings import SOURCES
 from typing import Dict, Optional, Tuple
 from matplotlib.colors import LinearSegmentedColormap
 import cartopy.feature as cfeature
+from datetime import datetime
+from processors.data.data_utils import extract_variables
 
 logger = logging.getLogger(__name__)
 
 class ChlorophyllVisualizer(BaseVisualizer):
-    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate chlorophyll visualization."""
         try:
-            logger.info(f"Processing chlorophyll data for {region}")
+            logger.info(f"🎨 Creating chlorophyll visualization for {dataset} in {region}")
             
-            # Handle Dataset vs DataArray
-            if isinstance(data, xr.Dataset):
-                variables = SOURCES[dataset]['variables']
-                chl_var = next(var for var, config in variables.items() if config['type'] == 'chlorophyll')
-                data = data[chl_var]
+            # Use chlor_a directly - it's the standard chlorophyll variable
+            if 'chlor_a' not in data:
+                raise ValueError("Required variable 'chlor_a' not found in dataset")
             
-            # Force 2D data
-            if 'time' in data.dims:
-                data = data.isel(time=0)
-            if 'depth' in data.dims:
-                data = data.isel(depth=0)
+            processed_data = xr.Dataset({'chlor_a': data['chlor_a'].squeeze()})
+            expanded_data = self.expand_coastal_data(processed_data)
             
-            # Convert to float64 to ensure numpy compatibility
-            data = data.astype(np.float64)
-            
-            # Get valid data for ranges
-            valid_data = data.values[~np.isnan(data.values)]
-            
-            if len(valid_data) == 0:
-                raise ValueError("No valid chlorophyll data points found")
-
-            # Apply coastal buffer to fill gaps
-            logger.info("Applying coastal buffer to fill data gaps")
-            buffered_data = self.expand_coastal_data(data)
-            
-            # Create figure and plot
+            # Create figure
             fig, ax = self.create_axes(region)
             
-            # Create colormap from color scale
-            cmap = LinearSegmentedColormap.from_list('chlorophyll', SOURCES[dataset]['color_scale'], N=1024)
-            
-            # Use actual min/max for visualization
-            vmin = float(valid_data.min())
-            vmax = float(valid_data.max())
-            
-            norm = mcolors.LogNorm(vmin=max(vmin, 0.01), vmax=vmax)  # Ensure positive values for log scale
-            
-            # Plot data with smooth interpolation
-            mesh = ax.pcolormesh(
-                buffered_data["longitude"],
-                buffered_data["latitude"],
-                buffered_data.values,
-                transform=ccrs.PlateCarree(),
-                norm=norm,
-                cmap=cmap,
-                shading='gouraud',  # Smooth interpolation
-                rasterized=True,
-                zorder=1
-            )
+            # Plot chlorophyll layer
+            self._plot_chlorophyll(ax, expanded_data['chlor_a'])
+            logger.info("   └── Added chlorophyll layer")
             
             return fig, None
             
         except Exception as e:
-            logger.error(f"Error processing chlorophyll data: {str(e)}")
+            logger.error(f"❌ Failed to create chlorophyll visualization: {str(e)}")
             raise
+        
+    def _plot_chlorophyll(self, ax: plt.Axes, chl_data: xr.DataArray) -> None:
+        """Plot chlorophyll field using pcolormesh."""
+        valid_data = chl_data.values[~np.isnan(chl_data.values)]
+        if len(valid_data) == 0:
+            raise ValueError("No valid chlorophyll data points found")
+            
+        vmin, vmax = float(np.nanmin(valid_data)), float(np.nanmax(valid_data))
+        
+        ax.pcolormesh(
+            chl_data['longitude'],
+            chl_data['latitude'],
+            chl_data.values,
+            transform=ccrs.PlateCarree(),
+            cmap='viridis',
+            shading='gouraud',
+            vmin=vmin,
+            vmax=vmax,
+            rasterized=True
+        )

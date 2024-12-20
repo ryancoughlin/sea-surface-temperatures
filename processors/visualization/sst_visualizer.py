@@ -1,60 +1,64 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
-import xarray as xr
-import logging
-import cartopy.crs as ccrs
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
+import logging
+import xarray as xr
+import cartopy.crs as ccrs
 from .base_visualizer import BaseVisualizer
-
 from config.settings import SOURCES
-from config.regions import REGIONS
-from processors.data.data_utils import convert_temperature_to_f
-from typing import Dict, Optional, Tuple
+from typing import Tuple, Optional, Dict
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class SSTVisualizer(BaseVisualizer):
-    def generate_image(self, data: xr.DataArray | xr.Dataset, region: str, dataset: str, date: str) -> Tuple[plt.Figure, Optional[Dict]]:
+    """Creates visualizations of sea surface temperature data."""
+    
+    def generate_image(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Tuple[plt.Figure, Optional[Dict]]:
         """Generate SST visualization."""
         try:
-            # Handle Dataset vs DataArray
-            if isinstance(data, xr.Dataset):
-                variables = SOURCES[dataset]['variables']
-                sst_var = next(var for var in variables if 'sst' in var.lower() or 'temperature' in var.lower())
-                data = data[sst_var]
-
+            logger.info(f"🎨 Creating SST visualization for {dataset} in {region}")
             
-            # Convert temperature using source unit from settings
-            source_unit = SOURCES[dataset].get('source_unit', 'C')
-            data = convert_temperature_to_f(data, source_unit=source_unit)
-            expanded_data = self.expand_coastal_data(data)
+            # Keep as Dataset throughout processing
+            processed_data = self._prepare_data(data, dataset)
+            expanded_data = self.expand_coastal_data(processed_data)
             
-            # Create figure and axes
+            # Create figure
             fig, ax = self.create_axes(region)
             
-            # Create colormap from color scale
-            cmap = LinearSegmentedColormap.from_list('sst_detailed', SOURCES[dataset]['color_scale'], N=1024)
+            # Plot layers - only convert to DataArray at plot time
+            self._plot_sst(ax, expanded_data['sst'])
+            logger.info("   └── Added SST layer")
             
-            # Calculate min/max from valid data
-            valid_data = expanded_data.values[~np.isnan(expanded_data.values)]
-            vmin = float(np.min(valid_data))
-            vmax = float(np.max(valid_data))
-
-            mesh = ax.pcolormesh(
-                expanded_data['longitude'],
-                expanded_data['latitude'],
-                expanded_data.values,
-                transform=ccrs.PlateCarree(),
-                cmap=cmap,
-                shading='gouraud',
-                vmin=vmin,
-                vmax=vmax,
-                rasterized=True,
-                zorder=1
-            )
             return fig, None
             
         except Exception as e:
-            logger.error(f"Error processing SST data: {str(e)}")
+            logger.error(f"❌ Failed to create SST visualization: {str(e)}")
             raise
+            
+    def _prepare_data(self, data: xr.Dataset, dataset: str) -> xr.Dataset:
+        """Prepare dataset for visualization."""
+        source_config = SOURCES[dataset]
+        sst_var = next(iter(source_config['variables']))
+        
+        # Create new Dataset with required variables
+        return xr.Dataset({
+            'sst': data[sst_var]
+        })
+        
+    def _plot_sst(self, ax: plt.Axes, sst_data: xr.DataArray) -> None:
+        """Plot SST field using pcolormesh."""
+        valid_data = sst_data.values[~np.isnan(sst_data.values)]
+        vmin, vmax = float(np.nanmin(valid_data)), float(np.nanmax(valid_data))
+        
+        ax.pcolormesh(
+            sst_data['longitude'],
+            sst_data['latitude'],
+            sst_data.values,
+            transform=ccrs.PlateCarree(),
+            cmap='RdYlBu_r',
+            shading='gouraud',
+            vmin=vmin,
+            vmax=vmax,
+            rasterized=True
+        )

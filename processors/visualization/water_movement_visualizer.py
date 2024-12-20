@@ -45,18 +45,18 @@ class WaterMovementVisualizer(BaseVisualizer):
         try:
             logger.info(f"🎨 Creating water movement visualization for {dataset} in {region}")
             
-            # Extract data
-            ssh_data = self._get_ssh_data(data, dataset)
-            u_data, v_data = self._get_current_data(data)
+            # Keep as Dataset throughout processing
+            processed_data = self._prepare_data(data, dataset)
+            expanded_data = self.expand_coastal_data(processed_data)
             
-            # Create figure and process SSH
+            # Create figure
             fig, ax = self.create_axes(region)
-            expanded_data = self.expand_coastal_data(ssh_data)
-            self._plot_ssh(ax, expanded_data)
+            
+            # Plot layers - only convert to DataArray at plot time
+            self._plot_ssh(ax, expanded_data['ssh'])
             logger.info("   ├── Added sea surface height layer")
             
-            # Add current vectors
-            self._plot_currents(ax, u_data, v_data)
+            self._plot_currents(ax, expanded_data['uo'], expanded_data['vo'])
             logger.info("   └── Added current vectors")
             
             return fig, None
@@ -65,15 +65,17 @@ class WaterMovementVisualizer(BaseVisualizer):
             logger.error(f"❌ Failed to create water movement visualization: {str(e)}")
             raise
             
-    def _get_ssh_data(self, data: xr.Dataset, dataset: str) -> xr.DataArray:
-        """Extract SSH data from dataset."""
+    def _prepare_data(self, data: xr.Dataset, dataset: str) -> xr.Dataset:
+        """Prepare dataset for visualization."""
         source_config = SOURCES[dataset]
         ssh_var = next(iter(source_config['source_datasets']['altimetry']['variables']))
-        return data[ssh_var]
         
-    def _get_current_data(self, data: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
-        """Extract current components from dataset."""
-        return data['uo'].squeeze(), data['vo'].squeeze()
+        # Create new Dataset with required variables
+        return xr.Dataset({
+            'ssh': data[ssh_var],
+            'uo': data['uo'].squeeze(),
+            'vo': data['vo'].squeeze()
+        })
         
     def _plot_ssh(self, ax: plt.Axes, ssh_data: xr.DataArray) -> None:
         """Plot SSH field using pcolormesh."""

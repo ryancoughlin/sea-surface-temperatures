@@ -40,7 +40,6 @@ class GeoJSONConverterFactory:
             
         if layer_type not in PROCESSOR_MAPPING[dataset_type]:
             raise ValueError(f"Unsupported layer type: {layer_type} for dataset: {dataset_type}")
-            
-        logger.info(f"Creating {layer_type} converter for {dataset_type}")
+
         converter_class = PROCESSOR_MAPPING[dataset_type][layer_type]
         return converter_class(self.path_manager, self.data_assembler)

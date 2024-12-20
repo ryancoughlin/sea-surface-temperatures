@@ -20,12 +20,7 @@ WAVE_HEIGHT_VAR: Final[str] = 'VHM0'
 WAVE_DIRECTION_VAR: Final[str] = 'VMDR'
 
 class WavesVisualizer(BaseVisualizer):
-    """Visualizes ocean wave characteristics including significant wave height and mean direction.
-    
-    Processes CMEMS wave data to create visualizations showing:
-    - Significant wave height using pcolormesh
-    - Wave direction using streamlines (when available)
-    """
+    """Visualizes ocean wave characteristics including significant wave height and mean direction."""
     
     def generate_image(
         self, 
@@ -34,48 +29,14 @@ class WavesVisualizer(BaseVisualizer):
         dataset: str, 
         date: str
     ) -> Tuple[plt.Figure, Optional[Dict[str, Any]]]:
-        """Generate wave visualization combining height and direction data.
-        
-        Args:
-            data: Dataset containing wave height ('VHM0') and optional direction ('VMDR')
-            region: Geographic region identifier
-            dataset: Source dataset identifier
-            date: Date string for the visualization
-            
-        Returns:
-            tuple: (matplotlib figure, optional metadata dictionary)
-            
-        Raises:
-            ValueError: If no valid wave height data is found
-            KeyError: If required variables are missing from dataset
-        """
+        """Generate wave visualization combining height and direction data."""
         try:
-            # Get wave data
-            try:
-                height = data[WAVE_HEIGHT_VAR]  # Significant wave height
-                direction = data.get(WAVE_DIRECTION_VAR)  # Optional mean wave direction
-            except KeyError as e:
-                logger.error(f"Required variable missing from dataset: {e}")
-                raise
-            
-            # Handle dimensions
-            for dim in ['time', 'depth']:
-                if dim in height.dims:
-                    try:
-                        height = height.isel({dim: 0})
-                        if direction is not None:
-                            direction = direction.isel({dim: 0})
-                    except ValueError as e:
-                        logger.error(f"Error selecting {dim} dimension: {e}")
-                        raise
-            
             # Get coordinates and create figure
-            lon_name, lat_name = self.get_coordinate_names(height)
-            height = self.expand_coastal_data(height)
+            longitude, latitude = self.get_coordinate_names(data)
             fig, ax = self.create_axes(region)
             
             # Convert height to feet and prepare colormap
-            height_ft = height * METERS_TO_FEET
+            height = data[WAVE_HEIGHT_VAR] * METERS_TO_FEET
             cmap = LinearSegmentedColormap.from_list(
                 'wave_heights', 
                 SOURCES[dataset]['color_scale'], 
@@ -83,7 +44,7 @@ class WavesVisualizer(BaseVisualizer):
             )
             
             # Calculate data range
-            valid_data = height_ft.values[~np.isnan(height_ft.values)]
+            valid_data = height.values[~np.isnan(height.values)]
             if len(valid_data) == 0:
                 logger.error("No valid wave height data found in dataset")
                 raise ValueError("No valid wave height data")
@@ -94,49 +55,37 @@ class WavesVisualizer(BaseVisualizer):
             
             # Create pcolormesh for wave heights
             mesh = ax.pcolormesh(
-                height_ft[lon_name],
-                height_ft[lat_name],
-                height_ft.values,
+                data[longitude],
+                data[latitude],
+                height.values,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,
-                alpha=0.9,  # Standard alpha for consistency
+                alpha=0.9,
                 zorder=1,
-                shading='auto'  # Standard shading for consistency
+                shading='auto'
             )
             
-            # Add wave direction if available
-            if direction is not None:
-                self._add_direction_streamlines(ax, direction, lon_name, lat_name)
+            self._add_direction_streamlines(ax, data, longitude, latitude)
             
             return fig, None
             
         except Exception as e:
-            logger.error(f"Error processing wave data: {str(e)}")
-            logger.error(f"Data dimensions: {data.dims}")
-            logger.error(f"Variables: {list(data.variables)}")
+            logger.error(f"Error saving visualization: {str(e)}")
             raise
             
     def _add_direction_streamlines(
         self,
         ax: plt.Axes,
-        direction: xr.DataArray,
-        lon_name: str,
-        lat_name: str,
+        data: xr.Dataset,
+        longitude: str,
+        latitude: str,
         stride: int = DIRECTION_STRIDE
     ) -> None:
-        """Add wave direction streamlines to the plot.
-        
-        Args:
-            ax: Matplotlib axes to plot on
-            direction: Wave direction data array
-            lon_name: Name of longitude coordinate
-            lat_name: Name of latitude coordinate
-            stride: Subsampling factor for direction data
-        """
+        """Add wave direction streamlines to the plot."""
         # Convert direction from meteorological to mathematical convention
-        dir_rad = np.deg2rad(270 - direction)
+        dir_rad = np.deg2rad(270 - data[WAVE_DIRECTION_VAR])
         
         # Calculate u and v components
         u = np.cos(dir_rad)
@@ -144,8 +93,8 @@ class WavesVisualizer(BaseVisualizer):
         
         # Create streamplot
         ax.streamplot(
-            direction[lon_name][::stride],
-            direction[lat_name][::stride],
+            data[longitude][::stride],
+            data[latitude][::stride],
             u[::stride, ::stride],
             v[::stride, ::stride],
             transform=ccrs.PlateCarree(),
