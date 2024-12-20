@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from .base_converter import BaseGeoJSONConverter
 from config.settings import SOURCES
 import xarray as xr
-from typing import Union, Dict, Optional, Any, List
-from shapely.geometry import LineString, mapping
-from skimage import measure
+from typing import Dict, List
+from shapely.geometry import LineString
+from skimage import measure 
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class SSTContourConverter(BaseGeoJSONConverter):
                     
         return features
     
-    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert SST data to contour GeoJSON format."""
         try:
             logger.info(f"Converting SST data to contour GeoJSON for {dataset} in {region}")
@@ -137,7 +137,8 @@ class SSTContourConverter(BaseGeoJSONConverter):
             # Convert to GeoJSON at the end
             features = self._create_contours(processed_data)
             
-            return {
+            # Create GeoJSON object
+            geojson = {
                 'type': 'FeatureCollection',
                 'features': features,
                 'properties': {
@@ -146,6 +147,10 @@ class SSTContourConverter(BaseGeoJSONConverter):
                     'dataset': dataset
                 }
             }
+            
+            # Save and return path
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            return self.save_geojson(geojson, asset_paths.contours)
             
         except Exception as e:
             logger.error(f"❌ Failed to convert SST contour data: {str(e)}")

@@ -43,7 +43,7 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
                     
         return features
     
-    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert wave data to GeoJSON format."""
         try:
             logger.info(f"Converting waves data to GeoJSON for {dataset} in {region}")
@@ -54,7 +54,8 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
             # Convert to GeoJSON at the end
             features = self._create_features(processed_data)
             
-            return {
+            # Create GeoJSON object
+            geojson = {
                 'type': 'FeatureCollection',
                 'features': features,
                 'properties': {
@@ -63,6 +64,10 @@ class WavesGeoJSONConverter(BaseGeoJSONConverter):
                     'dataset': dataset
                 }
             }
+            
+            # Save and return path
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            return self.save_geojson(geojson, asset_paths.data)
             
         except Exception as e:
             logger.error(f"Error processing wave data: {str(e)}")

@@ -140,29 +140,38 @@ class BaseGeoJSONConverter(ABC):
     def save_geojson(self, geojson_data: dict, output_path: Path) -> Path:
         """Save optimized GeoJSON data to file."""
         if output_path is None:
-            return
+            logger.error("No output path provided")
+            return None
         
-        # Optimize features
-        if 'features' in geojson_data:
-            geojson_data['features'] = [
-                self._optimize_feature(feature) 
-                for feature in geojson_data['features']
-            ]
-        
-        # Optimize metadata/properties
-        if 'properties' in geojson_data:
-            for key, value in geojson_data['properties'].items():
-                if isinstance(value, dict):
-                    for subkey, subvalue in value.items():
-                        if isinstance(subvalue, float):
-                            value[subkey] = self._round_coordinates(subvalue)
-        
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
-            json.dump(geojson_data, f, separators=(',', ':'))  # Minimize whitespace
-        
-        self.logger.info(f"💾 Generated GeoJSON")
-        return output_path
+        try:
+            # Optimize features
+            if 'features' in geojson_data:
+                geojson_data['features'] = [
+                    self._optimize_feature(feature) 
+                    for feature in geojson_data['features']
+                ]
+            
+            # Optimize metadata/properties
+            if 'properties' in geojson_data:
+                for key, value in geojson_data['properties'].items():
+                    if isinstance(value, dict):
+                        for subkey, subvalue in value.items():
+                            if isinstance(subvalue, float):
+                                value[subkey] = self._round_coordinates(subvalue)
+            
+            # Ensure directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save file
+            with open(output_path, 'w') as f:
+                json.dump(geojson_data, f, separators=(',', ':'))  # Minimize whitespace
+            
+            logger.info(f"💾 Generated GeoJSON: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            logger.error(f"Failed to save GeoJSON: {e}")
+            return None
 
     def create_standardized_geojson(self, features: list, date: datetime, 
                                dataset: str, ranges: dict, metadata: dict) -> dict:

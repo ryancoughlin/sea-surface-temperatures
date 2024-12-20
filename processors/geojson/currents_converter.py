@@ -1,8 +1,9 @@
 import logging
 import numpy as np
 import xarray as xr
-from typing import Dict, List, Optional
+from typing import Dict, List
 from datetime import datetime
+from pathlib import Path
 from .base_converter import BaseGeoJSONConverter
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
     """Converts ocean current data to GeoJSON format."""
     
-    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert current data to GeoJSON format."""
         try:
             logger.info(f"Converting currents data to GeoJSON for {dataset} in {region}")
@@ -21,7 +22,8 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
             # Convert to GeoJSON at the end
             features = self._create_features(processed_data)
             
-            return {
+            # Create GeoJSON object
+            geojson = {
                 'type': 'FeatureCollection',
                 'features': features,
                 'properties': {
@@ -30,6 +32,10 @@ class CurrentsGeoJSONConverter(BaseGeoJSONConverter):
                     'dataset': dataset
                 }
             }
+            
+            # Save and return path
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            return self.save_geojson(geojson, asset_paths.data)
             
         except Exception as e:
             logger.error(f"❌ Failed to convert currents data: {str(e)}")

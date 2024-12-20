@@ -12,6 +12,14 @@
 
 - Keep commit messages concise.
 
+## Libraries
+
+- Use `xarray` for all data manipulation and analysis. Use declaritive operations always.
+- Use `numpy` for all numerical operations.
+- Use `matplotlib` for all plotting.
+- Use `shapely` for all geometric operations.
+- Use `geopandas` for all geospatial operations.
+
 ## Application flow
 
 1. Initializes core services and managers

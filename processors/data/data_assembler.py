@@ -70,6 +70,17 @@ class DataAssembler:
                     "metadata": dataset_config["metadata"],
                     "dates": []
                 }
+                
+                # Add source datasets info for combined views
+                if dataset_config.get('source_type') == 'combined_view':
+                    dataset_entry["source_datasets"] = {
+                        name: {
+                            "id": info["dataset_id"],
+                            "variables": list(info["variables"].keys())
+                        }
+                        for name, info in dataset_config["source_datasets"].items()
+                    }
+                
                 region_entry["datasets"].append(dataset_entry)
 
             # Update dates
@@ -91,7 +102,11 @@ class DataAssembler:
         """Convert local paths to front-end URLs."""
         urls = {}
         for layer_type, path in paths.items():
-            if path:  # Only include paths that exist
+            if not path:  
+                continue
+            if isinstance(path, (str, Path)):
                 relative_path = str(path).replace(str(self.data_dir) + '/', '')
                 urls[layer_type] = f"{SERVER_URL}/{PATHS['DATA_DIR'].name}/{relative_path}"
+            else:
+                logger.error(f"Invalid path type for {layer_type}: expected string or Path, got {type(path)}")
         return urls

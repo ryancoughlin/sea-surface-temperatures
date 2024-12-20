@@ -1,10 +1,9 @@
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, Optional, List, Union
+from datetime import datetime
+from typing import Dict, Optional, List
 from contextlib import contextmanager
 import aiohttp
 import logging
-import asyncio
 import xarray as xr
 import numpy as np
 import os
@@ -190,66 +189,6 @@ class ProcessingManager:
                 'region': region_id
             }
 
-    async def _generate_outputs(self, processed_data, dataset: str, region_id: str, date: datetime, skip_geojson: bool) -> dict:
-        """Generate all output files"""
-        asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
-        
-        paths = {
-            'data': str(asset_paths.data),
-            'image': str(asset_paths.image),
-            'contours': str(asset_paths.contours),
-            'features': str(asset_paths.features)
-        }
-        
-        dataset_config = SOURCES[dataset]
-        
-        # Calculate data ranges for metadata
-        ranges = {}
-        if isinstance(processed_data, dict):
-            # Handle combined datasets
-            for component_name, component_data in processed_data.items():
-                if isinstance(component_data, (xr.Dataset, xr.DataArray)):
-                    ranges[component_name] = self._calculate_data_ranges(component_data)
-        else:
-            # Handle single datasets
-            ranges = self._calculate_data_ranges(processed_data)
-        
-        if not skip_geojson:
-            paths.update(self._generate_geojson_layers(
-                data=processed_data,
-                dataset=dataset,
-                dataset_type=dataset_config['type'],
-                region_id=region_id,
-                date=date,
-                asset_paths=asset_paths
-            ))
-
-        processor = self.visualizer_factory.create(dataset_config['type'])
-        image_path = processor.save_image(
-            data=processed_data,
-            region=region_id,
-            dataset=dataset,
-            date=date,
-            asset_paths=asset_paths
-        )
-        paths['image'] = str(image_path)
-
-        self.data_assembler.update_metadata(
-            dataset=dataset,
-            region=region_id,
-            date=date,
-            paths=paths,
-            ranges=ranges  # Add ranges to metadata
-        )
-
-        return {
-            'status': 'success',
-            'dataset': dataset,
-            'region': region_id,
-            'paths': paths,
-            'ranges': ranges
-        }
-
     def _calculate_data_ranges(self, data: xr.Dataset) -> Dict:
         """Calculate data ranges for all variables in dataset."""
         ranges = {}
@@ -267,6 +206,76 @@ class ProcessingManager:
             
         return ranges
 
+    async def _generate_outputs(self, processed_data, dataset: str, region_id: str, date: datetime, skip_geojson: bool) -> dict:
+        """Generate all output files and update metadata."""
+        try:
+            dataset_config = SOURCES[dataset]
+            dataset_type = dataset_config['type']
+            
+            # Get paths for this dataset
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region_id)
+            
+            paths = {
+                'data': str(asset_paths.data),
+                'image': str(asset_paths.image),
+                'contours': str(asset_paths.contours),
+                'features': str(asset_paths.features)
+            }
+            
+            # Calculate data ranges for metadata
+            ranges = {}
+            if isinstance(processed_data, dict):
+                # Handle combined datasets
+                for component_name, component_data in processed_data.items():
+                    if isinstance(component_data, (xr.Dataset, xr.DataArray)):
+                        ranges[component_name] = self._calculate_data_ranges(component_data)
+            else:
+                # Handle single datasets
+                ranges = self._calculate_data_ranges(processed_data)
+
+            # Generate GeoJSON layers if not skipped
+            if not skip_geojson:
+                paths.update(self._generate_geojson_layers(
+                    data=processed_data,
+                    dataset=dataset,
+                    dataset_type=dataset_type,
+                    region_id=region_id,
+                    date=date,
+                    asset_paths=asset_paths
+                ))
+                
+            # Generate image layer
+            logger.info(f"🎨 Generating image layer")
+            processor = self.visualizer_factory.create(dataset_config['type'])
+            image_path = processor.save_image(
+                data=processed_data,
+                region=region_id,
+                dataset=dataset,
+                date=date,
+                asset_paths=asset_paths
+            )
+            paths['image'] = str(image_path)
+
+            # Update metadata with file paths
+            self.data_assembler.update_metadata(
+                dataset=dataset,
+                region=region_id,
+                date=date,
+                paths=paths,
+                ranges=ranges
+            )
+
+            return {
+                'status': 'success',
+                'dataset': dataset,
+                'region': region_id,
+                'paths': paths,
+                'ranges': ranges
+            }
+        except Exception as e:
+            logger.error(f"Error generating outputs: {e}")
+            raise
+
     def _generate_geojson_layers(self, data, dataset: str, dataset_type: str, 
                                region_id: str, date: datetime, asset_paths) -> Dict[str, str]:
         """Generate GeoJSON layers based on dataset type."""
@@ -282,7 +291,8 @@ class ProcessingManager:
             dataset=dataset,
             date=date
         )
-        paths['data'] = str(data_path)
+        if data_path and data_path.exists():
+            paths['data'] = str(data_path)
         
         # Generate additional layers based on dataset type
         if dataset_type in ['sst', 'chlorophyll', 'water_movement']:
@@ -294,7 +304,8 @@ class ProcessingManager:
                 dataset=dataset,
                 date=date
             )
-            paths['contours'] = str(contour_path)
+            if contour_path and contour_path.exists():
+                paths['contours'] = str(contour_path)
             
             if dataset_type == 'water_movement':
                 logger.info(f"🎯 Generating features")
@@ -305,6 +316,7 @@ class ProcessingManager:
                     dataset=dataset,
                     date=date
                 )
-                paths['features'] = str(features_path)
-                
+                if features_path and features_path.exists():
+                    paths['features'] = str(features_path)
+
         return paths

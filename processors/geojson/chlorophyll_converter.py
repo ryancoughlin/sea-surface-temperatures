@@ -3,10 +3,8 @@ import xarray as xr
 from pathlib import Path
 import logging
 from .base_converter import BaseGeoJSONConverter
-from config.settings import SOURCES
-from processors.data.data_utils import extract_variables
 import datetime
-from typing import Union, Dict, Optional, List
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,7 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
             logger.error(f"Error creating chlorophyll features: {str(e)}")
             raise
     
-    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Dict:
+    def convert(self, data: xr.Dataset, region: str, dataset: str, date: datetime) -> Path:
         """Convert chlorophyll data to GeoJSON format."""
         try:
             logger.info(f"Converting chlorophyll data to GeoJSON for {dataset} in {region}")
@@ -62,7 +60,8 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
             # Convert to GeoJSON
             features = self._create_features(processed_data)
             
-            return {
+            # Create GeoJSON object
+            geojson = {
                 'type': 'FeatureCollection',
                 'features': features,
                 'properties': {
@@ -71,6 +70,10 @@ class ChlorophyllGeoJSONConverter(BaseGeoJSONConverter):
                     'dataset': dataset
                 }
             }
+            
+            # Save and return path
+            asset_paths = self.path_manager.get_asset_paths(date, dataset, region)
+            return self.save_geojson(geojson, asset_paths.data)
             
         except Exception as e:
             logger.error(f"❌ Failed to convert chlorophyll data: {str(e)}")
