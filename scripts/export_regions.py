@@ -1,8 +1,9 @@
 import json
-from pathlib import Path
 import sys
 import logging
+from pathlib import Path
 from itertools import groupby
+from importlib import reload
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,9 +13,11 @@ logger = logging.getLogger(__name__)
 root_dir = Path(__file__).parent.parent
 sys.path.append(str(root_dir))
 
-from config.regions import REGIONS
-from config.settings import PATHS
+from config.settings import PATHS, SERVER_URL
 from scripts.generate_thumbnails import generate_all_thumbnails
+import config.regions
+reload(config.regions)
+from config.regions import REGIONS
 
 def export_regions():
     """Export regions configuration to JSON file with hierarchical structure"""
@@ -23,19 +26,13 @@ def export_regions():
     # Generate thumbnails first and get the mapping of region_id to thumbnail names
     logger.info("Generating thumbnails")
     thumbnail_mapping = generate_all_thumbnails()
-    
-    # Reload REGIONS to get updated data
-    from importlib import reload
-    import config.regions
-    reload(config.regions)
-    from config.regions import REGIONS
-    
+
     logger.info("Creating regions list")
-    # Create list of regions with thumbnails
+    # Create list of regions with thumbnails using absolute URLs
     regions_list = [
         {
             "id": region_id,
-            "thumbnail": f"/static/region_thumbnails/{thumbnail_mapping[region_id]}",
+            "thumbnail": f"{SERVER_URL}/static/region_thumbnails/{thumbnail_mapping[region_id]}",
             **region_data
         }
         for region_id, region_data in REGIONS.items()
@@ -60,7 +57,10 @@ def export_regions():
     
     logger.info(f"Writing regions to {output_path}")
     with open(output_path, 'w') as f:
-        json.dump({"groups": grouped_regions}, f, indent=2)
+        json.dump({
+            "groups": grouped_regions,
+            "server_url": SERVER_URL  # Include server URL in metadata
+        }, f, indent=2)
     
     logger.info("Export complete")
 
