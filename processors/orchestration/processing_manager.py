@@ -37,26 +37,6 @@ class ProcessingManager:
         # Initialize services
         self.services = {}
 
-    def ensure_directory(self, path: Path):
-        """Create directory if it doesn't exist and ensure proper permissions."""
-        path.mkdir(parents=True, exist_ok=True)
-        try:
-            os.chmod(path, 0o777)
-        except Exception as e:
-            logger.warning(f"Could not set permissions for {path}: {e}")
-
-    async def initialize(self, session: aiohttp.ClientSession):
-        """Initialize services with session"""
-        self.session = session
-        self.services = {
-            'erddap': ERDDAPService(session, self.path_manager),
-            'cmems': CMEMSService(session, self.path_manager)
-        }
-        
-        # Ensure base directories exist
-        for path in [PATHS['DATA_DIR'], PATHS['DOWNLOADED_DATA_DIR']]:
-            self.ensure_directory(path)
-
     async def _get_data(self, date: datetime, dataset: str, region_id: str) -> Optional[Path]:
         """Get data file from local storage or download"""
         # Ensure the download directory exists
@@ -76,11 +56,33 @@ class ProcessingManager:
             raise ValueError(f"Unknown source type: {source_type}")
             
         try:
+            logger.info(f"📥 Starting download for {dataset} using {source_type} service")
             downloaded_path = await self.services[source_type].save_data(date, dataset, region_id)
+            logger.info(f"✅ Download completed for {dataset}, saved to {downloaded_path}")
             return downloaded_path
         except Exception as e:
             logger.error(f"📥 Download failed for {dataset}: {str(e)}")
             return None
+
+    async def initialize(self, session: aiohttp.ClientSession):
+        """Initialize services with session"""
+        self.session = session
+        self.services = {
+            'erddap': ERDDAPService(session, self.path_manager),
+            'cmems': CMEMSService(session, self.path_manager)
+        }
+        
+        # Ensure base directories exist
+        for path in [PATHS['DATA_DIR'], PATHS['DOWNLOADED_DATA_DIR']]:
+            self.ensure_directory(path)
+
+    def ensure_directory(self, path: Path):
+        """Create directory if it doesn't exist and ensure proper permissions."""
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(path, 0o777)
+        except Exception as e:
+            logger.warning(f"Could not set permissions for {path}: {e}")
 
     async def process_datasets(self, date: datetime, region_id: str, datasets: List[str], skip_geojson: bool = False) -> List[dict]:
         """Process multiple datasets for a region"""

@@ -13,7 +13,7 @@ class DataPreprocessor:
         self.land_geoms = list(self.land.geometries())
 
     def _get_land_mask(self, data: xr.Dataset) -> np.ndarray:
-        """Create a boolean mask for land areas.
+        """Create a boolean mask for land areas using a simplified approach.
         
         Args:
             data: Dataset containing lat/lon coordinates
@@ -24,20 +24,16 @@ class DataPreprocessor:
         # Get coordinate names
         lon_name = 'longitude' if 'longitude' in data.coords else 'lon'
         lat_name = 'latitude' if 'latitude' in data.coords else 'lat'
+        logger.info(f"Using coordinates: {lon_name}, {lat_name}")
         
-        # Create meshgrid of coordinates
-        lons, lats = np.meshgrid(data[lon_name], data[lat_name])
+        # Get the chlorophyll data
+        chl_var = 'chlor_a' if 'chlor_a' in data else next(var for var in data.data_vars if 'CHL' in var.upper())
+        values = data[chl_var].values
         
-        # Initialize mask
-        water_mask = np.ones_like(lons, dtype=bool)
+        # Simple mask: NaN or very high values typically indicate land
+        water_mask = ~(np.isnan(values) | (values > 20))  # Values > 20 mg/m³ are unrealistic for ocean
         
-        # Check each point
-        for i in range(lons.shape[0]):
-            for j in range(lons.shape[1]):
-                point = Point(lons[i,j], lats[i,j])
-                if any(geom.contains(point) for geom in self.land_geoms):
-                    water_mask[i,j] = False
-                    
+        logger.info("Land mask generation complete")
         return water_mask
 
     def _clean_chlorophyll(self, data: xr.Dataset) -> xr.Dataset:
@@ -49,24 +45,22 @@ class DataPreprocessor:
         Returns:
             Cleaned dataset with land masked and invalid values removed
         """
-        try:
+        try:            
             # Create copy to avoid modifying input
             cleaned_data = data.copy()
             
             # Get chlorophyll variable (chlor_a is standard name)
             chl_var = 'chlor_a' if 'chlor_a' in data else next(var for var in data.data_vars if 'CHL' in var.upper())
             
-            # Get water mask
-            water_mask = self._get_land_mask(data)
-            
-            # Apply water mask and transformations
+            # Get water mask and apply transformations
             values = data[chl_var].values
-            values = np.where(~water_mask, np.nan, values)  # Mask land
+            
+            # Remove invalid values (negative, zero, or unrealistically high)
             values = np.where(values <= 0, np.nan, values)  # Remove negative/zero values
+            values = np.where(values > 20, np.nan, values)  # Remove unrealistic values
             
             cleaned_data[chl_var].values = values
             
-            logger.info(f"Cleaned chlorophyll data: masked land and invalid values")
             return cleaned_data
                 
         except Exception as e:
@@ -96,7 +90,6 @@ class DataPreprocessor:
 
         # Apply type-specific cleaning
         if dataset_type == 'chlorophyll':
-            logger.info("🧹 Applying chlorophyll-specific cleaning")
             data = self._clean_chlorophyll(data)
 
         return data
