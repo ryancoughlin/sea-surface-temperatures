@@ -117,6 +117,7 @@ class ProcessingManager:
         try:
             source_config = SOURCES[dataset]
             source_type = source_config.get('source_type')
+            dataset_type = source_config.get('type')
             
             # Get the data file(s)
             if source_type == 'combined_view':
@@ -145,7 +146,7 @@ class ProcessingManager:
                             
                         # Load and process data
                         with self._open_netcdf(downloaded_path) as ds:
-                            processed_data = self.data_preprocessor.preprocess_dataset(data=ds)
+                            processed_data = self.data_preprocessor.preprocess_dataset(data=ds, dataset_type=dataset_type)
                             datasets_to_merge.append(processed_data)
                             
                     except Exception as e:
@@ -166,7 +167,7 @@ class ProcessingManager:
                     return {'status': 'error', 'error': 'No data downloaded', 'dataset': dataset, 'region': region_id}
 
                 with self._open_netcdf(netcdf_path) as ds:
-                    processed_data = self.data_preprocessor.preprocess_dataset(data=ds)
+                    processed_data = self.data_preprocessor.preprocess_dataset(data=ds, dataset_type=dataset_type)
                     
             # Generate outputs
             result = await self._generate_outputs(
