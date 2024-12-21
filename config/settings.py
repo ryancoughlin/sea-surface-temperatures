@@ -101,7 +101,7 @@ SOURCES = {
             "sea_surface_temperature": {
                 "type": "temperature",
                 "source_unit": "C",
-                "target_unit": "fahrenheit",
+                "target_unit": "F",
             },
             "sst_gradient_magnitude": {
                 "type": "gradient",
@@ -139,7 +139,7 @@ SOURCES = {
             "analysed_sst": {
                 "type": "temperature",
                 "source_unit": "C",
-                "target_unit": "fahrenheit",
+                "target_unit": "F",
             }
         },
         "lag_days": 2,

@@ -21,10 +21,10 @@ REGIONS: Dict[str, Region] = {
         "name": "Cape Cod and Georges Bank",
         "group": "Atlantic Ocean",
         "bounds": [
-            [-71.0, 40.5],  # Southwest corner
-            [-66.0, 42.5]   # Northeast corner
+            [-71.25, 39.25],  # Southwest corner (expanded 0.25 south)
+            [-65.0, 42.5]   # Northeast corner (expanded 0.25 east)
         ],
-        "center": [41.5, -68.5]
+        "center": [40.875, -68.125]  # Updated center point
     },
     "ne_canyons": {
         "name": "Northeast Canyons",
