@@ -5,6 +5,7 @@ import logging
 from typing import Dict
 
 from config.settings import SOURCES, SERVER_URL, LAYER_TYPES, FILE_EXTENSIONS, PATHS
+from config.regions import REGIONS
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,14 @@ class DataAssembler:
             else:
                 metadata = {"regions": [], "lastUpdated": datetime.now().isoformat()}
 
-            # Find or create region entry
+            # Find or create region entry with additional metadata from REGIONS config
             region_entry = next((r for r in metadata["regions"] if r["id"] == region), None)
             if not region_entry:
+                region_config = REGIONS[region]
                 region_entry = {
                     "id": region,
+                    "name": region_config["name"],
+                    "bounds": region_config["bounds"],
                     "datasets": []
                 }
                 metadata["regions"].append(region_entry)
